@@ -26,7 +26,8 @@ import {
   Settings2,
   Palette,
   CheckCircle2,
-  Lock
+  Lock,
+  ChevronLeft
 } from 'lucide-react';
 
 import { BackgroundParticles } from './components/BackgroundParticles';
@@ -36,11 +37,12 @@ import { AnimatedLogo } from './components/AnimatedLogo';
 import { TokenDisplay } from './components/TokenDisplay';
 import { PricingModal } from './components/PricingModal';
 import { SettingsModal, getStoredApiKey, getStoredRules } from './components/SettingsModal';
+import { SpriteSheetResult } from './components/SpriteSheetResult';
 import { ACTIONS, EXPRESSIONS, ART_STYLES } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle } from './types';
 import { cn } from './utils';
-import { generateSpriteSheet } from './services/geminiService';
-import { extractFrames, createGifBlob } from './utils/imageUtils';
+import { generateSpriteSheet, editSpriteSheet } from './services/geminiService';
+import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet } from './utils/imageUtils';
 
 export default function SpriteMagic() {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -58,6 +60,20 @@ export default function SpriteMagic() {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  
+  // Panel State - separate from result to keep sprite sheet visible
+  const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState<boolean>(false);
+  
+  // History State
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  
+  // Editing State
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  
+  // Frame Selection State
+  const [activeFrameIndex, setActiveFrameIndex] = useState<number | null>(null);
+  const [selectedFrameIndices, setSelectedFrameIndices] = useState<number[]>([]);
 
   // API Key State
   const [hasApiKey, setHasApiKey] = useState<boolean>(false);
@@ -180,6 +196,8 @@ export default function SpriteMagic() {
     setStatusText("Analyzing character...");
     setResult(false);
     setGeneratedImage(null);
+    setSelectedFrameIndices([]);
+    setActiveFrameIndex(null);
     
     try {
       // Convert file to base64 if provided
@@ -194,6 +212,12 @@ export default function SpriteMagic() {
       }
 
       setStatusText("Generating sprite sheet...");
+      
+      // Reset history for new generation
+      setHistory([]);
+      setHistoryIndex(-1);
+      setSelectedFrameIndices([]);
+      setActiveFrameIndex(null);
       
       // Determine grid size based on selected action
       const action = ACTIONS.find(a => a.id === selectedAction);
@@ -218,8 +242,10 @@ export default function SpriteMagic() {
         customRules
       );
 
-      setGeneratedImage(resultImage);
+      // Save to history instead of just setting state
+      pushToHistory(resultImage);
       setResult(true);
+      setIsLeftPanelCollapsed(true); // Collapse left panel when result is generated
       setTokens(prev => Math.max(0, prev - 1));
       triggerConfetti();
       
@@ -312,11 +338,124 @@ export default function SpriteMagic() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // History Management
+  const pushToHistory = (image: string) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(image);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    setGeneratedImage(image);
+  };
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setGeneratedImage(history[newIndex]);
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setGeneratedImage(history[newIndex]);
+    }
+  };
+
+  const handleToggleFrameSelect = (index: number, isMulti: boolean) => {
+    if (isMulti) {
+      if (selectedFrameIndices.includes(index)) {
+        setSelectedFrameIndices(prev => prev.filter(i => i !== index));
+      } else {
+        setSelectedFrameIndices(prev => [...prev, index].sort((a, b) => a - b));
+      }
+    } else {
+      if (selectedFrameIndices.length === 1 && selectedFrameIndices[0] === index) {
+        setSelectedFrameIndices([]);
+      } else {
+        setSelectedFrameIndices([index]);
+      }
+    }
+  };
+
+  const handleEditSpriteSheet = async (prompt: string) => {
+    if (!generatedImage) return;
+    setIsEditing(true);
+    try {
+      if (selectedFrameIndices.length === 1) {
+        // SINGLE FRAME EDIT MODE
+        const targetIndex = selectedFrameIndices[0];
+        setStatusText(`Refining Frame ${targetIndex + 1}...`);
+        
+        // 1. Crop
+        const croppedFrame = await cropFrame(generatedImage, targetIndex, gridRows, gridCols);
+        
+        // 2. Edit
+        const modelId = 'gemini-2.5-flash-image';
+        const editedFrame = await editSpriteSheet(croppedFrame, prompt, modelId);
+        
+        // 3. Paste
+        const updatedSheet = await pasteFrame(generatedImage, editedFrame, targetIndex, gridRows, gridCols);
+        
+        pushToHistory(updatedSheet);
+      } else {
+        // FULL SHEET EDIT MODE
+        setStatusText("Refining Sheet...");
+        const modelId = 'gemini-2.5-flash-image';
+        const editedImage = await editSpriteSheet(generatedImage, prompt, modelId);
+        pushToHistory(editedImage);
+      }
+    } catch (error: any) {
+      console.error("Edit failed:", error);
+      setError(error.message || "Edit failed. Please try again.");
+    } finally {
+      setIsEditing(false);
+      setStatusText("");
+    }
+  };
+
+  const handleAutoAlignFrame = async (index: number) => {
+    if (!generatedImage) return;
+    setIsEditing(true);
+    setStatusText(`Auto-aligning Frame ${index + 1}...`);
+    try {
+      const newSheet = await alignFrameInSheet(generatedImage, index, gridRows, gridCols);
+      pushToHistory(newSheet);
+    } catch (e) {
+      console.error("Align failed", e);
+      setError("Alignment failed. Please try again.");
+    } finally {
+      setIsEditing(false);
+      setStatusText("");
+    }
+  };
+
+  const handleAutoAlignSheet = async () => {
+    if (!generatedImage) return;
+    setIsEditing(true);
+    setStatusText("Auto-aligning Full Sheet...");
+    try {
+      const newSheet = await alignWholeSheet(generatedImage, gridRows, gridCols);
+      pushToHistory(newSheet);
+    } catch (e) {
+      console.error("Sheet align failed", e);
+      setError("Sheet alignment failed. Please try again.");
+    } finally {
+      setIsEditing(false);
+      setStatusText("");
+    }
+  };
+
   const reset = () => {
     setResult(false);
     setIsGenerating(false);
     setGeneratedImage(null);
     setError(null);
+    setHistory([]);
+    setHistoryIndex(-1);
+    setSelectedFrameIndices([]);
+    setActiveFrameIndex(null);
   };
 
   const handleDownloadSheet = () => {
@@ -414,10 +553,25 @@ export default function SpriteMagic() {
             </div>
           </motion.div>
 
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 min-h-[600px]">
+          <div className={cn(
+            "grid gap-8 lg:gap-12 min-h-[600px] transition-all duration-500",
+            isLeftPanelCollapsed ? "lg:grid-cols-1" : "lg:grid-cols-2"
+          )}>
             
             {/* LEFT COLUMN: Controls */}
-            <div className="space-y-8">
+            <motion.div 
+              initial={false}
+              animate={{ 
+                opacity: isLeftPanelCollapsed ? 0 : 1,
+                width: isLeftPanelCollapsed ? 0 : 'auto',
+                marginRight: isLeftPanelCollapsed ? 0 : 'auto'
+              }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
+              className={cn(
+                "space-y-8 overflow-hidden",
+                isLeftPanelCollapsed && "hidden lg:block lg:w-0"
+              )}
+            >
               
               {/* 1. Prompt & Image Input */}
               <section className="space-y-4">
@@ -709,10 +863,32 @@ export default function SpriteMagic() {
                    </div>
                 )}
               </div>
-            </div>
+            </motion.div>
 
             {/* RIGHT COLUMN: Preview & Results */}
-            <div className="relative">
+            <motion.div 
+              className={cn(
+                "relative transition-all duration-500",
+                isLeftPanelCollapsed && "lg:col-span-1"
+              )}
+              animate={{
+                scale: isLeftPanelCollapsed ? 1 : 1,
+              }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
+            >
+              {/* Expand Left Panel Button (when collapsed) */}
+              {isLeftPanelCollapsed && (
+                <motion.button
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  onClick={() => setIsLeftPanelCollapsed(false)}
+                  className="absolute left-4 top-4 z-50 p-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                  title="Show creation panel"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </motion.button>
+              )}
               <AnimatePresence mode="wait">
                  {!result ? (
                    <motion.div 
@@ -767,166 +943,39 @@ export default function SpriteMagic() {
                  ) : (
                    <motion.div 
                      key="result"
-                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                     className="h-full flex flex-col gap-6"
+                     initial={{ opacity: 0, scale: 0.95 }}
+                     animate={{ 
+                       opacity: 1, 
+                       scale: 1,
+                       y: 0
+                     }}
+                     exit={{ opacity: 0, scale: 0.95 }}
+                     transition={{ duration: 0.4, ease: "easeOut" }}
+                     className="h-full min-h-[600px]"
                    >
-                     <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Generation Complete</h3>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={handleDownloadSheet}
-                            disabled={!generatedImage}
-                            className="flex items-center gap-2 px-3 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 text-sm font-bold transition-colors disabled:opacity-50"
-                            title="Download Sprite Sheet"
-                          >
-                            <FileImage className="w-4 h-4" />
-                            <span className="hidden sm:inline">Sheet</span>
-                          </button>
-                          <button 
-                            onClick={handleDownloadGif}
-                            disabled={!generatedImage}
-                            className="flex items-center gap-2 px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-bold transition-colors shadow-lg shadow-orange-900/20 disabled:opacity-50"
-                            title="Download GIF"
-                          >
-                            <Film className="w-4 h-4" />
-                            <span className="hidden sm:inline">GIF</span>
-                          </button>
-                        </div>
-                     </div>
-
-                     <div className="flex flex-wrap items-center gap-4 bg-slate-100 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                        <div className="flex items-center gap-3 bg-white dark:bg-slate-800 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex-1 min-w-[140px]">
-                           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">FPS</span>
-                           <input 
-                             type="range" 
-                             min="1" 
-                             max="24" 
-                             value={fps} 
-                             onChange={(e) => setFps(parseInt(e.target.value))}
-                             className="w-full accent-orange-600 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                           />
-                           <span className="text-sm font-mono font-bold w-8 text-right text-orange-600 dark:text-orange-400">{fps}</span>
-                        </div>
-
-                        <button 
-                           onClick={() => setIsTransparent(!isTransparent)}
-                           className={cn(
-                             "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all shadow-sm",
-                             isTransparent 
-                               ? "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300" 
-                               : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                           )}
-                        >
-                           <Grid className="w-4 h-4" />
-                           <span className="text-sm font-bold">Transparent</span>
-                        </button>
-                     </div>
-
-                     <div className="flex-1 bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-orange-500/30 p-8 flex flex-col items-center justify-center relative overflow-hidden group shadow-lg">
-                        
-                        {!isTransparent ? (
-                          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+CjxwYXRoIGQ9Ik0wIDBoMTB2MTBIMHptMTAgMTBoMTB2MTBIMTB6IiBmaWxsPSIjMWUyOTNiIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-20" />
-                        ) : (
-                          <div className="absolute inset-0 opacity-40" 
-                            style={{
-                                backgroundImage: 'radial-gradient(#0ea5e9 0.5px, transparent 0.5px), radial-gradient(#0ea5e9 0.5px, #e5e5f7 0.5px)',
-                                backgroundSize: '20px 20px',
-                                backgroundPosition: '0 0, 10px 10px'
-                            }}
-                          />
-                        )}
-                        
-                        {generatedImage ? (
-                          <motion.img
-                            initial={{ scale: 0, rotate: -180 }}
-                            animate={{ scale: 1, rotate: 0 }}
-                            transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                            src={generatedImage}
-                            alt="Generated Sprite Sheet"
-                            className="relative z-10 max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                            style={{ imageRendering: 'pixelated' }}
-                          />
-                        ) : (
-                          <motion.div 
-                            initial={{ scale: 0, rotate: -180 }}
-                            animate={{ scale: 2, rotate: 0 }}
-                            transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                            className="relative z-10 w-32 h-32" 
-                            style={{ imageRendering: 'pixelated' }}
-                          >
-                            <div className="w-full h-full bg-gradient-to-br from-orange-500 to-sky-500 rounded-lg shadow-[0_0_50px_rgba(249,115,22,0.6)] flex items-center justify-center text-white font-bold border-4 border-white dark:border-orange-400">
-                               RESULT
-                            </div>
-                          </motion.div>
-                        )}
-
-                        <div className="absolute bottom-6 flex items-center gap-4 bg-white/90 dark:bg-slate-950/80 px-4 py-2 rounded-full border border-slate-200 dark:border-slate-800 backdrop-blur-sm shadow-sm">
-                           <button className="text-slate-400 hover:text-slate-900 dark:hover:text-white"><Play className="w-4 h-4 fill-current" /></button>
-                           <div className="w-32 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                             <div className="w-1/3 h-full bg-orange-500" />
-                           </div>
-                           <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{fps} FPS</span>
-                        </div>
-                     </div>
-
-                     {generatedImage && (
-                       <div className="h-32 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 p-4 relative overflow-hidden">
-                         <div className="absolute top-2 left-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">Sprite Sheet</div>
-                         <div className="h-full flex items-center gap-2 overflow-x-auto pt-4">
-                           <img 
-                             src={generatedImage}
-                             alt="Sprite Sheet"
-                             className="h-full object-contain"
-                             style={{ imageRendering: 'pixelated' }}
-                           />
-                         </div>
-                       </div>
-                     )}
-
-                     {/* Action Footer */}
-                     <div className="grid grid-cols-2 gap-4 mt-auto">
-                        <button 
-                          onClick={reset}
-                          className="py-4 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Settings2 className="w-5 h-5" />
-                          Tweak Settings
-                        </button>
-                        
-                        <button 
-                          onClick={() => {
-                            setPrompt('');
-                            setSelectedFile(null);
-                            setFilePreview(null);
-                            reset();
-                          }}
-                          className={cn(
-                            "py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 shadow-lg transition-all",
-                            tokens > 0 
-                              ? "bg-gradient-to-r from-orange-500 to-sky-500 hover:shadow-orange-500/25 hover:scale-[1.02]" 
-                              : "bg-slate-700 cursor-not-allowed opacity-50"
-                          )}
-                          disabled={tokens <= 0}
-                        >
-                          {tokens > 0 ? (
-                            <>
-                              <Sparkles className="w-5 h-5" />
-                              <span>Create New</span>
-                              <span className="bg-white/20 px-2 py-0.5 rounded text-xs ml-1">1 Token</span>
-                            </>
-                          ) : (
-                            <>
-                              <Lock className="w-5 h-5" />
-                              <span>Need Tokens</span>
-                            </>
-                          )}
-                        </button>
-                     </div>
+                     <SpriteSheetResult
+                       imageSrc={generatedImage}
+                       rows={gridRows}
+                       cols={gridCols}
+                       onEdit={handleEditSpriteSheet}
+                       isEditing={isEditing}
+                       isGenerating={isGenerating}
+                       statusText={statusText}
+                       backgroundColor={isTransparent ? 'transparent' : '#ffffff'}
+                       activeFrameIndex={activeFrameIndex}
+                       selectedFrameIndices={selectedFrameIndices}
+                       onToggleFrameSelect={handleToggleFrameSelect}
+                       onAutoAlign={handleAutoAlignFrame}
+                       onAlignAll={handleAutoAlignSheet}
+                       onUndo={handleUndo}
+                       onRedo={handleRedo}
+                       canUndo={historyIndex > 0}
+                       canRedo={historyIndex < history.length - 1}
+                     />
                    </motion.div>
                  )}
               </AnimatePresence>
-            </div>
+            </motion.div>
 
           </div>
         </div>

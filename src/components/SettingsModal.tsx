@@ -45,6 +45,7 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
   const [isValidating, setIsValidating] = useState<boolean>(false);
   const [validationStatus, setValidationStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [validationMessage, setValidationMessage] = useState<string>('');
+  const [activeRulesTab, setActiveRulesTab] = useState<'25' | '30'>('25');
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -103,7 +104,7 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
     }
   };
 
-  const handleSave = () => {
+  const handleSaveApiKey = () => {
     // Save API key if validated
     if (validationStatus === 'success' && apiKey) {
       localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
@@ -113,10 +114,23 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
       localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
       onApiKeyChange(apiKey);
     }
+  };
 
-    // Save rules
-    localStorage.setItem(STORAGE_KEYS.GEMINI_25_RULES, gemini25Rules);
-    localStorage.setItem(STORAGE_KEYS.GEMINI_30_RULES, gemini30Rules);
+  const handleSaveRules = (model: '25' | '30') => {
+    if (model === '25') {
+      localStorage.setItem(STORAGE_KEYS.GEMINI_25_RULES, gemini25Rules);
+    } else {
+      localStorage.setItem(STORAGE_KEYS.GEMINI_30_RULES, gemini30Rules);
+    }
+  };
+
+  const handleSave = () => {
+    // Save API key
+    handleSaveApiKey();
+    
+    // Save both rule sets
+    handleSaveRules('25');
+    handleSaveRules('30');
 
     onClose();
   };
@@ -147,10 +161,10 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 max-h-[90vh] flex flex-col"
+            className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="relative bg-slate-50 dark:bg-slate-950 p-6 text-center overflow-hidden border-b border-slate-200 dark:border-slate-800">
+            <div className="relative bg-slate-50 dark:bg-slate-950 p-6 overflow-hidden border-b border-slate-200 dark:border-slate-800">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 via-sky-500 to-orange-500" />
               <button 
                 onClick={onClose}
@@ -159,7 +173,7 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center justify-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-2">
                 <ShieldAlert className="w-6 h-6 text-orange-500 dark:text-orange-400" />
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h2>
               </div>
@@ -169,7 +183,7 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               
               {/* API Key Section */}
               <section className="space-y-4">
@@ -270,48 +284,91 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
                   </p>
                 </div>
 
-                {/* Gemini 2.5 Rules */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                      Gemini 2.5 Rules
-                    </label>
-                    <button
-                      onClick={() => handleResetRules('25')}
-                      className="text-xs text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors flex items-center gap-1"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      Reset
-                    </button>
-                  </div>
-                  <textarea
-                    value={gemini25Rules}
-                    onChange={(e) => setGemini25Rules(e.target.value)}
-                    className="w-full h-48 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent resize-none"
-                    placeholder="Enter generation rules for Gemini 2.5..."
-                  />
+                {/* Tabs */}
+                <div className="bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl border border-slate-200 dark:border-slate-800 flex gap-1 mb-4">
+                  <button
+                    onClick={() => setActiveRulesTab('25')}
+                    className={cn(
+                      "flex-1 py-2.5 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all",
+                      activeRulesTab === '25'
+                        ? "bg-white dark:bg-slate-800 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
+                    )}
+                  >
+                    <span>Gemini 2.5</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveRulesTab('30')}
+                    className={cn(
+                      "flex-1 py-2.5 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all",
+                      activeRulesTab === '30'
+                        ? "bg-white dark:bg-slate-800 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
+                    )}
+                  >
+                    <span>Gemini 3.0</span>
+                  </button>
                 </div>
 
-                {/* Gemini 3.0 Rules */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                      Gemini 3.0 Rules
-                    </label>
-                    <button
-                      onClick={() => handleResetRules('30')}
-                      className="text-xs text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors flex items-center gap-1"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      Reset
-                    </button>
-                  </div>
-                  <textarea
-                    value={gemini30Rules}
-                    onChange={(e) => setGemini30Rules(e.target.value)}
-                    className="w-full h-48 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent resize-none"
-                    placeholder="Enter generation rules for Gemini 3.0..."
-                  />
+                {/* Tab Content */}
+                <div className="space-y-4">
+                  {activeRulesTab === '25' ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                          Gemini 2.5 Rules
+                        </label>
+                        <button
+                          onClick={() => handleResetRules('25')}
+                          className="text-xs px-2 py-1 rounded-lg text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          Reset
+                        </button>
+                      </div>
+                      <textarea
+                        value={gemini25Rules}
+                        onChange={(e) => setGemini25Rules(e.target.value)}
+                        className="w-full h-64 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent resize-none"
+                        placeholder="Enter generation rules for Gemini 2.5..."
+                      />
+                      <button
+                        onClick={() => handleSaveRules('25')}
+                        className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20"
+                      >
+                        <Save className="w-4 h-4" />
+                        Save Gemini 2.5 Rules
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                          Gemini 3.0 Rules
+                        </label>
+                        <button
+                          onClick={() => handleResetRules('30')}
+                          className="text-xs px-2 py-1 rounded-lg text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          Reset
+                        </button>
+                      </div>
+                      <textarea
+                        value={gemini30Rules}
+                        onChange={(e) => setGemini30Rules(e.target.value)}
+                        className="w-full h-64 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent resize-none"
+                        placeholder="Enter generation rules for Gemini 3.0..."
+                      />
+                      <button
+                        onClick={() => handleSaveRules('30')}
+                        className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20"
+                      >
+                        <Save className="w-4 h-4" />
+                        Save Gemini 3.0 Rules
+                      </button>
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -321,13 +378,13 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
             <div className="p-6 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
               <button 
                 onClick={onClose}
-                className="px-6 py-2.5 rounded-lg font-bold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                className="px-6 py-2.5 rounded-xl font-bold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleSave}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20"
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20"
               >
                 <Save className="w-4 h-4" />
                 Save Settings
