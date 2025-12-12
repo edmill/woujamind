@@ -38,6 +38,7 @@ import { TokenDisplay } from './components/TokenDisplay';
 import { PricingModal } from './components/PricingModal';
 import { SettingsModal, getStoredApiKey, getStoredRules } from './components/SettingsModal';
 import { SpriteSheetResult } from './components/SpriteSheetResult';
+import { CompactAnimationPreview } from './components/CompactAnimationPreview';
 import { ACTIONS, EXPRESSIONS, ART_STYLES } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle } from './types';
 import { cn } from './utils';
@@ -191,6 +192,9 @@ export default function SpriteMagic() {
       return;
     }
     
+    // Collapse left panel immediately when Generate is clicked
+    setIsLeftPanelCollapsed(true);
+    
     setIsGenerating(true);
     setError(null);
     setStatusText("Analyzing character...");
@@ -245,7 +249,7 @@ export default function SpriteMagic() {
       // Save to history instead of just setting state
       pushToHistory(resultImage);
       setResult(true);
-      setIsLeftPanelCollapsed(true); // Collapse left panel when result is generated
+      // Panel already collapsed when Generate was clicked
       setTokens(prev => Math.max(0, prev - 1));
       triggerConfetti();
       
@@ -554,27 +558,54 @@ export default function SpriteMagic() {
           </motion.div>
 
           <div className={cn(
-            "grid gap-8 lg:gap-12 min-h-[600px] transition-all duration-500",
-            isLeftPanelCollapsed ? "lg:grid-cols-1" : "lg:grid-cols-2"
+            "flex gap-8 lg:gap-12 min-h-[600px] overflow-hidden relative"
           )}>
             
             {/* LEFT COLUMN: Controls */}
             <motion.div 
               initial={false}
               animate={{ 
-                opacity: isLeftPanelCollapsed ? 0 : 1,
-                width: isLeftPanelCollapsed ? 0 : 'auto',
-                marginRight: isLeftPanelCollapsed ? 0 : 'auto'
+                flexBasis: isLeftPanelCollapsed 
+                  ? '48px' // Collapsed: only 48px visible
+                  : 'calc(50% - 24px)', // Expanded: half width minus gap
+                width: isLeftPanelCollapsed 
+                  ? '48px' // Collapsed: only 48px visible
+                  : 'calc(50% - 24px)', // Expanded: half width minus gap
               }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
+              transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
               className={cn(
-                "space-y-8 overflow-x-hidden overflow-y-auto",
-                isLeftPanelCollapsed && "hidden lg:block lg:w-0"
+                "relative flex-shrink-0 overflow-hidden",
+                "lg:block"
               )}
+              style={{ willChange: 'width, flex-basis' }}
             >
+              {/* Thin edge indicator when collapsed (desktop only) */}
+              <div className={cn(
+                "hidden lg:block absolute right-0 top-0 bottom-0 w-[48px] pointer-events-none z-20",
+                "bg-gradient-to-r from-slate-200/90 via-slate-200/70 to-transparent",
+                "dark:from-slate-800/90 dark:via-slate-800/70",
+                "border-r-2 border-slate-300 dark:border-slate-600",
+                "shadow-[4px_0_12px_rgba(0,0,0,0.15)] dark:shadow-[4px_0_12px_rgba(0,0,0,0.4)]",
+                isLeftPanelCollapsed ? "opacity-100" : "opacity-0 transition-opacity duration-500"
+              )} />
+              
+              {/* Content wrapper that slides out */}
+              <motion.div
+                initial={false}
+                animate={{
+                  x: isLeftPanelCollapsed ? 'calc(-100% + 48px)' : 0,
+                  opacity: isLeftPanelCollapsed ? 0 : 1,
+                }}
+                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                className={cn(
+                  "w-[calc(50%-24px)] lg:w-full",
+                  "space-y-6 overflow-x-hidden",
+                  isLeftPanelCollapsed ? "pointer-events-none lg:pointer-events-auto" : "overflow-y-auto"
+                )}
+              >
               
               {/* 1. Prompt & Image Input */}
-              <section className="space-y-4">
+              <section className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">1</span>
@@ -641,7 +672,7 @@ export default function SpriteMagic() {
               </section>
 
               {/* 2. Art Style Selection */}
-              <section className="space-y-4 overflow-x-hidden">
+              <section className="space-y-3 overflow-x-hidden">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">2</span>
@@ -649,14 +680,14 @@ export default function SpriteMagic() {
                   </h2>
                 </div>
                 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2">
                   {selectedFile && (
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setSelectedArtStyle('inherited')}
                       className={cn(
-                        "relative p-3 rounded-xl border text-left transition-all h-24 overflow-hidden group",
+                        "relative p-2 rounded-lg border text-left transition-all h-20 overflow-hidden group",
                         selectedArtStyle === 'inherited'
                           ? "border-sky-500 bg-sky-500/10 shadow-[0_0_15px_rgba(14,165,233,0.3)]"
                           : "border-slate-200 bg-white/50 hover:border-sky-400 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-600"
@@ -665,12 +696,12 @@ export default function SpriteMagic() {
                       <div className="absolute inset-0 opacity-10 bg-gradient-to-br from-slate-200 to-slate-400 dark:from-slate-700 dark:to-slate-900" />
                       <div className="relative z-10 h-full flex flex-col justify-between">
                         <div className="flex justify-between items-start">
-                          <ImageIcon className={cn("w-5 h-5", selectedArtStyle === 'inherited' ? "text-sky-600 dark:text-sky-300" : "text-slate-400")} />
-                          {selectedArtStyle === 'inherited' && <CheckCircle2 className="w-4 h-4 text-sky-500" />}
+                          <ImageIcon className={cn("w-4 h-4", selectedArtStyle === 'inherited' ? "text-sky-600 dark:text-sky-300" : "text-slate-400")} />
+                          {selectedArtStyle === 'inherited' && <CheckCircle2 className="w-3.5 h-3.5 text-sky-500" />}
                         </div>
                         <div>
-                          <div className={cn("font-bold text-sm", selectedArtStyle === 'inherited' ? "text-sky-700 dark:text-white" : "text-slate-600 dark:text-slate-300")}>Inherited</div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">Match image style</div>
+                          <div className={cn("font-bold text-xs", selectedArtStyle === 'inherited' ? "text-sky-700 dark:text-white" : "text-slate-600 dark:text-slate-300")}>Inherited</div>
+                          <div className="text-[9px] text-slate-500 dark:text-slate-400 leading-tight">Match image style</div>
                         </div>
                       </div>
                     </motion.button>
@@ -683,7 +714,7 @@ export default function SpriteMagic() {
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setSelectedArtStyle(style.id)}
                       className={cn(
-                        "relative p-3 rounded-xl border text-left transition-all h-24 overflow-hidden group",
+                        "relative p-2 rounded-lg border text-left transition-all h-20 overflow-hidden group",
                         selectedArtStyle === style.id
                           ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
                           : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-600"
@@ -692,12 +723,12 @@ export default function SpriteMagic() {
                       <div className={cn("absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity bg-gradient-to-br", style.previewColor)} />
                       <div className="relative z-10 h-full flex flex-col justify-between">
                         <div className="flex justify-between items-start">
-                          <Palette className={cn("w-5 h-5", selectedArtStyle === style.id ? "text-orange-600 dark:text-orange-300" : "text-slate-400")} />
-                          {selectedArtStyle === style.id && <CheckCircle2 className="w-4 h-4 text-orange-500" />}
+                          <Palette className={cn("w-4 h-4", selectedArtStyle === style.id ? "text-orange-600 dark:text-orange-300" : "text-slate-400")} />
+                          {selectedArtStyle === style.id && <CheckCircle2 className="w-3.5 h-3.5 text-orange-500" />}
                         </div>
                         <div>
-                          <div className={cn("font-bold text-sm", selectedArtStyle === style.id ? "text-orange-900 dark:text-white" : "text-slate-600 dark:text-slate-300")}>{style.label}</div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight line-clamp-2">{style.description}</div>
+                          <div className={cn("font-bold text-xs", selectedArtStyle === style.id ? "text-orange-900 dark:text-white" : "text-slate-600 dark:text-slate-300")}>{style.label}</div>
+                          <div className="text-[9px] text-slate-500 dark:text-slate-400 leading-tight line-clamp-2">{style.description}</div>
                         </div>
                       </div>
                     </motion.button>
@@ -706,7 +737,7 @@ export default function SpriteMagic() {
               </section>
 
               {/* 3. Actions / Expressions Tabs */}
-              <section className="space-y-4 overflow-x-hidden">
+              <section className="space-y-3 overflow-x-hidden">
                  <div className="flex items-center justify-between">
                    <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">3</span>
@@ -818,15 +849,15 @@ export default function SpriteMagic() {
                 </div>
               )}
 
-              {/* Generate Button */}
-              <div className="pt-4">
+              {/* Generate Button - Sticky at bottom for better access */}
+              <div className="sticky bottom-0 pt-4 bg-white dark:bg-slate-900 pb-2 z-10">
                 <motion.button
                   whileHover={{ scale: (tokens > 0 && hasApiKey) ? 1.02 : 1 }}
                   whileTap={{ scale: (tokens > 0 && hasApiKey) ? 0.98 : 1 }}
                   onClick={handleGenerate}
                   disabled={(!prompt && !selectedFile) || isGenerating || !hasApiKey}
                   className={cn(
-                    "w-full relative overflow-hidden rounded-xl px-8 py-5 font-bold text-xl text-white shadow-2xl transition-all",
+                    "w-full relative overflow-hidden rounded-xl px-6 py-4 font-bold text-lg text-white shadow-2xl transition-all",
                     (tokens > 0 && hasApiKey)
                       ? "bg-gradient-to-r from-orange-500 via-sky-500 to-orange-600 bg-[size:200%_auto] hover:bg-right" 
                       : "bg-slate-200 dark:bg-slate-800 cursor-not-allowed",
@@ -836,57 +867,59 @@ export default function SpriteMagic() {
                   <div className="relative z-10 flex items-center justify-center gap-3">
                     {isGenerating ? (
                        <>
-                         <RefreshCw className="w-6 h-6 animate-spin" />
+                         <RefreshCw className="w-5 h-5 animate-spin" />
                          <span>{statusText || "Weaving Magic..."}</span>
                        </>
                     ) : !hasApiKey ? (
                        <>
-                         <Lock className="w-6 h-6 text-slate-400" />
+                         <Lock className="w-5 h-5 text-slate-400" />
                          <span className="text-slate-400">Connect API Key</span>
                        </>
                     ) : tokens <= 0 ? (
                        <>
-                         <Lock className="w-6 h-6 text-slate-400" />
+                         <Lock className="w-5 h-5 text-slate-400" />
                          <span className="text-slate-400">Out of Magic (Get Tokens)</span>
                        </>
                     ) : (
                        <>
-                         <Wand2 className="w-6 h-6" />
+                         <Wand2 className="w-5 h-5" />
                          <span>Generate (1 Token)</span>
                        </>
                     )}
                   </div>
                 </motion.button>
                 {tokens > 0 && hasApiKey && (
-                   <div className="text-center mt-3 text-xs text-slate-400 dark:text-slate-500">
+                   <div className="text-center mt-2 text-xs text-slate-400 dark:text-slate-500">
                      Includes commercial license & high-res download
                    </div>
                 )}
               </div>
+              </motion.div>
             </motion.div>
 
             {/* RIGHT COLUMN: Preview & Results */}
             <motion.div 
               className={cn(
-                "relative transition-all duration-500",
-                isLeftPanelCollapsed && "lg:col-span-1"
+                "relative flex-1 min-w-0",
+                "transition-all duration-500"
               )}
               animate={{
-                scale: isLeftPanelCollapsed ? 1 : 1,
+                opacity: result ? 1 : 0.7,
               }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
+              transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1], delay: isLeftPanelCollapsed && result ? 0.1 : 0 }}
+              style={{ willChange: 'opacity' }}
             >
-              {/* Expand Left Panel Button (when collapsed) */}
+              {/* Expand Left Panel Button (when collapsed) - positioned on thin edge */}
               {isLeftPanelCollapsed && (
                 <motion.button
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   onClick={() => setIsLeftPanelCollapsed(false)}
-                  className="absolute left-4 top-4 z-50 p-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                  className="hidden lg:block absolute left-0 top-4 z-50 p-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-2 border-slate-300 dark:border-slate-600 rounded-r-lg shadow-xl hover:bg-white dark:hover:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-500 text-slate-700 dark:text-slate-300 transition-all"
                   title="Show creation panel"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-5 h-5 rotate-180" />
                 </motion.button>
               )}
               <AnimatePresence mode="wait">
@@ -951,27 +984,41 @@ export default function SpriteMagic() {
                      }}
                      exit={{ opacity: 0, scale: 0.95 }}
                      transition={{ duration: 0.4, ease: "easeOut" }}
-                     className="h-full min-h-[600px]"
+                     className="h-full min-h-[600px] flex flex-col gap-4"
                    >
-                     <SpriteSheetResult
-                       imageSrc={generatedImage}
-                       rows={gridRows}
-                       cols={gridCols}
-                       onEdit={handleEditSpriteSheet}
-                       isEditing={isEditing}
-                       isGenerating={isGenerating}
-                       statusText={statusText}
-                       backgroundColor={isTransparent ? 'transparent' : '#ffffff'}
-                       activeFrameIndex={activeFrameIndex}
-                       selectedFrameIndices={selectedFrameIndices}
-                       onToggleFrameSelect={handleToggleFrameSelect}
-                       onAutoAlign={handleAutoAlignFrame}
-                       onAlignAll={handleAutoAlignSheet}
-                       onUndo={handleUndo}
-                       onRedo={handleRedo}
-                       canUndo={historyIndex > 0}
-                       canRedo={historyIndex < history.length - 1}
-                     />
+                     {/* Compact Animation Preview - shown when panel is collapsed and space allows */}
+                     {isLeftPanelCollapsed && (
+                       <CompactAnimationPreview
+                         imageSrc={generatedImage}
+                         rows={gridRows}
+                         cols={gridCols}
+                         fps={fps}
+                         setFps={setFps}
+                         backgroundColor={isTransparent ? 'transparent' : '#ffffff'}
+                       />
+                     )}
+                     
+                     <div className="flex-1 min-h-0">
+                       <SpriteSheetResult
+                         imageSrc={generatedImage}
+                         rows={gridRows}
+                         cols={gridCols}
+                         onEdit={handleEditSpriteSheet}
+                         isEditing={isEditing}
+                         isGenerating={isGenerating}
+                         statusText={statusText}
+                         backgroundColor={isTransparent ? 'transparent' : '#ffffff'}
+                         activeFrameIndex={activeFrameIndex}
+                         selectedFrameIndices={selectedFrameIndices}
+                         onToggleFrameSelect={handleToggleFrameSelect}
+                         onAutoAlign={handleAutoAlignFrame}
+                         onAlignAll={handleAutoAlignSheet}
+                         onUndo={handleUndo}
+                         onRedo={handleRedo}
+                         canUndo={historyIndex > 0}
+                         canRedo={historyIndex < history.length - 1}
+                       />
+                     </div>
                    </motion.div>
                  )}
               </AnimatePresence>
