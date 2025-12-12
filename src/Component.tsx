@@ -493,8 +493,8 @@ export default function SpriteMagic() {
   };
 
   return (
-    <div className={cn(theme, "w-full min-h-screen")}>
-      <div className="w-full min-h-screen bg-slate-50 dark:bg-[#0a0a0e] text-slate-900 dark:text-slate-200 p-4 md:p-8 lg:p-12 font-sans selection:bg-orange-500/30 transition-colors duration-500">
+    <div className={cn(theme, "w-full min-h-screen overflow-x-hidden")}>
+      <div className="w-full min-h-screen bg-slate-50 dark:bg-[#0a0a0e] text-slate-900 dark:text-slate-200 p-4 md:p-8 lg:p-12 font-sans selection:bg-orange-500/30 transition-colors duration-500 overflow-x-hidden">
         
         <BackgroundParticles />
         <PricingModal 
@@ -568,7 +568,7 @@ export default function SpriteMagic() {
               }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
               className={cn(
-                "space-y-8 overflow-hidden",
+                "space-y-8 overflow-x-hidden overflow-y-auto",
                 isLeftPanelCollapsed && "hidden lg:block lg:w-0"
               )}
             >
@@ -641,7 +641,7 @@ export default function SpriteMagic() {
               </section>
 
               {/* 2. Art Style Selection */}
-              <section className="space-y-4">
+              <section className="space-y-4 overflow-x-hidden">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">2</span>
@@ -649,7 +649,7 @@ export default function SpriteMagic() {
                   </h2>
                 </div>
                 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3">
                   {selectedFile && (
                     <motion.button
                       whileHover={{ scale: 1.02 }}
@@ -706,7 +706,7 @@ export default function SpriteMagic() {
               </section>
 
               {/* 3. Actions / Expressions Tabs */}
-              <section className="space-y-4">
+              <section className="space-y-4 overflow-x-hidden">
                  <div className="flex items-center justify-between">
                    <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">3</span>
@@ -741,7 +741,7 @@ export default function SpriteMagic() {
                     </button>
                  </div>
 
-                 <div className="min-h-[220px]">
+                 <div className="min-h-[220px] overflow-x-hidden p-3">
                    {tabMode === 'action' ? (
                      <motion.div 
                         initial={{ opacity: 0, x: -20 }}

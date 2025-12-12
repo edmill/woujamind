@@ -59,7 +59,7 @@ if (typeof window !== 'undefined') {
 
 export default function App() {
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full overflow-x-hidden max-w-full">
       <SpriteMagic />
     </div>
   );

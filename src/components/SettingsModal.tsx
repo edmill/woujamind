@@ -46,6 +46,7 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
   const [validationStatus, setValidationStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [validationMessage, setValidationMessage] = useState<string>('');
   const [activeRulesTab, setActiveRulesTab] = useState<'25' | '30'>('25');
+  const [showSaveSuccess, setShowSaveSuccess] = useState<{ type: 'rules25' | 'rules30' | 'all' | null }>({ type: null });
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -119,9 +120,16 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
   const handleSaveRules = (model: '25' | '30') => {
     if (model === '25') {
       localStorage.setItem(STORAGE_KEYS.GEMINI_25_RULES, gemini25Rules);
+      setShowSaveSuccess({ type: 'rules25' });
     } else {
       localStorage.setItem(STORAGE_KEYS.GEMINI_30_RULES, gemini30Rules);
+      setShowSaveSuccess({ type: 'rules30' });
     }
+    
+    // Hide success indicator after 2 seconds
+    setTimeout(() => {
+      setShowSaveSuccess({ type: null });
+    }, 2000);
   };
 
   const handleSave = () => {
@@ -129,10 +137,17 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
     handleSaveApiKey();
     
     // Save both rule sets
-    handleSaveRules('25');
-    handleSaveRules('30');
-
-    onClose();
+    localStorage.setItem(STORAGE_KEYS.GEMINI_25_RULES, gemini25Rules);
+    localStorage.setItem(STORAGE_KEYS.GEMINI_30_RULES, gemini30Rules);
+    
+    // Show success indicator
+    setShowSaveSuccess({ type: 'all' });
+    
+    // Close after showing success briefly
+    setTimeout(() => {
+      setShowSaveSuccess({ type: null });
+      onClose();
+    }, 1500);
   };
 
   const handleResetRules = (model: '25' | '30') => {
@@ -334,10 +349,33 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
                       />
                       <button
                         onClick={() => handleSaveRules('25')}
-                        className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20"
+                        className="w-full relative flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20 overflow-hidden"
                       >
-                        <Save className="w-4 h-4" />
-                        Save Gemini 2.5 Rules
+                        <AnimatePresence mode="wait">
+                          {showSaveSuccess.type === 'rules25' ? (
+                            <motion.div
+                              key="success"
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0, opacity: 0 }}
+                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                              className="flex items-center gap-2"
+                            >
+                              <CheckCircle2 className="w-5 h-5" />
+                              <span>Saved!</span>
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="save"
+                              initial={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.8, opacity: 0 }}
+                              className="flex items-center gap-2"
+                            >
+                              <Save className="w-4 h-4" />
+                              <span>Save Gemini 2.5 Rules</span>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </button>
                     </div>
                   ) : (
@@ -362,10 +400,33 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
                       />
                       <button
                         onClick={() => handleSaveRules('30')}
-                        className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20"
+                        className="w-full relative flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20 overflow-hidden"
                       >
-                        <Save className="w-4 h-4" />
-                        Save Gemini 3.0 Rules
+                        <AnimatePresence mode="wait">
+                          {showSaveSuccess.type === 'rules30' ? (
+                            <motion.div
+                              key="success"
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0, opacity: 0 }}
+                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                              className="flex items-center gap-2"
+                            >
+                              <CheckCircle2 className="w-5 h-5" />
+                              <span>Saved!</span>
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="save"
+                              initial={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.8, opacity: 0 }}
+                              className="flex items-center gap-2"
+                            >
+                              <Save className="w-4 h-4" />
+                              <span>Save Gemini 3.0 Rules</span>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </button>
                     </div>
                   )}
@@ -384,10 +445,33 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
               </button>
               <button 
                 onClick={handleSave}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20"
+                className="relative flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20 overflow-hidden min-w-[140px]"
               >
-                <Save className="w-4 h-4" />
-                Save Settings
+                <AnimatePresence mode="wait">
+                  {showSaveSuccess.type === 'all' ? (
+                    <motion.div
+                      key="success"
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      className="flex items-center gap-2"
+                    >
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>Saved!</span>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="save"
+                      initial={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.8, opacity: 0 }}
+                      className="flex items-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Save Settings</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </button>
             </div>
           </motion.div>
