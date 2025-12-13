@@ -232,7 +232,7 @@ export function InputSidebar({
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setSelectedArtStyle('inherited')}
                     className={cn(
-                      "relative p-3 rounded-xl border text-left transition-all h-24 overflow-hidden group",
+                      "relative p-3 rounded-xl border-2 text-left transition-all h-24 overflow-hidden group",
                       selectedArtStyle === 'inherited'
                         ? "border-sky-500 bg-sky-500/10 shadow-[0_0_15px_rgba(14,165,233,0.3)]"
                         : "border-slate-200 bg-white/50 hover:border-sky-400 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-600"
@@ -259,7 +259,7 @@ export function InputSidebar({
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setSelectedArtStyle(style.id)}
                     className={cn(
-                      "relative p-3 rounded-xl border text-left transition-all h-24 overflow-hidden group",
+                      "relative p-3 rounded-xl border-2 text-left transition-all h-24 overflow-hidden group",
                       selectedArtStyle === style.id
                         ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
                         : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-600"
@@ -344,7 +344,7 @@ export function InputSidebar({
                           whileTap={{ scale: 0.98 }}
                           onClick={() => setSelectedAction(action.id)}
                           className={cn(
-                            "relative p-3 rounded-xl border text-left transition-all h-24 overflow-hidden group",
+                            "relative p-3 rounded-xl border-2 text-left transition-all h-24 overflow-hidden group",
                             selectedAction === action.id
                               ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
                               : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-600"
@@ -389,7 +389,7 @@ export function InputSidebar({
                           whileTap={{ scale: 0.98 }}
                           onClick={() => setSelectedExpression(exp.id)}
                           className={cn(
-                            "relative p-3 rounded-xl border text-left transition-all h-24 overflow-hidden group",
+                            "relative p-3 rounded-xl border-2 text-left transition-all h-24 overflow-hidden group",
                             selectedExpression === exp.id
                               ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
                               : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-600"
