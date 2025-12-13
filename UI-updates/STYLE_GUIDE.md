@@ -1,0 +1,1 @@
+Analyze the current scrollbar styling in src/Component.tsx and propose a better custom scrollbar design that matches the dark/orange aesthetic.

@@ -574,9 +574,10 @@ export default function SpriteMagic() {
               }}
               transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
               className={cn(
-                "relative flex-shrink-0 overflow-hidden",
+                "relative flex-shrink-0",
                 "lg:block"
               )}
+              style={{ overflow: 'hidden', paddingRight: isLeftPanelCollapsed ? '0' : '4px' }}
               style={{ willChange: 'width, flex-basis' }}
             >
               {/* Thin edge indicator when collapsed (desktop only) */}
@@ -599,8 +600,8 @@ export default function SpriteMagic() {
                 transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
                 className={cn(
                   "w-[calc(50%-24px)] lg:w-full",
-                  "space-y-6 overflow-x-hidden",
-                  isLeftPanelCollapsed ? "pointer-events-none lg:pointer-events-auto" : "overflow-y-auto"
+                  "space-y-6 overflow-y-auto",
+                  isLeftPanelCollapsed ? "pointer-events-none lg:pointer-events-auto" : ""
                 )}
               >
               
@@ -613,8 +614,8 @@ export default function SpriteMagic() {
                   </h2>
                 </div>
 
-                <div className="relative group">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-sky-500 rounded-2xl opacity-10 dark:opacity-20 group-hover:opacity-30 dark:group-hover:opacity-40 transition duration-500 blur" />
+                <div className="relative group p-0.5">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-sky-500 rounded-2xl opacity-10 dark:opacity-20 group-hover:opacity-30 dark:group-hover:opacity-40 transition duration-500 blur-sm" />
                   <div className="relative bg-white dark:bg-slate-900 rounded-2xl p-2 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <textarea
                       value={prompt}
@@ -751,8 +752,8 @@ export default function SpriteMagic() {
                       className={cn(
                         "flex-1 py-2.5 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all",
                         tabMode === 'action' 
-                          ? "bg-white dark:bg-orange-600 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0" 
-                          : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
+                          ? "bg-white dark:bg-orange-600 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0 rounded-lg" 
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg"
                       )}
                     >
                       <Sword className="w-4 h-4" />
@@ -763,8 +764,8 @@ export default function SpriteMagic() {
                       className={cn(
                         "flex-1 py-2.5 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all",
                         tabMode === 'expression' 
-                          ? "bg-white dark:bg-orange-600 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0" 
-                          : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
+                          ? "bg-white dark:bg-orange-600 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0 rounded-lg" 
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg"
                       )}
                     >
                       <Smile className="w-4 h-4" />
@@ -850,14 +851,14 @@ export default function SpriteMagic() {
               )}
 
               {/* Generate Button - Sticky at bottom for better access */}
-              <div className="sticky bottom-0 pt-4 bg-white dark:bg-slate-900 pb-2 z-10">
+              <div className="sticky bottom-0 pt-4 bg-white dark:bg-slate-900 pb-2 z-10 px-0.5">
                 <motion.button
                   whileHover={{ scale: (tokens > 0 && hasApiKey) ? 1.02 : 1 }}
                   whileTap={{ scale: (tokens > 0 && hasApiKey) ? 0.98 : 1 }}
                   onClick={handleGenerate}
                   disabled={(!prompt && !selectedFile) || isGenerating || !hasApiKey}
                   className={cn(
-                    "w-full relative overflow-hidden rounded-xl px-6 py-4 font-bold text-lg text-white shadow-2xl transition-all",
+                    "w-full relative overflow-visible rounded-xl px-6 py-4 font-bold text-lg text-white shadow-2xl transition-all",
                     (tokens > 0 && hasApiKey)
                       ? "bg-gradient-to-r from-orange-500 via-sky-500 to-orange-600 bg-[size:200%_auto] hover:bg-right" 
                       : "bg-slate-200 dark:bg-slate-800 cursor-not-allowed",
