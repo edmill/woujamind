@@ -210,9 +210,6 @@ export function InputSidebar({
                         onEnhance={setPrompt}
                         disabled={!prompt.trim()}
                       />
-                      <div className="text-xs text-slate-400 dark:text-slate-600 font-mono">
-                        {prompt.length} chars
-                      </div>
                     </div>
                   </div>
                 </div>

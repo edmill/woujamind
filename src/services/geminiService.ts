@@ -176,22 +176,26 @@ export const generateSpriteSheet = async (
       - TOTAL FRAMES: ${totalFrames}.
       - You MUST fill EVERY cell in the grid with a sprite. Do not leave any empty cells or partial rows.
       - COMPOSITION: Draw exactly ONE character centered in EACH grid cell.
+      - SPACING: Each sprite should have adequate padding from the edges of its cell (at least 10% on all sides).
       
       CHARACTER DESIGN:
       - Description: ${characterDescription}
       ${stylePrompt ? `- Style: ${stylePrompt}` : '- Style: Match the reference image style exactly'}
-      - CONSISTENCY: The character must look identical in every frame (same size, colors, proportions).
+      - CONSISTENCY: The character must look identical in every frame (same size, colors, proportions, position).
+      - CENTERING: Each character must be perfectly centered horizontally and positioned consistently vertically in its grid cell.
       
       ANIMATION TASKS:
       ${actionInstructions}
       
       CRITICAL RESTRICTIONS (DO NOT IGNORE):
-      1. INVISIBLE GRID ONLY: The grid layout is strictly mathematical. Do NOT draw visible grid lines, boxes, borders, or separators between sprites.
-      2. SOLID BACKGROUND: The background MUST be PURE WHITE (#FFFFFF) or magenta (#FF00FF) - absolutely NO black backgrounds. The background must be one continuous uniform color. Do not draw ground lines, floors, or scenery.
-      3. NO PROPS OR SCENERY: Do NOT draw environment objects like ladders, boxes, or background elements.
-      4. PANTOMIME RULE: If the action involves an object (e.g. climbing, hitting), the character must PANTOMIME the action in thin air.
-      5. NO PROJECTILES: Do NOT draw fireballs, bullets, or magic spells leaving the character's hand that would cross into other grid cells.
-      6. NO CONNECTING PIXELS: Each sprite is an isolated asset. Do NOT draw horizontal bars, ropes, or lines that connect multiple frames together.
+      1. INVISIBLE GRID ONLY: The grid layout is purely mathematical - like a checkerboard pattern. NEVER draw visible grid lines, cell borders, boxes, dividing lines, or frame separators. The grid exists only as a spacing guide.
+      2. CLEAN WHITE BACKGROUND ONLY: The background MUST be solid PURE WHITE (#FFFFFF). Do NOT use magenta, pink, gray, black, or any other color. The entire background must be uniform white with NO variations, ground lines, floors, shadows, or scenery.
+      3. NO CELL BORDERS: Do NOT draw outlines, boxes, or borders around individual sprites or grid cells.
+      4. NO PROPS OR SCENERY: Do NOT draw environment objects like ladders, boxes, platforms, or background elements.
+      5. PANTOMIME RULE: If the action involves an object (e.g. climbing, hitting), the character must PANTOMIME the action in thin air.
+      6. NO PROJECTILES: Do NOT draw fireballs, bullets, or magic spells leaving the character's hand that would cross into other grid cells.
+      7. NO CONNECTING PIXELS: Each sprite is completely isolated. Do NOT draw horizontal bars, ropes, lines, or any elements that connect multiple frames together.
+      8. CONSISTENT SIZING: All characters must be the exact same size across all frames - only pose/animation should change.
       
       ${customRules}
     `;
@@ -214,9 +218,11 @@ export const generateSpriteSheet = async (
     });
 
     for (const candidate of response.candidates || []) {
-      for (const part of candidate.content.parts) {
-        if (part.inlineData?.data) {
-          return `data:image/png;base64,${part.inlineData.data}`;
+      if (candidate.content?.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.inlineData?.data) {
+            return `data:image/png;base64,${part.inlineData.data}`;
+          }
         }
       }
     }

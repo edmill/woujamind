@@ -12,7 +12,8 @@ const getVisualBoundingBox = (
   let minX = width, minY = height, maxX = 0, maxY = 0;
   let found = false;
 
-  const tolerance = 30; // Tolerance for background color matching (increased for better detection)
+  // More aggressive tolerance for better background detection
+  const tolerance = 40;
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -29,12 +30,18 @@ const getVisualBoundingBox = (
         if (a < 10) {
           isContent = false; // Transparent is always bg
         } else {
-          const diff = Math.abs(r - bgColor.r) + Math.abs(g - bgColor.g) + Math.abs(b - bgColor.b);
-          isContent = diff > (tolerance * 3);
+          // Calculate color distance using Euclidean distance for better accuracy
+          const rDiff = r - bgColor.r;
+          const gDiff = g - bgColor.g;
+          const bDiff = b - bgColor.b;
+          const colorDistance = Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
+          
+          // Pixel is content if color is significantly different from background
+          isContent = colorDistance > tolerance;
         }
       } else {
-        // Standard alpha check
-        isContent = a > 20;
+        // Standard alpha check with higher threshold to ignore semi-transparent noise
+        isContent = a > 30;
       }
 
       if (isContent) { 
@@ -48,6 +55,13 @@ const getVisualBoundingBox = (
   }
 
   if (!found) return null; // Empty frame
+  
+  // Add a 1-pixel padding to ensure we don't clip edges
+  minX = Math.max(0, minX - 1);
+  minY = Math.max(0, minY - 1);
+  maxX = Math.min(width - 1, maxX + 1);
+  maxY = Math.min(height - 1, maxY + 1);
+  
   return { minX, minY, maxX, maxY, w: maxX - minX + 1, h: maxY - minY + 1 };
 };
 
@@ -262,6 +276,179 @@ export const pasteFrame = async (sheetSrc: string, newFrameSrc: string, frameInd
   return canvas.toDataURL('image/png');
 };
 
+// --- GRID LINE DETECTION AND REMOVAL ---
+
+/**
+ * Detects if the sprite sheet has visible grid lines by analyzing row and column borders
+ * Returns true if grid lines are detected
+ */
+const detectGridLines = (
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  rows: number,
+  cols: number
+): boolean => {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  const frameW = Math.floor(width / cols);
+  const frameH = Math.floor(height / rows);
+  
+  // Sample background color from corners
+  const bgColor = getBackgroundColor(ctx, width, height);
+  if (!bgColor) return false;
+  
+  const tolerance = 30;
+  let gridLinePixels = 0;
+  let totalSampled = 0;
+  
+  // Check vertical grid lines (between columns)
+  for (let colIdx = 1; colIdx < cols; colIdx++) {
+    const x = colIdx * frameW;
+    for (let y = 0; y < height; y += 5) { // Sample every 5 pixels
+      const idx = (y * width + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const a = data[idx + 3];
+      
+      // Check if pixel is NOT background (could be grid line)
+      if (a > 200) {
+        const diff = Math.abs(r - bgColor.r) + Math.abs(g - bgColor.g) + Math.abs(b - bgColor.b);
+        if (diff > tolerance * 3) {
+          gridLinePixels++;
+        }
+      }
+      totalSampled++;
+    }
+  }
+  
+  // Check horizontal grid lines (between rows)
+  for (let rowIdx = 1; rowIdx < rows; rowIdx++) {
+    const y = rowIdx * frameH;
+    for (let x = 0; x < width; x += 5) { // Sample every 5 pixels
+      const idx = (y * width + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const a = data[idx + 3];
+      
+      if (a > 200) {
+        const diff = Math.abs(r - bgColor.r) + Math.abs(g - bgColor.g) + Math.abs(b - bgColor.b);
+        if (diff > tolerance * 3) {
+          gridLinePixels++;
+        }
+      }
+      totalSampled++;
+    }
+  }
+  
+  // If more than 20% of sampled border pixels are non-background, likely grid lines
+  return totalSampled > 0 && (gridLinePixels / totalSampled) > 0.2;
+};
+
+/**
+ * Removes grid lines from a sprite sheet by erasing pixels along grid borders
+ */
+const removeGridLines = (
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  rows: number,
+  cols: number
+): void => {
+  const frameW = Math.floor(width / cols);
+  const frameH = Math.floor(height / rows);
+  const bgColor = getBackgroundColor(ctx, width, height);
+  
+  if (!bgColor) return;
+  
+  const fillStyle = `rgba(${bgColor.r}, ${bgColor.g}, ${bgColor.b}, ${bgColor.a / 255})`;
+  ctx.fillStyle = fillStyle;
+  
+  // Erase vertical grid lines (2px width for safety)
+  for (let colIdx = 1; colIdx < cols; colIdx++) {
+    const x = colIdx * frameW;
+    ctx.fillRect(x - 1, 0, 2, height);
+  }
+  
+  // Erase horizontal grid lines (2px height for safety)
+  for (let rowIdx = 1; rowIdx < rows; rowIdx++) {
+    const y = rowIdx * frameH;
+    ctx.fillRect(0, y - 1, width, 2);
+  }
+};
+
+/**
+ * Post-processes a generated sprite sheet to clean up common AI issues:
+ * - Removes visible grid lines
+ * - Validates background color (converts magenta to white)
+ * - Returns cleaned image data URL
+ */
+export const cleanSpriteSheet = async (
+  imageSrc: string,
+  rows: number,
+  cols: number
+): Promise<{ cleaned: string; hadIssues: boolean; issues: string[] }> => {
+  const img = await loadImage(imageSrc);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  
+  if (!ctx) {
+    return { cleaned: imageSrc, hadIssues: false, issues: [] };
+  }
+  
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, 0, 0);
+  
+  const issues: string[] = [];
+  let hadIssues = false;
+  
+  // Check for magenta background (#FF00FF)
+  const bgColor = getBackgroundColor(ctx, canvas.width, canvas.height);
+  if (bgColor) {
+    const isMagenta = bgColor.r > 240 && bgColor.g < 20 && bgColor.b > 240;
+    if (isMagenta) {
+      issues.push('Magenta background detected - converting to white');
+      hadIssues = true;
+      
+      // Replace magenta with white
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        
+        // Detect magenta pixels
+        if (a > 200 && r > 240 && g < 50 && b > 240) {
+          data[i] = 255;     // R
+          data[i + 1] = 255; // G
+          data[i + 2] = 255; // B
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
+  }
+  
+  // Check for grid lines
+  const hasGridLines = detectGridLines(ctx, canvas.width, canvas.height, rows, cols);
+  if (hasGridLines) {
+    issues.push('Grid lines detected - removing');
+    hadIssues = true;
+    removeGridLines(ctx, canvas.width, canvas.height, rows, cols);
+  }
+  
+  return {
+    cleaned: canvas.toDataURL('image/png'),
+    hadIssues,
+    issues
+  };
+};
+
 // --- ALIGNMENT LOGIC ---
 
 export const alignFrameInSheet = async (
@@ -314,17 +501,27 @@ export const alignFrameInSheet = async (
       ctx.fillRect(col * frameW, row * frameH, frameW, frameH);
     }
 
-    // 7. Calculate Centered Position
+    // 7. Calculate Centered Position with improved algorithm
+    // Center horizontally
     const destX = Math.floor((frameW - bbox.w) / 2);
-    const paddingBottom = Math.floor(frameH * 0.05); 
+    
+    // Vertical positioning: use bottom alignment with consistent padding
+    // This ensures all sprites "stand" at the same baseline
+    const paddingBottom = Math.max(
+      Math.floor(frameH * 0.08), // At least 8% padding from bottom
+      4 // Minimum 4 pixels
+    );
     const destY = Math.floor(frameH - bbox.h - paddingBottom);
+    
+    // Ensure sprite doesn't go off top of frame
+    const finalDestY = Math.max(2, destY); // At least 2px from top
 
-    // 8. Draw sprite back centered
+    // 8. Draw sprite back centered with anti-aliasing disabled for pixel-perfect rendering
     // We use the tempCanvas but strictly the bbox area
     ctx.drawImage(
       tempCanvas,
       bbox.minX, bbox.minY, bbox.w, bbox.h,
-      (col * frameW) + destX, (row * frameH) + destY, bbox.w, bbox.h
+      (col * frameW) + destX, (row * frameH) + finalDestY, bbox.w, bbox.h
     );
   }
 
@@ -378,15 +575,24 @@ export const alignWholeSheet = async (
     }
 
     if (bbox) {
-       // Calculate alignment
+       // Calculate alignment with improved consistency
+       // Center horizontally
        const alignX = Math.floor((frameW - bbox.w) / 2);
-       const paddingBottom = Math.floor(frameH * 0.05);
+       
+       // Bottom alignment with consistent padding
+       const paddingBottom = Math.max(
+         Math.floor(frameH * 0.08), // At least 8% padding from bottom
+         4 // Minimum 4 pixels
+       );
        const alignY = Math.floor(frameH - bbox.h - paddingBottom);
+       
+       // Ensure sprite doesn't go off top of frame
+       const finalAlignY = Math.max(2, alignY); // At least 2px from top
 
        ctx.drawImage(
          tempCanvas,
          bbox.minX, bbox.minY, bbox.w, bbox.h,
-         destSheetX + alignX, destSheetY + alignY, bbox.w, bbox.h
+         destSheetX + alignX, destSheetY + finalAlignY, bbox.w, bbox.h
        );
     } else {
        // Empty or noise only - copy original just in case

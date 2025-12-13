@@ -206,14 +206,8 @@ export function ResultView({
     ctx.drawImage(frameToShow, 0, 0);
   }, [currentFrameIndex, frames, selectedFrame]);
 
-  // Auto-open edit bar when a single frame is selected
-  useEffect(() => {
-    if (selectedFrameIndices.length === 1 && onEdit) {
-      setShowEditBar(true);
-    } else {
-      setShowEditBar(false);
-    }
-  }, [selectedFrameIndices, onEdit]);
+  // Removed auto-open behavior - user must manually click Magic Edit button
+  // Previous behavior: automatically opened edit bar when a single frame was selected
 
   // Close quick prompts dropdown when clicking outside
   useEffect(() => {
@@ -756,15 +750,15 @@ export function ResultView({
                >
                  {selectedFrame !== null && selectedFrame > 0 && selectedFrame <= frames.length && frames[selectedFrame - 1] ? (
                    <div className="flex flex-col items-center gap-4">
+                     {/* Frame Label Indicator - Moved Above */}
+                     <div className="bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-lg">
+                       <span>Frame {selectedFrame}</span>
+                     </div>
                      <canvas
                        ref={canvasRef}
                        className="max-w-full max-h-[300px] object-contain shadow-2xl"
                        style={{ imageRendering: 'pixelated' }}
                      />
-                     {/* Frame Label Indicator */}
-                     <div className="bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-lg">
-                       <span>Frame {selectedFrame}</span>
-                     </div>
                    </div>
                  ) : frames.length > 0 ? (
                    <div className="relative">

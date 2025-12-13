@@ -24,7 +24,7 @@ import { ACTIONS } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle } from './types';
 import { cn } from './utils';
 import { generateSpriteSheet, editSpriteSheet } from './services/geminiService';
-import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet } from './utils/imageUtils';
+import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet } from './utils/imageUtils';
 
 export default function SpriteMagic() {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -71,11 +71,11 @@ export default function SpriteMagic() {
   // Paywall & Token State
   const [tokens, setTokens] = useState<number>(1); // Start with 1 free token
   const [showPricing, setShowPricing] = useState(false);
-  const [hasAccount, setHasAccount] = useState(false); // Mock user account state
+  const [_hasAccount, _setHasAccount] = useState(false); // Mock user account state (reserved for future)
 
   // Grid configuration
-  const [gridRows, setGridRows] = useState<number>(2);
-  const [gridCols, setGridCols] = useState<number>(4);
+  const [gridRows, _setGridRows] = useState<number>(2);
+  const [gridCols, _setGridCols] = useState<number>(4);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -222,7 +222,7 @@ export default function SpriteMagic() {
       const customRules = getStoredRules(modelId);
       
       // Generate the sprite sheet
-      const resultImage = await generateSpriteSheet(
+      const rawImage = await generateSpriteSheet(
         imageBase64,
         selectedAction,
         selectedExpression,
@@ -234,14 +234,24 @@ export default function SpriteMagic() {
         customRules
       );
 
+      // Post-process: Clean up magenta backgrounds and grid lines
+      setStatusText("Cleaning sprite sheet...");
+      const { cleaned, hadIssues, issues } = await cleanSpriteSheet(rawImage, gridRows, finalCols);
+      
       // Save to history instead of just setting state
-      pushToHistory(resultImage);
+      pushToHistory(cleaned);
       setResult(true);
       setHasResult(true);
       // Panel already collapsed when Generate was clicked
       setTokens(prev => Math.max(0, prev - 1));
       triggerConfetti();
-      toast.success("Sprite sheet generated successfully! 🎉");
+      
+      // Show appropriate success message
+      if (hadIssues && issues.length > 0) {
+        toast.success(`Sprite sheet generated! Fixed: ${issues.join(', ')}`);
+      } else {
+        toast.success("Sprite sheet generated successfully! 🎉");
+      }
       
     } catch (error: any) {
       console.error("Generation failed:", error);
@@ -418,9 +428,19 @@ export default function SpriteMagic() {
         // FULL SHEET EDIT MODE
         setStatusText("Refining Sheet...");
         const modelId = 'gemini-2.5-flash-image';
-        const editedImage = await editSpriteSheet(generatedImage, trimmedPrompt, modelId);
-        pushToHistory(editedImage);
-        toast.success("Sprite sheet edited successfully!");
+        const rawEdited = await editSpriteSheet(generatedImage, trimmedPrompt, modelId);
+        
+        // Post-process edited sheet too
+        setStatusText("Cleaning edited sheet...");
+        const { cleaned, hadIssues, issues } = await cleanSpriteSheet(rawEdited, gridRows, gridCols);
+        
+        pushToHistory(cleaned);
+        
+        if (hadIssues && issues.length > 0) {
+          toast.success(`Sheet edited! Fixed: ${issues.join(', ')}`);
+        } else {
+          toast.success("Sprite sheet edited successfully!");
+        }
       }
     } catch (error: any) {
       console.error("Edit failed:", error);
@@ -657,6 +677,7 @@ export default function SpriteMagic() {
                            action={selectedAction} 
                            expression={selectedExpression} 
                            isTransparent={isTransparent}
+                           isGenerating={isGenerating}
                         />
 
                         {hasResult && (
