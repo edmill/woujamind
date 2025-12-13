@@ -1,4 +1,5 @@
 import React from 'react';
+import { Toaster } from 'sonner';
 import SpriteMagic from './Component';
 
 // Configure Tailwind for the environment
@@ -61,6 +62,20 @@ export default function App() {
   return (
     <div className="w-full h-full overflow-x-hidden max-w-full">
       <SpriteMagic />
+      <Toaster 
+        position="top-right" 
+        richColors 
+        closeButton
+        theme="dark"
+        toastOptions={{
+          style: {
+            background: 'rgb(15 23 42)',
+            border: '1px solid rgb(51 65 85)',
+            color: 'rgb(226 232 240)',
+          },
+          className: 'font-sans',
+        }}
+      />
     </div>
   );
 }
