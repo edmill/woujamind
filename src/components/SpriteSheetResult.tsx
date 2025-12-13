@@ -48,14 +48,8 @@ export const SpriteSheetResult: React.FC<SpriteSheetResultProps> = ({
   const [showEditBar, setShowEditBar] = useState(false);
   const [editPrompt, setEditPrompt] = useState("");
 
-  // Auto-open edit bar when a single frame is selected
-  useEffect(() => {
-    if (selectedFrameIndices.length === 1) {
-      setShowEditBar(true);
-    } else {
-      setShowEditBar(false);
-    }
-  }, [selectedFrameIndices]);
+  // Removed auto-open behavior - user must manually click Magic Edit button
+  // Previous behavior: automatically opened edit bar when a single frame was selected
 
   const handleDownload = () => {
     if (!imageSrc) return;

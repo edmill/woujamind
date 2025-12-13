@@ -10,12 +10,14 @@ export const BlobPreview = ({
   mode,
   action, 
   expression,
-  isTransparent = false
+  isTransparent = false,
+  isGenerating = false
 }: { 
   mode: TabMode;
   action: ActionType; 
   expression: ExpressionType;
   isTransparent?: boolean;
+  isGenerating?: boolean;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -233,10 +235,19 @@ export const BlobPreview = ({
             className="absolute -inset-4 border-2 border-dashed border-yellow-400/50 dark:border-yellow-300/50 rounded-full"
           />
         )}
+        
+        {/* Generating Animation Effect */}
+        {isGenerating && (
+          <motion.div 
+            animate={{ opacity: [0, 1, 0], scale: [0.8, 1.2, 1.5] }}
+            transition={{ duration: 0.5, repeat: Infinity }}
+            className="absolute -inset-10 bg-gradient-to-r from-orange-500/20 to-sky-500/20 rounded-full blur-xl"
+          />
+        )}
       </motion.div>
       
       <div className="absolute bottom-6 font-mono text-xs text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-900/80 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
-        PREVIEW: {mode === 'action' ? action.toUpperCase() : expression.toUpperCase()}
+        {isGenerating ? "GENERATING SPRITES..." : `PREVIEW: ${mode === 'action' ? action.toUpperCase() : expression.toUpperCase()}`}
       </div>
     </div>
   );
