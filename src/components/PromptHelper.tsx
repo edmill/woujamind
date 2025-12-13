@@ -74,8 +74,7 @@ export function PromptHelper({ onSelectPrompt, currentPrompt }: PromptHelperProp
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute top-full right-0 mt-2 w-[420px] max-h-[480px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[200]"
-            style={{ maxWidth: 'calc(100vw - 2rem)' }}
+            className="absolute top-full right-0 mt-2 w-[420px] max-w-[calc(100vw-2rem)] max-h-[480px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[200]"
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-slate-200 dark:border-slate-800 px-4 py-3">

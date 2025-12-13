@@ -132,11 +132,10 @@ export const CompactAnimationPreview: React.FC<CompactAnimationPreviewProps> = (
       
       <div className="flex items-center gap-3">
         {/* Canvas Preview */}
-        <div className="flex-1 flex items-center justify-center bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 overflow-hidden" style={{ minHeight: '80px' }}>
+        <div className="flex-1 flex items-center justify-center bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 overflow-hidden min-h-[80px]">
           <canvas
             ref={canvasRef}
-            className="max-w-full max-h-[80px] object-contain"
-            style={{ imageRendering: 'pixelated' }}
+            className="max-w-full max-h-[80px] object-contain [image-rendering:pixelated]"
           />
         </div>
 
@@ -148,7 +147,7 @@ export const CompactAnimationPreview: React.FC<CompactAnimationPreviewProps> = (
                 setIsPlaying(false);
                 setCurrentFrame((prev) => (prev - 1 + frames.length) % frames.length);
               }}
-              className="p-1.5 rounded bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+              className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
               title="Previous frame (←)"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -157,7 +156,7 @@ export const CompactAnimationPreview: React.FC<CompactAnimationPreviewProps> = (
             <button
               onClick={() => setIsPlaying(!isPlaying)}
               className={cn(
-                "p-1.5 rounded transition-colors",
+                "p-1.5 rounded-lg transition-colors",
                 isPlaying
                   ? "bg-orange-500 text-white hover:bg-orange-600"
                   : "bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
@@ -176,7 +175,7 @@ export const CompactAnimationPreview: React.FC<CompactAnimationPreviewProps> = (
                 setIsPlaying(false);
                 setCurrentFrame((prev) => (prev + 1) % frames.length);
               }}
-              className="p-1.5 rounded bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+              className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
               title="Next frame (→)"
             >
               <ChevronRight className="w-3.5 h-3.5" />

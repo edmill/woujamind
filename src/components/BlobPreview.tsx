@@ -104,8 +104,8 @@ export const BlobPreview = ({
       case 'happy':
         return (
           <>
-            <Eye className="left-3 w-2 h-3 rounded-full" style={{ height: 4, borderRadius: '50% 50% 0 0' }} />
-            <Eye className="right-3 w-2 h-3 rounded-full" style={{ height: 4, borderRadius: '50% 50% 0 0' }} />
+            <Eye className="left-3 w-2 h-1 rounded-full" />
+            <Eye className="right-3 w-2 h-1 rounded-full" />
             <motion.div 
               style={{ x: mousePos.x * 0.5, y: mousePos.y * 0.5 }}
               className="absolute bottom-1/3 left-1/2 -translate-x-1/2 w-4 h-2 border-b-2 border-black/80 rounded-full" 
@@ -137,8 +137,18 @@ export const BlobPreview = ({
       case 'pain':
         return (
           <>
-             <div className="absolute top-1/3 left-3 text-black/80 text-xs font-bold" style={{ transform: `translate(${mousePos.x}px, ${mousePos.y}px)` }}>X</div>
-             <div className="absolute top-1/3 right-3 text-black/80 text-xs font-bold" style={{ transform: `translate(${mousePos.x}px, ${mousePos.y}px)` }}>X</div>
+             <motion.div 
+               className="absolute top-1/3 left-3 text-black/80 text-xs font-bold"
+               style={{ x: mousePos.x, y: mousePos.y }}
+             >
+               X
+             </motion.div>
+             <motion.div 
+               className="absolute top-1/3 right-3 text-black/80 text-xs font-bold"
+               style={{ x: mousePos.x, y: mousePos.y }}
+             >
+               X
+             </motion.div>
              <motion.div 
               style={{ x: mousePos.x * 0.5, y: mousePos.y * 0.5 }}
               className="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-3 h-1 bg-black/80 rounded-full rotate-12" 
@@ -178,24 +188,14 @@ export const BlobPreview = ({
           <motion.div 
             animate={{ backgroundPosition: ["0px 0px", "40px 40px"] }}
             transition={{ duration: 4, ease: "linear", repeat: Infinity }}
-            className="absolute inset-0 opacity-10 dark:opacity-20" 
-            style={{ 
-              backgroundImage: 'linear-gradient(to right, #0ea5e9 1px, transparent 1px), linear-gradient(to bottom, #0ea5e9 1px, transparent 1px)',
-              backgroundSize: '40px 40px'
-            }} 
+            className="absolute inset-0 opacity-10 dark:opacity-20 bg-[linear-gradient(to_right,#0ea5e9_1px,transparent_1px),linear-gradient(to_bottom,#0ea5e9_1px,transparent_1px)] bg-[length:40px_40px]" 
           />
           {/* Spotlight */}
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-orange-500/5 dark:to-orange-900/20" />
         </>
       ) : (
         /* Checkerboard for Transparency */
-        <div className="absolute inset-0 opacity-40" 
-          style={{
-             backgroundImage: 'radial-gradient(#0ea5e9 0.5px, transparent 0.5px), radial-gradient(#0ea5e9 0.5px, #e5e5f7 0.5px)',
-             backgroundSize: '20px 20px',
-             backgroundPosition: '0 0, 10px 10px'
-          }}
-        />
+        <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#0ea5e9_0.5px,transparent_0.5px),radial-gradient(#0ea5e9_0.5px,#e5e5f7_0.5px)] bg-[length:20px_20px] bg-[position:0_0,10px_10px]" />
       )}
 
       {/* The Organic Blob */}
@@ -217,10 +217,7 @@ export const BlobPreview = ({
                 rotate: { duration: 3, repeat: Infinity, ease: "linear" },
                 scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
               }}
-              className="absolute -inset-14 rounded-full blur-2xl -z-10"
-              style={{
-                background: 'conic-gradient(from 0deg, #ff0080, #ff8800, #ffff00, #00ff88, #0088ff, #8800ff, #ff0080)'
-              }}
+              className="absolute -inset-14 rounded-full blur-2xl -z-10 bg-[conic-gradient(from_0deg,#ff0080,#ff8800,#ffff00,#00ff88,#0088ff,#8800ff,#ff0080)]"
             />
             
             {/* Middle counter-rotating ring */}
@@ -233,10 +230,7 @@ export const BlobPreview = ({
                 rotate: { duration: 2, repeat: Infinity, ease: "linear" },
                 opacity: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
               }}
-              className="absolute -inset-12 rounded-full blur-xl -z-10"
-              style={{
-                background: 'conic-gradient(from 180deg, #a855f7, #ec4899, #f59e0b, #10b981, #3b82f6, #8b5cf6, #a855f7)'
-              }}
+              className="absolute -inset-12 rounded-full blur-xl -z-10 bg-[conic-gradient(from_180deg,#a855f7,#ec4899,#f59e0b,#10b981,#3b82f6,#8b5cf6,#a855f7)]"
             />
             
             {/* Inner fast-spinning bright ring */}
@@ -249,10 +243,7 @@ export const BlobPreview = ({
                 rotate: { duration: 1.5, repeat: Infinity, ease: "linear" },
                 scale: { duration: 1, repeat: Infinity, ease: "easeInOut" }
               }}
-              className="absolute -inset-10 rounded-full blur-lg -z-10"
-              style={{
-                background: 'conic-gradient(from 90deg, #fbbf24, #f472b6, #60a5fa, #34d399, #fbbf24)'
-              }}
+              className="absolute -inset-10 rounded-full blur-lg -z-10 bg-[conic-gradient(from_90deg,#fbbf24,#f472b6,#60a5fa,#34d399,#fbbf24)]"
             />
             
             {/* Pulsing glow base */}
@@ -284,11 +275,10 @@ export const BlobPreview = ({
                   delay: i * 0.3,
                   ease: "easeInOut"
                 }}
-                className="absolute w-2 h-2 rounded-full bg-white z-0"
+                className="absolute w-2 h-2 rounded-full bg-white z-0 shadow-[0_0_10px_rgba(255,255,255,0.8)]"
                 style={{
                   left: `${50 + 40 * Math.cos((i * Math.PI * 2) / 6)}%`,
-                  top: `${50 + 40 * Math.sin((i * Math.PI * 2) / 6)}%`,
-                  boxShadow: '0 0 10px rgba(255, 255, 255, 0.8)'
+                  top: `${50 + 40 * Math.sin((i * Math.PI * 2) / 6)}%`
                 }}
               />
             ))}
@@ -306,7 +296,7 @@ export const BlobPreview = ({
           "bg-gradient-to-br from-orange-300 to-sky-500 dark:from-orange-400 dark:to-sky-600 flex items-center justify-center relative backdrop-blur-md transition-all duration-500 z-20"
         )}
         style={{
-          borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%" 
+          borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%"
         }}
         >
           {/* Shine */}

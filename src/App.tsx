@@ -68,12 +68,7 @@ export default function App() {
         closeButton
         theme="dark"
         toastOptions={{
-          style: {
-            background: 'rgb(15 23 42)',
-            border: '1px solid rgb(51 65 85)',
-            color: 'rgb(226 232 240)',
-          },
-          className: 'font-sans',
+          className: 'font-sans bg-slate-900 border border-slate-700 text-slate-200',
         }}
       />
     </div>

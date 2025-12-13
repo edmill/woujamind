@@ -114,7 +114,7 @@ export function InputSidebar({
             >
               <XCircle className="w-6 h-6" />
             </button>
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white">
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white rounded-b-2xl">
                 <p className="font-medium text-center">{selectedFile?.name}</p>
             </div>
           </motion.div>
@@ -153,7 +153,7 @@ export function InputSidebar({
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     placeholder="Describe your character or changes to a referenced image."
-                    className="w-full h-24 bg-transparent text-sm p-4 focus:outline-none resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-200"
+                    className="w-full h-24 bg-transparent text-sm p-4 rounded-xl focus:outline-none resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-200"
                   />
                   
                   {/* Image Attachment & Enhancement Bar */}

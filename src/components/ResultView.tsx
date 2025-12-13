@@ -582,17 +582,10 @@ export function ResultView({
                  onMouseMove={handleMouseMove}
                  onMouseUp={handleMouseUp}
                  onMouseLeave={handleMouseUp}
-                 style={{ cursor: isPanning ? 'grabbing' : (zoom !== 1 ? 'grab' : 'default') }}
+                 className={isPanning ? 'cursor-grabbing' : (zoom !== 1 ? 'cursor-grab' : 'cursor-default')}
                >
                  {/* Checkerboard background */}
-                 <div className="absolute inset-0 opacity-30 pointer-events-none" 
-                   style={{
-                       backgroundImage: 'linear-gradient(45deg, #000000 25%, transparent 25%, transparent 75%, #000000 75%, #000000), linear-gradient(45deg, #000000 25%, transparent 25%, transparent 75%, #000000 75%, #000000)',
-                       backgroundSize: '20px 20px',
-                       backgroundPosition: '0 0, 10px 10px',
-                       opacity: 0.05
-                   }}
-                 />
+                 <div className="absolute inset-0 opacity-[0.05] pointer-events-none bg-[linear-gradient(45deg,#000000_25%,transparent_25%,transparent_75%,#000000_75%,#000000),linear-gradient(45deg,#000000_25%,transparent_25%,transparent_75%,#000000_75%,#000000)] bg-[length:20px_20px] bg-[position:0_0,10px_10px]" />
                  
                  {imageSrc && (
                    <div 
@@ -605,8 +598,7 @@ export function ResultView({
                      <img 
                        src={imageSrc} 
                        alt="Generated Sprite Sheet" 
-                       className="max-w-full max-h-[60vh] object-contain block"
-                       style={{ imageRendering: 'pixelated' }}
+                       className="max-w-full max-h-[60vh] object-contain block [image-rendering:pixelated]"
                      />
                      
                      {/* Full Sheet Edit Loading Overlay */}
@@ -624,9 +616,8 @@ export function ResultView({
                      
                      {/* Grid Overlay */}
                      <div 
-                       className="absolute inset-0 pointer-events-auto cursor-crosshair"
+                       className="absolute inset-0 pointer-events-auto cursor-crosshair grid"
                        style={{
-                         display: 'grid',
                          gridTemplateColumns: `repeat(${cols}, 1fr)`,
                          gridTemplateRows: `repeat(${rows}, 1fr)`
                        }}
@@ -761,13 +752,7 @@ export function ResultView({
                {!isTransparent ? (
                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+CjxwYXRoIGQ9Ik0wIDBoMTB2MTBIMHptMTAgMTBoMTB2MTBIMTB6IiBmaWxsPSIjMWUyOTNiIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-20" />
                ) : (
-                 <div className="absolute inset-0 opacity-40" 
-                   style={{
-                       backgroundImage: 'radial-gradient(#0ea5e9 0.5px, transparent 0.5px), radial-gradient(#0ea5e9 0.5px, #e5e5f7 0.5px)',
-                       backgroundSize: '20px 20px',
-                       backgroundPosition: '0 0, 10px 10px'
-                   }}
-                 />
+                 <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#0ea5e9_0.5px,transparent_0.5px),radial-gradient(#0ea5e9_0.5px,#e5e5f7_0.5px)] bg-[length:20px_20px] bg-[position:0_0,10px_10px]" />
                )}
                
                <motion.div 
@@ -775,8 +760,7 @@ export function ResultView({
                  initial={{ scale: 0.9, opacity: 0 }}
                  animate={{ scale: 1, opacity: 1 }}
                  transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                 className="relative z-10 w-full h-full flex items-center justify-center p-8" 
-                 style={{ imageRendering: 'pixelated' }}
+                 className="relative z-10 w-full h-full flex items-center justify-center p-8 [image-rendering:pixelated]"
                >
                  {selectedFrame !== null && selectedFrame > 0 && selectedFrame <= frames.length && frames[selectedFrame - 1] ? (
                    <div className="flex flex-col items-center gap-4">
@@ -786,16 +770,14 @@ export function ResultView({
                      </div>
                      <canvas
                        ref={canvasRef}
-                       className="max-w-full max-h-[300px] object-contain shadow-2xl"
-                       style={{ imageRendering: 'pixelated' }}
+                       className="max-w-full max-h-[300px] object-contain shadow-2xl [image-rendering:pixelated]"
                      />
                    </div>
                  ) : frames.length > 0 ? (
                    <div className="relative">
                      <canvas
                        ref={canvasRef}
-                       className="max-w-full max-h-[300px] object-contain"
-                       style={{ imageRendering: 'pixelated' }}
+                       className="max-w-full max-h-[300px] object-contain [image-rendering:pixelated]"
                      />
                      {!isPlaying && (
                        <button
