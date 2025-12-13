@@ -110,6 +110,16 @@ const DEFAULT_SYSTEM_RULES = `1. INVISIBLE GRID: The grid layout is strictly mat
 7. USE FULL CANVAS: Fill the grid cells appropriately, do not leave excessive whitespace.`;
 
 /**
+ * Return type for sprite sheet generation
+ */
+export interface SpriteSheetResult {
+  imageData: string;
+  prompt: string;
+  modelId: string;
+  characterDescription: string;
+}
+
+/**
  * STAGE 2: THE GENERATOR
  * Creates the sprite sheet.
  */
@@ -123,7 +133,7 @@ export const generateSpriteSheet = async (
   cols: number = 4,
   modelId: string = 'gemini-2.5-flash-image',
   customRules?: string
-): Promise<string> => {
+): Promise<SpriteSheetResult> => {
   // If no custom rules provided, load from localStorage based on model
   if (!customRules && typeof window !== 'undefined') {
     const key = modelId.includes('3.0') ? 'sprite_magic_gemini_30_rules' : 'sprite_magic_gemini_25_rules';
@@ -221,7 +231,12 @@ export const generateSpriteSheet = async (
       if (candidate.content?.parts) {
         for (const part of candidate.content.parts) {
           if (part.inlineData?.data) {
-            return `data:image/png;base64,${part.inlineData.data}`;
+            return {
+              imageData: `data:image/png;base64,${part.inlineData.data}`,
+              prompt: prompt.trim(),
+              modelId: modelId,
+              characterDescription: characterDescription
+            };
           }
         }
       }

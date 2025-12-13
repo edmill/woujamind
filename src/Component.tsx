@@ -43,6 +43,10 @@ export default function SpriteMagic() {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string>('');
   
+  // Generation metadata
+  const [generationPrompt, setGenerationPrompt] = useState<string>('');
+  const [generationModel, setGenerationModel] = useState<string>('');
+  const [generationCharacterDescription, setGenerationCharacterDescription] = useState<string>('');
   
   // History State
   const [history, setHistory] = useState<string[]>([]);
@@ -222,7 +226,7 @@ export default function SpriteMagic() {
       const customRules = getStoredRules(modelId);
       
       // Generate the sprite sheet
-      const rawImage = await generateSpriteSheet(
+      const result = await generateSpriteSheet(
         imageBase64,
         selectedAction,
         selectedExpression,
@@ -234,9 +238,14 @@ export default function SpriteMagic() {
         customRules
       );
 
+      // Store generation metadata
+      setGenerationPrompt(result.prompt);
+      setGenerationModel(result.modelId);
+      setGenerationCharacterDescription(result.characterDescription);
+
       // Post-process: Clean up magenta backgrounds and grid lines
       setStatusText("Cleaning sprite sheet...");
-      const { cleaned, hadIssues, issues } = await cleanSpriteSheet(rawImage, gridRows, finalCols);
+      const { cleaned, hadIssues, issues } = await cleanSpriteSheet(result.imageData, gridRows, finalCols);
       
       // Save to history instead of just setting state
       pushToHistory(cleaned);
@@ -734,6 +743,9 @@ export default function SpriteMagic() {
                       onClearResult={reset}
                       onAutoAlign={handleAutoAlignFrame}
                       onAlignAll={handleAutoAlignSheet}
+                      generationPrompt={generationPrompt}
+                      generationModel={generationModel}
+                      generationCharacterDescription={generationCharacterDescription}
                    />
                  )}
               </AnimatePresence>
