@@ -84,7 +84,9 @@ export default function SpriteMagic() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Responsive check (used by InputSidebar animations/layout)
-  const [isDesktop, setIsDesktop] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth >= 1024
+  );
 
   useEffect(() => {
     const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024);
