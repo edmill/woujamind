@@ -104,8 +104,11 @@ export const SpriteSheetResult: React.FC<SpriteSheetResultProps> = ({
   
   return (
     <div 
-      className="flex flex-col h-full rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden relative group" 
-      style={{ backgroundColor: imageSrc ? backgroundColor : 'transparent' }}
+      className={cn(
+        "flex flex-col h-full rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden relative group",
+        imageSrc ? "" : "bg-transparent"
+      )}
+      style={imageSrc ? { backgroundColor } : undefined}
     >
       
       {/* LOADING OVERLAY */}
@@ -115,7 +118,7 @@ export const SpriteSheetResult: React.FC<SpriteSheetResultProps> = ({
             {/* Outer Spinner */}
             <div className="w-20 h-20 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
             {/* Inner Spinner Reverse */}
-            <div className="absolute inset-2 border-4 border-sky-500/20 border-b-sky-500 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+            <div className="absolute inset-2 border-4 border-sky-500/20 border-b-sky-500 rounded-full animate-spin [animation-direction:reverse] [animation-duration:1.5s]"></div>
             {/* Center Icon */}
             <div className="absolute inset-0 flex items-center justify-center">
               <Sparkles className="w-8 h-8 text-orange-400 dark:text-orange-300 animate-pulse" />
@@ -128,9 +131,9 @@ export const SpriteSheetResult: React.FC<SpriteSheetResultProps> = ({
           
           <div className="mt-3 flex flex-col items-center gap-1">
             <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '0ms' }}></span>
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '150ms' }}></span>
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce [animation-delay:0ms]"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce [animation-delay:150ms]"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce [animation-delay:300ms]"></span>
             </div>
             <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-2 opacity-70">AI Model is processing pixel data...</p>
           </div>
@@ -151,7 +154,7 @@ export const SpriteSheetResult: React.FC<SpriteSheetResultProps> = ({
               <button 
                 onClick={onUndo} 
                 disabled={!canUndo || isEditing}
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:text-slate-500 dark:disabled:hover:text-slate-400 transition-colors"
+                className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:hover:text-slate-500 dark:disabled:hover:text-slate-400 disabled:hover:bg-transparent transition-colors"
                 title="Undo"
               >
                 <Undo2 className="w-3.5 h-3.5" />
@@ -159,7 +162,7 @@ export const SpriteSheetResult: React.FC<SpriteSheetResultProps> = ({
               <button 
                 onClick={onRedo} 
                 disabled={!canRedo || isEditing}
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:text-slate-500 dark:disabled:hover:text-slate-400 transition-colors"
+                className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:hover:text-slate-500 dark:disabled:hover:text-slate-400 disabled:hover:bg-transparent transition-colors"
                 title="Redo"
               >
                 <Redo2 className="w-3.5 h-3.5" />
@@ -169,7 +172,7 @@ export const SpriteSheetResult: React.FC<SpriteSheetResultProps> = ({
                 <button 
                   onClick={handleHeaderAlignClick}
                   disabled={isEditing}
-                  className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 disabled:opacity-30 transition-colors"
+                  className="p-1.5 rounded-lg flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                   title={isSingleFrameEdit ? "Auto-Align Selected Frame" : "Auto-Align Full Grid (Fix Jitter)"}
                 >
                   <LayoutList className="w-3.5 h-3.5" />
@@ -278,14 +281,12 @@ export const SpriteSheetResult: React.FC<SpriteSheetResultProps> = ({
             <img 
               src={imageSrc} 
               alt="Generated Sprite Sheet" 
-              className="max-w-full max-h-[60vh] object-contain block"
-              style={{ imageRendering: 'pixelated' }}
+              className="max-w-full max-h-[60vh] object-contain block [image-rendering:pixelated]"
             />
             {/* Grid Overlay */}
             <div 
-              className="absolute inset-0 pointer-events-auto cursor-crosshair"
+              className="absolute inset-0 pointer-events-auto cursor-crosshair grid"
               style={{
-                display: 'grid',
                 gridTemplateColumns: `repeat(${cols}, 1fr)`,
                 gridTemplateRows: `repeat(${rows}, 1fr)`
               }}

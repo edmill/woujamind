@@ -29,8 +29,7 @@ export function AnimatedLogo() {
         <motion.div
           animate={{ x: [-50, 50] }}
           transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-          className="absolute inset-0 w-4 bg-white/30 skew-x-12 blur-sm"
-          style={{ left: '-20px' }}
+          className="absolute inset-0 w-4 bg-white/30 skew-x-12 blur-sm -left-5"
         />
 
         {/* Main Icon */}
