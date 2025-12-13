@@ -102,7 +102,7 @@ const STYLE_MAP: Record<string, string> = {
 };
 
 const DEFAULT_SYSTEM_RULES = `1. INVISIBLE GRID: The grid layout is strictly mathematical. Do NOT draw visible grid lines, boxes, borders, or separators.
-2. SOLID BACKGROUND: Use a solid uniform background color (or transparent). Do not draw scenery or ground lines.
+2. SOLID BACKGROUND: Use PURE WHITE (#FFFFFF) or magenta (#FF00FF) background ONLY. Absolutely NO black backgrounds. Do not draw scenery or ground lines.
 3. NO TEXT/NUMBERS: Do NOT add frame numbers, labels, or annotations of any kind.
 4. CHARACTER CONSISTENCY: The character must be pixel-perfect identical in every frame.
 5. CENTERED: Center the character in every cell.
@@ -187,7 +187,7 @@ export const generateSpriteSheet = async (
       
       CRITICAL RESTRICTIONS (DO NOT IGNORE):
       1. INVISIBLE GRID ONLY: The grid layout is strictly mathematical. Do NOT draw visible grid lines, boxes, borders, or separators between sprites.
-      2. SOLID BACKGROUND: The background must be one continuous color (or transparent). Do not draw ground lines, floors, or scenery.
+      2. SOLID BACKGROUND: The background MUST be PURE WHITE (#FFFFFF) or magenta (#FF00FF) - absolutely NO black backgrounds. The background must be one continuous uniform color. Do not draw ground lines, floors, or scenery.
       3. NO PROPS OR SCENERY: Do NOT draw environment objects like ladders, boxes, or background elements.
       4. PANTOMIME RULE: If the action involves an object (e.g. climbing, hitting), the character must PANTOMIME the action in thin air.
       5. NO PROJECTILES: Do NOT draw fireballs, bullets, or magic spells leaving the character's hand that would cross into other grid cells.
@@ -241,26 +241,70 @@ export const editSpriteSheet = async (
     const ai = await getClient();
     const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
 
+    // Build a more comprehensive edit prompt
+    const fullPrompt = `
+      You are editing a sprite sheet image. Follow these rules STRICTLY:
+      
+      CRITICAL REQUIREMENTS:
+      1. MAINTAIN GRID: Keep the exact same grid layout and frame count. Do NOT add or remove frames.
+      2. BACKGROUND: Preserve the background color exactly as it is. If white, keep white. If magenta, keep magenta. NEVER change to black.
+      3. GRID LINES: Do NOT add visible grid lines or borders.
+      4. CONSISTENCY: Keep the character design consistent across all frames.
+      5. STRUCTURE: This is a sprite sheet for animation - maintain the animation sequence.
+      
+      USER REQUEST: ${editPrompt}
+      
+      IMPORTANT: If the request would destroy the sprite sheet structure (like "remove sprite"), instead clean up or improve the existing sprites while keeping them visible and properly framed.
+    `;
+
     console.log(`Editing sprite sheet. Prompt: "${editPrompt}". Model: ${modelId}`);
 
     const response = await ai.models.generateContent({
       model: modelId,
       contents: {
         parts: [
-          { text: `Edit this sprite sheet. Maintain the exact grid structure. ${editPrompt}` },
+          { text: fullPrompt },
           { inlineData: { mimeType: 'image/png', data: cleanBase64 } }
         ]
       }
     });
 
-    if (response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
-      return `data:image/png;base64,${response.candidates[0].content.parts[0].inlineData.data}`;
+    // Debug log the response structure
+    console.log('Edit response structure:', {
+      hasCandidates: !!response.candidates,
+      candidatesLength: response.candidates?.length,
+      firstCandidate: response.candidates?.[0] ? 'exists' : 'missing',
+      parts: response.candidates?.[0]?.content?.parts?.map(p => Object.keys(p))
+    });
+
+    // Try multiple paths to find the image data
+    if (response.candidates && response.candidates.length > 0) {
+      for (const candidate of response.candidates) {
+        if (candidate.content?.parts) {
+          for (const part of candidate.content.parts) {
+            if (part.inlineData?.data) {
+              return `data:image/png;base64,${part.inlineData.data}`;
+            }
+          }
+        }
+      }
     }
 
-    throw new Error("No image generated in edit response.");
+    // If no image found, throw detailed error
+    throw new Error(
+      `No image generated in edit response. Response structure: ${JSON.stringify({
+        hasCandidates: !!response.candidates,
+        candidateCount: response.candidates?.length || 0,
+        finishReason: response.candidates?.[0]?.finishReason
+      })}`
+    );
 
   } catch (error) {
     console.error("Edit failed:", error);
+    // If it's a safety filter or content policy error, provide helpful message
+    if (error instanceof Error && error.message.includes('SAFETY')) {
+      throw new Error('Edit blocked by safety filters. Try a different prompt.');
+    }
     throw error;
   }
 };

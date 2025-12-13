@@ -12,7 +12,7 @@ const getVisualBoundingBox = (
   let minX = width, minY = height, maxX = 0, maxY = 0;
   let found = false;
 
-  const tolerance = 20; // Tolerance for background color matching
+  const tolerance = 30; // Tolerance for background color matching (increased for better detection)
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -52,9 +52,53 @@ const getVisualBoundingBox = (
 };
 
 const getBackgroundColor = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-  const data = ctx.getImageData(0, 0, 1, 1).data; // Sample top-left
-  if (data[3] < 10) return null; // Transparent
-  return { r: data[0], g: data[1], b: data[2], a: data[3] };
+  // Sample multiple edge regions to get a more reliable background color
+  const sampleSize = 3; // Sample 3x3 pixels in each corner
+  const samples: number[][] = [];
+  
+  // Sample four corners with a small region
+  const regions = [
+    [0, 0], // Top-left
+    [width - sampleSize, 0], // Top-right
+    [0, height - sampleSize], // Bottom-left
+    [width - sampleSize, height - sampleSize] // Bottom-right
+  ];
+  
+  for (const [x, y] of regions) {
+    try {
+      const imgData = ctx.getImageData(Math.max(0, x), Math.max(0, y), sampleSize, sampleSize);
+      for (let i = 0; i < imgData.data.length; i += 4) {
+        if (imgData.data[i + 3] > 200) { // Opaque pixel
+          samples.push([
+            imgData.data[i],     // R
+            imgData.data[i + 1], // G
+            imgData.data[i + 2], // B
+            imgData.data[i + 3]  // A
+          ]);
+        }
+      }
+    } catch (e) {
+      // Ignore out of bounds errors
+    }
+  }
+  
+  if (samples.length === 0) return null; // All transparent
+  
+  // Average the sampled colors for a more robust background
+  const avg = samples.reduce((acc, sample) => {
+    acc[0] += sample[0];
+    acc[1] += sample[1];
+    acc[2] += sample[2];
+    acc[3] += sample[3];
+    return acc;
+  }, [0, 0, 0, 0]);
+  
+  return { 
+    r: Math.round(avg[0] / samples.length), 
+    g: Math.round(avg[1] / samples.length), 
+    b: Math.round(avg[2] / samples.length), 
+    a: Math.round(avg[3] / samples.length) 
+  };
 }
 
 export const extractFrames = (
