@@ -23,7 +23,9 @@ import {
   ChevronDown,
   ZoomIn,
   ZoomOut,
-  Maximize2
+  Maximize2,
+  FileText,
+  Copy
 } from 'lucide-react';
 import { cn } from '../utils';
 import { extractFrames } from '../utils/imageUtils';
@@ -75,6 +77,11 @@ interface ResultViewProps {
   // Alignment handlers
   onAutoAlign?: (index: number) => void;
   onAlignAll?: () => void;
+  
+  // Generation metadata
+  generationPrompt?: string;
+  generationModel?: string;
+  generationCharacterDescription?: string;
 }
 
 export function ResultView({
@@ -109,7 +116,10 @@ export function ResultView({
   onDownloadGif,
   onRegenerate,
   onAutoAlign,
-  onAlignAll
+  onAlignAll,
+  generationPrompt = '',
+  generationModel = '',
+  generationCharacterDescription = ''
 }: ResultViewProps) {
   const [frames, setFrames] = useState<HTMLCanvasElement[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -124,6 +134,8 @@ export function ResultView({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [showPromptModal, setShowPromptModal] = useState(false);
+  const [copied, setCopied] = useState(false);
   const totalFrames = rows * cols;
 
   // Common editing prompts
@@ -304,6 +316,14 @@ export function ResultView({
     }
   };
 
+  const handleCopyPrompt = async () => {
+    if (generationPrompt) {
+      await navigator.clipboard.writeText(generationPrompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   const handleFrameClick = (frameNumber: number) => {
     const frameIndex = frameNumber - 1;
     if (onToggleFrameSelect) {
@@ -365,6 +385,16 @@ export function ResultView({
             <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Generation Complete</h3>
          </div>
          <div className="flex gap-2">
+           {generationPrompt && (
+             <button 
+               onClick={() => setShowPromptModal(true)}
+               className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-bold transition-colors shadow-lg shadow-purple-900/20"
+               title="View Generation Prompt"
+             >
+               <FileText className="w-4 h-4" />
+               <span>View Prompt</span>
+             </button>
+           )}
            <button 
              onClick={handleDownloadSheet}
              className="flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 text-sm font-bold transition-colors"
@@ -860,6 +890,117 @@ export function ResultView({
          </div>
 
       </div>
+
+      {/* Prompt Viewer Modal */}
+      <AnimatePresence>
+        {showPromptModal && generationPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowPromptModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-200 dark:border-slate-700"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Generation Details</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Exact prompt and model used for this sprite sheet
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowPromptModal(false)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                >
+                  <XCircle className="w-6 h-6 text-slate-500 dark:text-slate-400" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Model Info */}
+                <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wide mb-1">
+                        Model Used
+                      </p>
+                      <p className="text-lg font-mono font-bold text-purple-900 dark:text-purple-100">
+                        {generationModel || 'Not specified'}
+                      </p>
+                    </div>
+                    <div className="px-3 py-1 bg-purple-200 dark:bg-purple-800 rounded-lg">
+                      <Sparkles className="w-5 h-5 text-purple-700 dark:text-purple-300" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Character Description */}
+                {generationCharacterDescription && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide mb-2">
+                      Character Description
+                    </p>
+                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                      <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                        {generationCharacterDescription}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Full Prompt */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                      Full Prompt Sent to Gemini
+                    </p>
+                    <button
+                      onClick={handleCopyPrompt}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-700 dark:text-slate-300"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <div className="bg-slate-900 dark:bg-black rounded-lg p-4 border border-slate-700 overflow-x-auto">
+                    <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap break-words">
+                      {generationPrompt}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                <button
+                  onClick={() => setShowPromptModal(false)}
+                  className="px-6 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 font-semibold transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

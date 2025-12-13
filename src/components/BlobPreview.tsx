@@ -202,17 +202,108 @@ export const BlobPreview = ({
       <motion.div
         variants={bodyVariants}
         animate={activeAnim}
-        className="relative w-28 h-24"
+        className="relative w-28 h-24 z-10"
       >
+        {/* Magical Aura Effect while Generating - Renders BEHIND the blob */}
+        {isGenerating && (
+          <>
+            {/* Outer rotating rainbow ring */}
+            <motion.div 
+              animate={{ 
+                rotate: 360,
+                scale: [1, 1.1, 1]
+              }}
+              transition={{ 
+                rotate: { duration: 3, repeat: Infinity, ease: "linear" },
+                scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+              }}
+              className="absolute -inset-14 rounded-full blur-2xl -z-10"
+              style={{
+                background: 'conic-gradient(from 0deg, #ff0080, #ff8800, #ffff00, #00ff88, #0088ff, #8800ff, #ff0080)'
+              }}
+            />
+            
+            {/* Middle counter-rotating ring */}
+            <motion.div 
+              animate={{ 
+                rotate: -360,
+                opacity: [0.6, 1, 0.6]
+              }}
+              transition={{ 
+                rotate: { duration: 2, repeat: Infinity, ease: "linear" },
+                opacity: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+              }}
+              className="absolute -inset-12 rounded-full blur-xl -z-10"
+              style={{
+                background: 'conic-gradient(from 180deg, #a855f7, #ec4899, #f59e0b, #10b981, #3b82f6, #8b5cf6, #a855f7)'
+              }}
+            />
+            
+            {/* Inner fast-spinning bright ring */}
+            <motion.div 
+              animate={{ 
+                rotate: 360,
+                scale: [0.9, 1.2, 0.9]
+              }}
+              transition={{ 
+                rotate: { duration: 1.5, repeat: Infinity, ease: "linear" },
+                scale: { duration: 1, repeat: Infinity, ease: "easeInOut" }
+              }}
+              className="absolute -inset-10 rounded-full blur-lg -z-10"
+              style={{
+                background: 'conic-gradient(from 90deg, #fbbf24, #f472b6, #60a5fa, #34d399, #fbbf24)'
+              }}
+            />
+            
+            {/* Pulsing glow base */}
+            <motion.div 
+              animate={{ 
+                opacity: [0.3, 0.6, 0.3],
+                scale: [1.2, 1.4, 1.2]
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity, 
+                ease: "easeInOut" 
+              }}
+              className="absolute -inset-8 bg-gradient-to-r from-violet-500/40 via-fuchsia-500/40 to-cyan-500/40 rounded-full blur-2xl -z-10"
+            />
+            
+            {/* Sparkle particles - above aura but can be behind blob */}
+            {[...Array(6)].map((_, i) => (
+              <motion.div
+                key={i}
+                animate={{
+                  scale: [0, 1, 0],
+                  opacity: [0, 1, 0],
+                  rotate: 360
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  delay: i * 0.3,
+                  ease: "easeInOut"
+                }}
+                className="absolute w-2 h-2 rounded-full bg-white z-0"
+                style={{
+                  left: `${50 + 40 * Math.cos((i * Math.PI * 2) / 6)}%`,
+                  top: `${50 + 40 * Math.sin((i * Math.PI * 2) / 6)}%`,
+                  boxShadow: '0 0 10px rgba(255, 255, 255, 0.8)'
+                }}
+              />
+            ))}
+          </>
+        )}
+
         {/* Shadow - Hide if transparent */}
         {!isTransparent && (
-          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-16 h-4 bg-black/20 dark:bg-black/40 blur-md rounded-full" />
+          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-16 h-4 bg-black/20 dark:bg-black/40 blur-md rounded-full z-0" />
         )}
         
-        {/* Body */}
+        {/* Body - On top of everything */}
         <div className={cn(
           "w-full h-full shadow-[inset_-10px_-10px_20px_rgba(0,0,0,0.1),inset_10px_10px_20px_rgba(255,255,255,0.4)] dark:shadow-[inset_-10px_-10px_20px_rgba(0,0,0,0.2),inset_10px_10px_20px_rgba(255,255,255,0.2)]",
-          "bg-gradient-to-br from-orange-300 to-sky-500 dark:from-orange-400 dark:to-sky-600 flex items-center justify-center relative backdrop-blur-md transition-all duration-500"
+          "bg-gradient-to-br from-orange-300 to-sky-500 dark:from-orange-400 dark:to-sky-600 flex items-center justify-center relative backdrop-blur-md transition-all duration-500 z-20"
         )}
         style={{
           borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%" 
@@ -222,7 +313,7 @@ export const BlobPreview = ({
           <div className="absolute top-4 left-5 w-6 h-4 bg-white/60 dark:bg-white/40 rounded-[50%] blur-sm rotate-[-20deg]" />
           
           {/* Face Container */}
-          <div className="relative w-16 h-12">
+          <div className="relative w-16 h-12 z-30">
             {renderFace()}
           </div>
         </div>
@@ -232,16 +323,7 @@ export const BlobPreview = ({
           <motion.div 
             animate={{ rotate: 360, scale: [1, 1.5, 1] }}
             transition={{ repeat: Infinity, duration: 2 }}
-            className="absolute -inset-4 border-2 border-dashed border-yellow-400/50 dark:border-yellow-300/50 rounded-full"
-          />
-        )}
-        
-        {/* Generating Animation Effect */}
-        {isGenerating && (
-          <motion.div 
-            animate={{ opacity: [0, 1, 0], scale: [0.8, 1.2, 1.5] }}
-            transition={{ duration: 0.5, repeat: Infinity }}
-            className="absolute -inset-10 bg-gradient-to-r from-orange-500/20 to-sky-500/20 rounded-full blur-xl"
+            className="absolute -inset-4 border-2 border-dashed border-yellow-400/50 dark:border-yellow-300/50 rounded-full z-0"
           />
         )}
       </motion.div>
