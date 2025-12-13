@@ -523,7 +523,7 @@ export function ResultView({
                              setShowQuickPrompts(!showQuickPrompts);
                            }}
                            disabled={isEditing}
-                           className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+                           className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
                            title="Quick Edit Prompts"
                          >
                            <Wand2 className="w-4 h-4" />
@@ -542,7 +542,7 @@ export function ResultView({
                                    setEditPrompt(prompt);
                                    setShowQuickPrompts(false);
                                  }}
-                                 className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-b-0"
+                                 className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-b-0 first:rounded-t-lg last:rounded-b-lg"
                                >
                                  {prompt}
                                </button>
@@ -554,13 +554,13 @@ export function ResultView({
                      <button 
                        onClick={handleSubmitEdit}
                        disabled={!editPrompt.trim() || isEditing}
-                       className="p-2 rounded-lg transition-colors disabled:opacity-50 text-white bg-orange-600 hover:bg-orange-500 disabled:cursor-not-allowed"
+                       className="p-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                      >
                        <Check className="w-4 h-4" />
                      </button>
                      <button 
                        onClick={() => setShowEditBar(false)}
-                       className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white p-2 rounded-lg transition-colors"
+                       className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                      >
                        <XCircle className="w-4 h-4" />
                      </button>
@@ -577,12 +577,14 @@ export function ResultView({
 
                {/* Sprite Sheet Container with Grid Overlay */}
                <div 
-                 className="flex-1 overflow-auto p-8 flex items-center justify-center relative"
+                 className={cn(
+                   "flex-1 overflow-auto p-8 flex items-center justify-center relative",
+                   isPanning ? 'cursor-grabbing' : (zoom !== 1 ? 'cursor-grab' : 'cursor-default')
+                 )}
                  onMouseDown={handleMouseDown}
                  onMouseMove={handleMouseMove}
                  onMouseUp={handleMouseUp}
                  onMouseLeave={handleMouseUp}
-                 className={isPanning ? 'cursor-grabbing' : (zoom !== 1 ? 'cursor-grab' : 'cursor-default')}
                >
                  {/* Checkerboard background */}
                  <div className="absolute inset-0 opacity-[0.05] pointer-events-none bg-[linear-gradient(45deg,#000000_25%,transparent_25%,transparent_75%,#000000_75%,#000000),linear-gradient(45deg,#000000_25%,transparent_25%,transparent_75%,#000000_75%,#000000)] bg-[length:20px_20px] bg-[position:0_0,10px_10px]" />
@@ -804,7 +806,7 @@ export function ResultView({
                         setIsPlaying(!isPlaying);
                       }
                     }}
-                    className={cn("flex items-center gap-2", selectedFrame ? "cursor-pointer hover:text-orange-400" : "cursor-pointer")}
+                    className={cn("flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-white/10 transition-colors", selectedFrame ? "cursor-pointer hover:text-orange-400" : "cursor-pointer")}
                     title={selectedFrame ? "Click to return to animation preview" : isPlaying ? "Pause" : "Play"}
                   >
                      {selectedFrame ? (
