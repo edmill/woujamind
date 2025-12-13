@@ -178,3 +178,4 @@ Potential enhancements if issues persist:
 **Files Modified**: 3 (geminiService.ts, imageUtils.ts, Component.tsx)  
 **Lines Changed**: ~250 lines (additions + modifications)
 
+

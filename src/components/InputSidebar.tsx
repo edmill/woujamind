@@ -85,7 +85,7 @@ export function InputSidebar({
   const [showImagePreview, setShowImagePreview] = React.useState(false);
 
   return (
-    <AnimatePresence initial={false} mode="sync">
+    <AnimatePresence mode="sync">
       {/* Full Screen Image Preview Modal */}
       {showImagePreview && filePreview && (
         <motion.div
@@ -122,9 +122,9 @@ export function InputSidebar({
       )}
 
       {!result && (
-        <motion.div 
+        <motion.div
           key="sidebar"
-          initial={{ width: isDesktop ? 450 : '100%', opacity: 1 }}
+          initial={false}
           animate={{ width: isDesktop ? 450 : '100%', opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ duration: 0.5, ease: "easeInOut" }}
@@ -290,13 +290,13 @@ export function InputSidebar({
                   </h2>
               </div>
 
-              <div className="bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl border border-slate-200 dark:border-slate-800 flex gap-1">
+              <div className="bg-slate-100 dark:bg-slate-900/50 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 flex gap-1.5">
                   <button
                     onClick={() => setTabMode('action')}
                     className={cn(
                       "flex-1 py-2.5 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all",
-                      tabMode === 'action' 
-                        ? "bg-white dark:bg-orange-600 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0" 
+                      tabMode === 'action'
+                        ? "bg-white dark:bg-orange-600 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0"
                         : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
                     )}
                   >
@@ -307,8 +307,8 @@ export function InputSidebar({
                     onClick={() => setTabMode('expression')}
                     className={cn(
                       "flex-1 py-2.5 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all",
-                      tabMode === 'expression' 
-                        ? "bg-white dark:bg-orange-600 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0" 
+                      tabMode === 'expression'
+                        ? "bg-white dark:bg-orange-600 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0"
                         : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
                     )}
                   >
