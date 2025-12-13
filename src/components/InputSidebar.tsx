@@ -18,6 +18,8 @@ import {
 import { cn } from '../utils';
 import { ART_STYLES, ACTIONS, EXPRESSIONS } from '../constants';
 import { ArtStyle, TabMode, ActionType, ExpressionType } from '../types';
+import { PromptHelper } from './PromptHelper';
+import { PromptEnhancer } from './PromptEnhancer';
 
 interface InputSidebarProps {
   isDesktop: boolean;
@@ -126,18 +128,22 @@ export function InputSidebar({
           animate={{ width: isDesktop ? 450 : '100%', opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ duration: 0.5, ease: "easeInOut" }}
-          className="flex-shrink-0 flex flex-col h-full"
+          className="flex-shrink-0 flex flex-col h-full overflow-visible"
         >
-          <div className="flex flex-col h-full pr-4 lg:pr-8">
+          <div className="flex flex-col h-full pr-4 lg:pr-8 overflow-visible">
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto space-y-8 px-5 py-6 sprite-scroll -mr-4 pr-4">
+            <div className="flex-1 overflow-y-auto overflow-x-visible space-y-8 px-5 py-6 sprite-scroll -mr-4 pr-4">
             {/* 1. Prompt & Image Input */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
+            <section className="space-y-4 overflow-visible">
+              <div className="flex items-center justify-between relative">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">1</span>
                   Character Concept
                 </h2>
+                <PromptHelper 
+                  onSelectPrompt={setPrompt}
+                  currentPrompt={prompt}
+                />
               </div>
 
               <div className="relative group">
@@ -147,10 +153,10 @@ export function InputSidebar({
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     placeholder="Describe your character or changes to a referenced image."
-                    className="w-full h-24 bg-transparent text-lg p-4 focus:outline-none resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-200"
+                    className="w-full h-24 bg-transparent text-sm p-4 focus:outline-none resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-200"
                   />
                   
-                  {/* Image Attachment Bar */}
+                  {/* Image Attachment & Enhancement Bar */}
                   <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 rounded-b-xl">
                     <div className="flex items-center gap-3">
                       <input 
@@ -198,8 +204,15 @@ export function InputSidebar({
                         </div>
                       )}
                     </div>
-                    <div className="text-xs text-slate-400 dark:text-slate-600 font-mono">
-                      {prompt.length} chars
+                    <div className="flex items-center gap-3">
+                      <PromptEnhancer 
+                        currentPrompt={prompt}
+                        onEnhance={setPrompt}
+                        disabled={!prompt.trim()}
+                      />
+                      <div className="text-xs text-slate-400 dark:text-slate-600 font-mono">
+                        {prompt.length} chars
+                      </div>
                     </div>
                   </div>
                 </div>
