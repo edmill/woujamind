@@ -565,13 +565,6 @@ export function ResultView({
                        <XCircle className="w-4 h-4" />
                      </button>
                    </div>
-                   {selectedFrameIndices.length === 1 && (
-                     <div className="flex justify-between items-center mt-1 ml-2">
-                       <div className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">
-                         Editing Single Frame Mode (AI)
-                       </div>
-                     </div>
-                   )}
                  </div>
                )}
 
@@ -656,12 +649,36 @@ export function ResultView({
                              {/* Loading Indicator for Frame Being Edited */}
                              {isBeingEdited && (
                                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px]">
-                                 <div className="flex flex-col items-center gap-2">
-                                   <div className="relative">
-                                     <div className="w-8 h-8 border-3 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
-                                     <Wand2 className="w-4 h-4 text-orange-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+                                 <div className="flex flex-col items-center gap-3">
+                                   <div className="relative w-16 h-16">
+                                     {/* Outer glow */}
+                                     <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-orange-500/20 animate-pulse" />
+
+                                     {/* Spinning rings */}
+                                     <div className="absolute inset-2 border-2 border-purple-500/40 border-t-purple-500 rounded-full animate-spin" style={{ animationDuration: '1.5s' }} />
+                                     <div className="absolute inset-4 border-2 border-pink-500/40 border-t-pink-500 rounded-full animate-spin" style={{ animationDuration: '1s', animationDirection: 'reverse' }} />
+
+                                     {/* Magic particles */}
+                                     <div className="absolute inset-0">
+                                       {[...Array(6)].map((_, i) => (
+                                         <div
+                                           key={i}
+                                           className="absolute w-1 h-1 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full animate-ping"
+                                           style={{
+                                             top: '50%',
+                                             left: '50%',
+                                             animationDelay: `${i * 0.2}s`,
+                                             animationDuration: '1.5s',
+                                             transform: `rotate(${i * 60}deg) translateY(-20px)`
+                                           }}
+                                         />
+                                       ))}
+                                     </div>
+
+                                     {/* Center wand */}
+                                     <Wand2 className="w-6 h-6 text-white drop-shadow-[0_0_8px_rgba(168,85,247,0.8)] animate-pulse absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                                    </div>
-                                   <span className="text-[9px] font-bold text-white uppercase tracking-wide">AI Editing</span>
+                                   <span className="text-[10px] font-bold text-white uppercase tracking-wider drop-shadow-lg">AI Editing</span>
                                  </div>
                                </div>
                              )}
@@ -797,8 +814,8 @@ export function ResultView({
                  )}
                </motion.div>
 
-               <div className="absolute bottom-4 z-20 flex items-center gap-2 px-3 py-1.5 bg-black/50 backdrop-blur-md rounded-full text-white text-xs font-mono group/fps-control transition-all hover:bg-black/70 hover:px-4">
-                  <button 
+               <div className="absolute bottom-4 z-20 flex items-center gap-3 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full text-white text-xs font-mono group/fps-control transition-all hover:bg-black/80">
+                  <button
                     onClick={() => {
                       if (selectedFrame) {
                         setSelectedFrame(null);
@@ -806,7 +823,7 @@ export function ResultView({
                         setIsPlaying(!isPlaying);
                       }
                     }}
-                    className={cn("flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-white/10 transition-colors", selectedFrame ? "cursor-pointer hover:text-orange-400" : "cursor-pointer")}
+                    className={cn("flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-white/20 transition-colors flex-shrink-0", selectedFrame ? "cursor-pointer hover:text-orange-400" : "cursor-pointer")}
                     title={selectedFrame ? "Click to return to animation preview" : isPlaying ? "Pause" : "Play"}
                   >
                      {selectedFrame ? (
@@ -815,8 +832,8 @@ export function ResultView({
                         <Play className={cn("w-3 h-3", isPlaying && "fill-current")} />
                      )}
                   </button>
-                  
-                  <div className="flex items-center gap-2">
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="min-w-[40px] text-center">{fps} FPS</span>
                       <input
                         type="range"
@@ -824,7 +841,7 @@ export function ResultView({
                         max="24"
                         value={fps}
                         onChange={(e) => setFps(parseInt(e.target.value))}
-                        className="w-0 group-hover/fps-control:w-24 transition-all duration-300 h-1 bg-white/30 rounded-full appearance-none cursor-pointer accent-orange-500"
+                        className="w-20 opacity-40 group-hover/fps-control:opacity-100 group-hover/fps-control:w-24 transition-all duration-200 h-1 bg-white/30 rounded-full appearance-none cursor-pointer accent-orange-500"
                       />
                   </div>
                </div>
