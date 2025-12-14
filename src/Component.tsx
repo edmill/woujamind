@@ -422,31 +422,49 @@ export default function SpriteMagic() {
         // SINGLE FRAME EDIT MODE
         const targetIndex = selectedFrameIndices[0];
         setStatusText(`Refining Frame ${targetIndex + 1}...`);
-        
+
         // 1. Crop
         const croppedFrame = await cropFrame(generatedImage, targetIndex, gridRows, gridCols);
-        
+
         // 2. Edit
         const modelId = 'gemini-3-pro-image-preview';
         const editedFrame = await editSpriteSheet(croppedFrame, trimmedPrompt, modelId);
-        
+
         // 3. Paste
         const updatedSheet = await pasteFrame(generatedImage, editedFrame, targetIndex, gridRows, gridCols);
-        
+
         pushToHistory(updatedSheet);
         toast.success(`Frame ${targetIndex + 1} edited successfully!`);
+      } else if (selectedFrameIndices.length > 1) {
+        // MULTI-FRAME BATCH EDIT MODE
+        setStatusText(`Editing ${selectedFrameIndices.length} selected frames...`);
+        const modelId = 'gemini-3-pro-image-preview';
+        let currentSheet = generatedImage;
+
+        // Edit each selected frame sequentially
+        for (let i = 0; i < selectedFrameIndices.length; i++) {
+          const frameIndex = selectedFrameIndices[i];
+          setStatusText(`Editing frame ${frameIndex + 1} (${i + 1}/${selectedFrameIndices.length})...`);
+
+          const croppedFrame = await cropFrame(currentSheet, frameIndex, gridRows, gridCols);
+          const editedFrame = await editSpriteSheet(croppedFrame, trimmedPrompt, modelId);
+          currentSheet = await pasteFrame(currentSheet, editedFrame, frameIndex, gridRows, gridCols);
+        }
+
+        pushToHistory(currentSheet);
+        toast.success(`${selectedFrameIndices.length} frames edited successfully!`);
       } else {
-        // FULL SHEET EDIT MODE
+        // FULL SHEET EDIT MODE (no frames selected)
         setStatusText("Refining Sheet...");
         const modelId = 'gemini-3-pro-image-preview';
         const rawEdited = await editSpriteSheet(generatedImage, trimmedPrompt, modelId);
-        
+
         // Post-process edited sheet too
         setStatusText("Cleaning edited sheet...");
         const { cleaned, hadIssues, issues } = await cleanSpriteSheet(rawEdited, gridRows, gridCols);
-        
+
         pushToHistory(cleaned);
-        
+
         if (hadIssues && issues.length > 0) {
           toast.success(`Sheet edited! Fixed: ${issues.join(', ')}`);
         } else {

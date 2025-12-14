@@ -1,11 +1,13 @@
 /**
  * PromptEnhancer Component
- * AI button to enhance and optimize user prompts for better results
+ * AI-powered button to enhance and optimize user prompts for better results
  */
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Wand2, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '../utils';
+import { enhancePrompt } from '../services/geminiService';
 
 interface PromptEnhancerProps {
   currentPrompt: string;
@@ -18,53 +20,20 @@ export function PromptEnhancer({ currentPrompt, onEnhance, disabled }: PromptEnh
 
   const handleEnhance = async () => {
     if (!currentPrompt.trim() || disabled) return;
-    
+
     setIsEnhancing(true);
-    
-    // NOTE: This is CLIENT-SIDE enhancement only
-    // It adds professional sprite art keywords using local JavaScript logic
-    // To use AI (Gemini), you would call your geminiService here
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const enhanced = enhancePrompt(currentPrompt);
-    onEnhance(enhanced);
-    
-    setIsEnhancing(false);
-  };
 
-  const enhancePrompt = (prompt: string): string => {
-    // CLIENT-SIDE ENHANCEMENT LOGIC
-    // This adds professional game sprite terminology to simple prompts
-    // Does NOT call any AI model - purely string manipulation
-    
-    // Skip if already enhanced
-    if (prompt.toLowerCase().includes('front-facing') || 
-        prompt.toLowerCase().includes('sprite') ||
-        prompt.length > 200) {
-      return prompt;
+    try {
+      // Use AI-powered enhancement via Gemini 2.5 Flash
+      const enhanced = await enhancePrompt(currentPrompt);
+      onEnhance(enhanced);
+      toast.success("Prompt enhanced with AI!");
+    } catch (error) {
+      console.error('Enhancement failed:', error);
+      toast.error("Enhancement failed. Please try again.");
+    } finally {
+      setIsEnhancing(false);
     }
-
-    // Professional sprite art keywords
-    const enhancements = [
-      'front-facing view',
-      'clean sprite art style',
-      'sharp details',
-      'high contrast lighting',
-      'game-ready asset'
-    ];
-
-    let enhanced = prompt.trim();
-    
-    // Ensure "character" or "creature" is specified
-    if (!enhanced.toLowerCase().includes('character') && 
-        !enhanced.toLowerCase().includes('creature')) {
-      enhanced = `A ${enhanced} character`;
-    }
-    
-    // Build enhanced prompt with professional keywords
-    enhanced = `${enhanced}, ${enhancements[0]}, ${enhancements[1]}, ${enhancements[2]}, ${enhancements[3]}, ${enhancements[4]}`;
-    
-    return enhanced;
   };
 
   return (
@@ -77,7 +46,7 @@ export function PromptEnhancer({ currentPrompt, onEnhance, disabled }: PromptEnh
         "flex items-center justify-center w-8 h-8 rounded-lg transition-all",
         disabled || !currentPrompt.trim() || isEnhancing
           ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
-          : "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/30"
+          : "bg-gradient-to-r from-orange-500 to-sky-500 text-white hover:shadow-lg hover:shadow-orange-500/30"
       )}
       title="Enhance prompt with professional sprite art keywords"
     >
