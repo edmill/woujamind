@@ -398,45 +398,67 @@ export default function SpriteMagic() {
 
   const handleEditSpriteSheet = async (prompt: string) => {
     if (!generatedImage) return;
-    
+
     // Validate prompt
     const trimmedPrompt = prompt.trim();
     if (!trimmedPrompt) {
       toast.error("Please enter an edit prompt");
       return;
     }
-    
+
     // Warn about potentially destructive prompts
     const destructiveKeywords = ['remove', 'delete', 'erase', 'clear', 'blank'];
     const lowerPrompt = trimmedPrompt.toLowerCase();
     const hasDestructive = destructiveKeywords.some(kw => lowerPrompt.includes(kw));
-    
+
     if (hasDestructive && lowerPrompt.includes('sprite')) {
       toast.error("Cannot remove sprites from sprite sheet. Try 'clean up sprite' or 'improve sprite' instead.");
       return;
     }
-    
+
+    console.log('=== FRAME EDIT STARTED ===');
+    console.log('Edit prompt:', trimmedPrompt);
+    console.log('Selected frame indices:', selectedFrameIndices);
+    console.log('Grid configuration:', { rows: gridRows, cols: gridCols });
+    console.log('Total frames:', gridRows * gridCols);
+
     setIsEditing(true);
     try {
       if (selectedFrameIndices.length === 1) {
         // SINGLE FRAME EDIT MODE
         const targetIndex = selectedFrameIndices[0];
+        console.log('--- SINGLE FRAME EDIT MODE ---');
+        console.log('Editing frame index:', targetIndex);
+        console.log('Frame number (1-based):', targetIndex + 1);
         setStatusText(`Refining Frame ${targetIndex + 1}...`);
 
         // 1. Crop
+        console.log('Step 1: Cropping frame...');
         const croppedFrame = await cropFrame(generatedImage, targetIndex, gridRows, gridCols);
+        console.log('Cropped frame data URL length:', croppedFrame.length);
 
         // 2. Edit
         const modelId = 'gemini-3-pro-image-preview';
+        console.log('Step 2: Editing with AI...');
+        console.log('Model:', modelId);
+        console.log('Edit prompt being sent:', trimmedPrompt);
         const editedFrame = await editSpriteSheet(croppedFrame, trimmedPrompt, modelId);
+        console.log('Edited frame data URL length:', editedFrame.length);
 
         // 3. Paste
+        console.log('Step 3: Pasting edited frame back...');
+        console.log('Pasting to frame index:', targetIndex);
         const updatedSheet = await pasteFrame(generatedImage, editedFrame, targetIndex, gridRows, gridCols);
+        console.log('Updated sheet data URL length:', updatedSheet.length);
 
         pushToHistory(updatedSheet);
+        console.log('=== SINGLE FRAME EDIT COMPLETED ===');
         toast.success(`Frame ${targetIndex + 1} edited successfully!`);
       } else if (selectedFrameIndices.length > 1) {
         // MULTI-FRAME BATCH EDIT MODE
+        console.log('--- MULTI-FRAME BATCH EDIT MODE ---');
+        console.log('Number of frames to edit:', selectedFrameIndices.length);
+        console.log('Frame indices:', selectedFrameIndices);
         setStatusText(`Editing ${selectedFrameIndices.length} selected frames...`);
         const modelId = 'gemini-3-pro-image-preview';
         let currentSheet = generatedImage;
@@ -444,26 +466,40 @@ export default function SpriteMagic() {
         // Edit each selected frame sequentially
         for (let i = 0; i < selectedFrameIndices.length; i++) {
           const frameIndex = selectedFrameIndices[i];
+          console.log(`Processing frame ${i + 1}/${selectedFrameIndices.length}:`, frameIndex);
           setStatusText(`Editing frame ${frameIndex + 1} (${i + 1}/${selectedFrameIndices.length})...`);
 
+          console.log('  Cropping frame:', frameIndex);
           const croppedFrame = await cropFrame(currentSheet, frameIndex, gridRows, gridCols);
+          console.log('  Editing with prompt:', trimmedPrompt);
           const editedFrame = await editSpriteSheet(croppedFrame, trimmedPrompt, modelId);
+          console.log('  Pasting back to frame:', frameIndex);
           currentSheet = await pasteFrame(currentSheet, editedFrame, frameIndex, gridRows, gridCols);
+          console.log('  Frame', frameIndex, 'completed');
         }
 
         pushToHistory(currentSheet);
+        console.log('=== MULTI-FRAME EDIT COMPLETED ===');
         toast.success(`${selectedFrameIndices.length} frames edited successfully!`);
       } else {
         // FULL SHEET EDIT MODE (no frames selected)
+        console.log('--- FULL SHEET EDIT MODE ---');
+        console.log('Editing entire sprite sheet');
         setStatusText("Refining Sheet...");
         const modelId = 'gemini-3-pro-image-preview';
+        console.log('Model:', modelId);
+        console.log('Edit prompt being sent:', trimmedPrompt);
         const rawEdited = await editSpriteSheet(generatedImage, trimmedPrompt, modelId);
+        console.log('Raw edited sheet data URL length:', rawEdited.length);
 
         // Post-process edited sheet too
         setStatusText("Cleaning edited sheet...");
+        console.log('Cleaning sprite sheet...');
         const { cleaned, hadIssues, issues } = await cleanSpriteSheet(rawEdited, gridRows, gridCols);
+        console.log('Cleaning results:', { hadIssues, issues });
 
         pushToHistory(cleaned);
+        console.log('=== FULL SHEET EDIT COMPLETED ===');
 
         if (hadIssues && issues.length > 0) {
           toast.success(`Sheet edited! Fixed: ${issues.join(', ')}`);
@@ -472,11 +508,15 @@ export default function SpriteMagic() {
         }
       }
     } catch (error: any) {
-      console.error("Edit failed:", error);
+      console.error('=== EDIT FAILED ===');
+      console.error("Error details:", error);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
       toast.error(error.message || "Edit failed. Please try again.");
     } finally {
       setIsEditing(false);
       setStatusText("");
+      console.log('Edit process finished, isEditing set to false');
     }
   };
 
@@ -766,6 +806,8 @@ export default function SpriteMagic() {
                       generationPrompt={generationPrompt}
                       generationModel={generationModel}
                       generationCharacterDescription={generationCharacterDescription}
+                      selectedArtStyle={selectedArtStyle}
+                      onArtStyleChange={setSelectedArtStyle}
                    />
                  )}
               </AnimatePresence>
