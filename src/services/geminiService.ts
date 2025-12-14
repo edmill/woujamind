@@ -101,13 +101,14 @@ const STYLE_MAP: Record<string, string> = {
   'inherited': '', // Will use the image's existing style
 };
 
-const DEFAULT_SYSTEM_RULES = `1. INVISIBLE GRID: The grid layout is strictly mathematical. Do NOT draw visible grid lines, boxes, borders, or separators.
-2. SOLID BACKGROUND: Use PURE WHITE (#FFFFFF) or magenta (#FF00FF) background ONLY. Absolutely NO black backgrounds. Do not draw scenery or ground lines.
-3. NO TEXT/NUMBERS: Do NOT add frame numbers, labels, or annotations of any kind.
-4. CHARACTER CONSISTENCY: The character must be pixel-perfect identical in every frame.
-5. CENTERED: Center the character in every cell.
-6. FULL BODY: Ensure the entire character fits within the cell.
-7. USE FULL CANVAS: Fill the grid cells appropriately, do not leave excessive whitespace.`;
+const DEFAULT_SYSTEM_RULES = `PERSONA: You are a master game artist and technical animator specializing in production-ready sprite sheets for professional 2D game development. You understand the precise technical requirements for game engine integration and prioritize pixel-perfect consistency and clean composition.
+
+QUALITY STANDARDS:
+• Invisible grid structure - mathematical spacing only, zero visible borders or separators
+• Pixel-perfect consistency - exact character dimensions, proportions, and colors across every frame
+• Professional-grade composition - optimal padding, perfect centering, complete character visibility
+• Production-ready output - pristine white backgrounds (#FFFFFF), zero artifacts or annotations
+• Enhanced detail - leverage advanced model capabilities for superior sprite quality and animation smoothness`;
 
 /**
  * Return type for sprite sheet generation
@@ -131,16 +132,19 @@ export const generateSpriteSheet = async (
   userPrompt: string,
   rows: number = 2,
   cols: number = 4,
-  modelId: string = 'gemini-2.5-flash-image',
+  modelId: string = 'gemini-3-pro-image-preview',
   customRules?: string
 ): Promise<SpriteSheetResult> => {
   // If no custom rules provided, load from localStorage based on model
   if (!customRules && typeof window !== 'undefined') {
-    const key = modelId.includes('3.0') ? 'sprite_magic_gemini_30_rules' : 'sprite_magic_gemini_25_rules';
+    const key = (modelId.includes('3') || modelId.includes('pro')) ? 'sprite_magic_gemini_30_rules' : 'sprite_magic_gemini_25_rules';
     customRules = localStorage.getItem(key) || DEFAULT_SYSTEM_RULES;
   } else if (!customRules) {
     customRules = DEFAULT_SYSTEM_RULES;
   }
+
+  console.log(`[SpriteMagic] Using model: ${modelId}`);
+  console.log(`[SpriteMagic] Custom rules (first 100 chars):`, customRules?.substring(0, 100));
   try {
     const ai = await getClient();
     
@@ -177,40 +181,53 @@ export const generateSpriteSheet = async (
       (Math.abs(curr.val - targetRatio) < Math.abs(prev.val - targetRatio) ? curr : prev)
     ).id;
 
-    // Build the prompt
-    const prompt = `
-      You are an expert game artist creating a specialized Sprite Sheet with an INVISIBLE GRID LAYOUT.
-      
-      STRICT GRID SPECIFICATION:
-      - The output MUST be a precise grid of exactly ${rows} ROWS and ${cols} COLUMNS.
-      - TOTAL FRAMES: ${totalFrames}.
-      - You MUST fill EVERY cell in the grid with a sprite. Do not leave any empty cells or partial rows.
-      - COMPOSITION: Draw exactly ONE character centered in EACH grid cell.
-      - SPACING: Each sprite should have adequate padding from the edges of its cell (at least 10% on all sides).
-      
-      CHARACTER DESIGN:
-      - Description: ${characterDescription}
-      ${stylePrompt ? `- Style: ${stylePrompt}` : '- Style: Match the reference image style exactly'}
-      - CONSISTENCY: The character must look identical in every frame (same size, colors, proportions, position).
-      - CENTERING: Each character must be perfectly centered horizontally and positioned consistently vertically in its grid cell.
-      
-      ANIMATION TASKS:
-      ${actionInstructions}
-      
-      CRITICAL RESTRICTIONS (DO NOT IGNORE):
-      1. INVISIBLE GRID ONLY: The grid layout is purely mathematical - like a checkerboard pattern. NEVER draw visible grid lines, cell borders, boxes, dividing lines, or frame separators. The grid exists only as a spacing guide.
-      2. CLEAN WHITE BACKGROUND ONLY: The background MUST be solid PURE WHITE (#FFFFFF). Do NOT use magenta, pink, gray, black, or any other color. The entire background must be uniform white with NO variations, ground lines, floors, shadows, or scenery.
-      3. NO CELL BORDERS: Do NOT draw outlines, boxes, or borders around individual sprites or grid cells.
-      4. NO PROPS OR SCENERY: Do NOT draw environment objects like ladders, boxes, platforms, or background elements.
-      5. PANTOMIME RULE: If the action involves an object (e.g. climbing, hitting), the character must PANTOMIME the action in thin air.
-      6. NO PROJECTILES: Do NOT draw fireballs, bullets, or magic spells leaving the character's hand that would cross into other grid cells.
-      7. NO CONNECTING PIXELS: Each sprite is completely isolated. Do NOT draw horizontal bars, ropes, lines, or any elements that connect multiple frames together.
-      8. CONSISTENT SIZING: All characters must be the exact same size across all frames - only pose/animation should change.
-      
-      ${customRules}
-    `;
+    // Build the prompt - optimized for Gemini 3 Pro Image
+    const prompt = `${customRules}
 
-    console.log(`Generating ${rows}x${cols} sheet. AR: ${bestRatio}. Model: ${modelId}`);
+TASK: Create a ${rows}x${cols} sprite sheet (${totalFrames} frames total) for game animation.
+
+CHARACTER: ${characterDescription}
+${stylePrompt ? `STYLE: ${stylePrompt}` : 'STYLE: Match the reference image style exactly'}
+
+ANIMATION: ${action.label} - ${action.prompt}${expressionId !== 'neutral' ? `\nEXPRESSION: ${expressionId}` : ''}
+
+CRITICAL: Each of the ${totalFrames} frames MUST show a DIFFERENT pose/position in the animation sequence.
+Frame 1: Starting pose
+Frame 2: Different pose (progressed in the animation)
+Frame 3: Different pose (further progressed)
+Frame 4: Different pose (continuing the cycle)
+Frame 5: Different pose (mid-cycle)
+Frame 6: Different pose (continuing)
+Frame 7: Different pose (almost complete)
+Frame 8: Different pose (completing the loop back to frame 1)
+
+DO NOT create ${totalFrames} identical copies - each frame must show clear visual progression through the ${action.label} animation.
+
+LAYOUT REQUIREMENTS:
+• Arrange sprites in an invisible ${rows}x${cols} grid (mathematical spacing only)
+• Each character centered in its cell with consistent positioning
+• All sprites identical in size, only pose/animation varies
+• Characters animate in-place like a treadmill - no horizontal movement
+• 10% padding minimum from cell edges
+
+COMPOSITION RULES:
+• Pure white background (#FFFFFF) - no scenery, ground, or shadows
+• No visible grid lines, borders, or cell separators
+• No frame numbers, labels, or text annotations
+• Each sprite completely isolated - no connecting elements between cells
+• If action involves objects, character pantomimes in empty space
+• No projectiles or effects extending beyond the character
+• Full character body visible in every frame
+
+OUTPUT: ${totalFrames} clean, consistent animation frames in a ${rows}x${cols} invisible grid layout.`;
+
+    console.log(`[Generate] ===== STARTING GENERATION =====`);
+    console.log(`[Generate] Grid: ${rows}x${cols}, AR: ${bestRatio}, Model: ${modelId}`);
+    console.log(`[Generate] Art Style: ${artStyleId} -> "${stylePrompt?.substring(0, 50)}..."`);
+    console.log(`[Generate] Action: ${actionId} -> ${action.label}`);
+    console.log(`[Generate] Character: "${characterDescription?.substring(0, 100)}..."`);
+    console.log(`[Generate] Has reference image: ${!!imageBase64}`);
+    console.log(`[Generate] Full prompt (first 300 chars):\n`, prompt.substring(0, 300));
 
     const imageConfig: any = { aspectRatio: bestRatio };
     if (modelId.includes('pro')) imageConfig.imageSize = "2K";
@@ -219,13 +236,16 @@ export const generateSpriteSheet = async (
     if (imageBase64) {
       const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
       contents.push({ inlineData: { mimeType: 'image/png', data: cleanBase64 } });
+      console.log(`[Generate] Reference image size: ${cleanBase64.length} chars`);
     }
 
+    console.log(`[Generate] Calling API with model: ${modelId}`);
     const response = await ai.models.generateContent({
       model: modelId,
       contents: { parts: contents },
       config: { imageConfig }
     });
+    console.log(`[Generate] Got response from API`);
 
     for (const candidate of response.candidates || []) {
       if (candidate.content?.parts) {
@@ -256,29 +276,38 @@ export const generateSpriteSheet = async (
 export const editSpriteSheet = async (
   imageBase64: string,
   editPrompt: string,
-  modelId: string = 'gemini-2.5-flash-image'
+  modelId: string = 'gemini-3-pro-image-preview'
 ): Promise<string> => {
+  console.log('[Edit] ===== STARTING EDIT =====');
+  console.log('[Edit] Edit prompt:', editPrompt);
+  console.log('[Edit] Model:', modelId);
+  console.log('[Edit] Image data length:', imageBase64?.length || 0);
+
   try {
     const ai = await getClient();
+    console.log('[Edit] Got AI client successfully');
+
     const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
+    console.log('[Edit] Cleaned base64 length:', cleanBase64.length);
 
     // Build a more comprehensive edit prompt
-    const fullPrompt = `
-      You are editing a sprite sheet image. Follow these rules STRICTLY:
-      
-      CRITICAL REQUIREMENTS:
-      1. MAINTAIN GRID: Keep the exact same grid layout and frame count. Do NOT add or remove frames.
-      2. BACKGROUND: Preserve the background color exactly as it is. If white, keep white. If magenta, keep magenta. NEVER change to black.
-      3. GRID LINES: Do NOT add visible grid lines or borders.
-      4. CONSISTENCY: Keep the character design consistent across all frames.
-      5. STRUCTURE: This is a sprite sheet for animation - maintain the animation sequence.
-      
-      USER REQUEST: ${editPrompt}
-      
-      IMPORTANT: If the request would destroy the sprite sheet structure (like "remove sprite"), instead clean up or improve the existing sprites while keeping them visible and properly framed.
-    `;
+    const fullPrompt = `PERSONA: You are a master pixel artist editing a game sprite sheet. Recreate this exact image with the requested modification while preserving all other aspects perfectly.
 
-    console.log(`Editing sprite sheet. Prompt: "${editPrompt}". Model: ${modelId}`);
+EDIT REQUEST: ${editPrompt}
+
+CRITICAL RULES:
+• Reproduce the EXACT same image dimensions and layout
+• Keep the EXACT same background color (do not change white to any other color)
+• Preserve grid structure and frame count precisely
+• Maintain character design consistency across all frames
+• Only modify what was specifically requested
+• Keep the exact same sprite positions and spacing
+
+OUTPUT: Generate the modified sprite sheet image maintaining pixel-perfect fidelity to the original except for the requested change.`;
+
+    console.log(`[Edit] Prompt: "${editPrompt}"`);
+    console.log(`[Edit] Model: ${modelId}`);
+    console.log(`[Edit] Full prompt (first 200 chars):`, fullPrompt.substring(0, 200));
 
     const response = await ai.models.generateContent({
       model: modelId,
@@ -291,12 +320,20 @@ export const editSpriteSheet = async (
     });
 
     // Debug log the response structure
-    console.log('Edit response structure:', {
+    console.log('[Edit] Response structure:', {
       hasCandidates: !!response.candidates,
       candidatesLength: response.candidates?.length,
       firstCandidate: response.candidates?.[0] ? 'exists' : 'missing',
-      parts: response.candidates?.[0]?.content?.parts?.map(p => Object.keys(p))
+      finishReason: response.candidates?.[0]?.finishReason,
+      parts: response.candidates?.[0]?.content?.parts?.map(p => Object.keys(p)),
+      hasBlockedReason: response.candidates?.[0]?.finishReason !== 'STOP'
     });
+
+    // Check for blocked or filtered responses
+    if (response.candidates?.[0]?.finishReason && response.candidates[0].finishReason !== 'STOP') {
+      console.error('[Edit] Response was blocked or filtered:', response.candidates[0].finishReason);
+      throw new Error(`Edit blocked by API: ${response.candidates[0].finishReason}. Try a different prompt or model.`);
+    }
 
     // Try multiple paths to find the image data
     if (response.candidates && response.candidates.length > 0) {
@@ -304,6 +341,7 @@ export const editSpriteSheet = async (
         if (candidate.content?.parts) {
           for (const part of candidate.content.parts) {
             if (part.inlineData?.data) {
+              console.log('[Edit] Successfully extracted edited image');
               return `data:image/png;base64,${part.inlineData.data}`;
             }
           }
@@ -312,11 +350,13 @@ export const editSpriteSheet = async (
     }
 
     // If no image found, throw detailed error
+    console.error('[Edit] No image found in response');
     throw new Error(
       `No image generated in edit response. Response structure: ${JSON.stringify({
         hasCandidates: !!response.candidates,
         candidateCount: response.candidates?.length || 0,
-        finishReason: response.candidates?.[0]?.finishReason
+        finishReason: response.candidates?.[0]?.finishReason,
+        contentParts: response.candidates?.[0]?.content?.parts?.length
       })}`
     );
 

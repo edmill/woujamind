@@ -14,22 +14,22 @@ interface SettingsModalProps {
   currentApiKey: string | null;
 }
 
-const DEFAULT_GEMINI_25_RULES = `1. INVISIBLE GRID: The grid layout is strictly mathematical. Do NOT draw visible grid lines, boxes, borders, or separators.
-2. SOLID BACKGROUND: Use a solid uniform background color (or transparent). Do not draw scenery or ground lines.
-3. NO TEXT/NUMBERS: Do NOT add frame numbers, labels, or annotations of any kind.
-4. CHARACTER CONSISTENCY: The character must be pixel-perfect identical in every frame.
-5. CENTERED: Center the character in every cell.
-6. FULL BODY: Ensure the entire character fits within the cell.
-7. USE FULL CANVAS: Fill the grid cells appropriately, do not leave excessive whitespace.`;
+const DEFAULT_GEMINI_25_RULES = `PERSONA: You are a professional pixel artist and game animator with 15+ years of experience creating sprite sheets for 2D games. Your specialty is producing clean, consistent, frame-perfect sprite animations that game developers can immediately use in their projects.
 
-const DEFAULT_GEMINI_30_RULES = `1. INVISIBLE GRID: The grid layout is strictly mathematical. Do NOT draw visible grid lines, boxes, borders, or separators.
-2. SOLID BACKGROUND: Use a solid uniform background color (or transparent). Do not draw scenery or ground lines.
-3. NO TEXT/NUMBERS: Do NOT add frame numbers, labels, or annotations of any kind.
-4. CHARACTER CONSISTENCY: The character must be pixel-perfect identical in every frame.
-5. CENTERED: Center the character in every cell.
-6. FULL BODY: Ensure the entire character fits within the cell.
-7. USE FULL CANVAS: Fill the grid cells appropriately, do not leave excessive whitespace.
-8. ENHANCED QUALITY: Leverage Gemini 3.0's improved understanding for better sprite consistency and detail.`;
+QUALITY STANDARDS:
+• Perfect grid alignment - sprites must align mathematically without visible separators
+• Frame-to-frame consistency - character size, colors, and style identical across all frames
+• Professional composition - proper spacing, centered characters, full visibility
+• Clean output - pure white backgrounds, no artifacts, grid lines, or text overlays`;
+
+const DEFAULT_GEMINI_30_RULES = `PERSONA: You are a master game artist and technical animator specializing in production-ready sprite sheets for professional 2D game development. You understand the precise technical requirements for game engine integration and prioritize pixel-perfect consistency and clean composition.
+
+QUALITY STANDARDS:
+• Invisible grid structure - mathematical spacing only, zero visible borders or separators
+• Pixel-perfect consistency - exact character dimensions, proportions, and colors across every frame
+• Professional-grade composition - optimal padding, perfect centering, complete character visibility
+• Production-ready output - pristine white backgrounds (#FFFFFF), zero artifacts or annotations
+• Enhanced detail - leverage advanced model capabilities for superior sprite quality and animation smoothness`;
 
 // LocalStorage keys
 const STORAGE_KEYS = {
@@ -486,13 +486,13 @@ export const getStoredApiKey = (): string | null => {
   return localStorage.getItem(STORAGE_KEYS.API_KEY);
 };
 
-export const getStoredRules = (model: 'gemini-2.5-flash-image' | 'gemini-3.0-flash-image'): string => {
-  const key = model.includes('3.0') ? STORAGE_KEYS.GEMINI_30_RULES : STORAGE_KEYS.GEMINI_25_RULES;
+export const getStoredRules = (model: string): string => {
+  const key = (model.includes('3') || model.includes('pro')) ? STORAGE_KEYS.GEMINI_30_RULES : STORAGE_KEYS.GEMINI_25_RULES;
   const stored = localStorage.getItem(key);
-  
+
   if (stored) return stored;
-  
+
   // Return defaults if not stored
-  return model.includes('3.0') ? DEFAULT_GEMINI_30_RULES : DEFAULT_GEMINI_25_RULES;
+  return (model.includes('3') || model.includes('pro')) ? DEFAULT_GEMINI_30_RULES : DEFAULT_GEMINI_25_RULES;
 };
 

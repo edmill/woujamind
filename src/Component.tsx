@@ -223,8 +223,8 @@ export default function SpriteMagic() {
       const calculatedCols = Math.ceil(frameCount / gridRows);
       const finalCols = Math.max(calculatedCols, gridCols);
       
-      // Get model-specific rules (default to gemini-2.5-flash-image for now)
-      const modelId = 'gemini-2.5-flash-image';
+      // Get model-specific rules (using gemini-3-pro-image-preview for best quality and animation support)
+      const modelId = 'gemini-3-pro-image-preview';
       const customRules = getStoredRules(modelId);
       
       // Generate the sprite sheet
@@ -427,7 +427,7 @@ export default function SpriteMagic() {
         const croppedFrame = await cropFrame(generatedImage, targetIndex, gridRows, gridCols);
         
         // 2. Edit
-        const modelId = 'gemini-2.5-flash-image';
+        const modelId = 'gemini-3-pro-image-preview';
         const editedFrame = await editSpriteSheet(croppedFrame, trimmedPrompt, modelId);
         
         // 3. Paste
@@ -438,7 +438,7 @@ export default function SpriteMagic() {
       } else {
         // FULL SHEET EDIT MODE
         setStatusText("Refining Sheet...");
-        const modelId = 'gemini-2.5-flash-image';
+        const modelId = 'gemini-3-pro-image-preview';
         const rawEdited = await editSpriteSheet(generatedImage, trimmedPrompt, modelId);
         
         // Post-process edited sheet too
