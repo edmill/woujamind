@@ -23,8 +23,8 @@ import { ResultView } from './components/ResultView';
 import { ACTIONS } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle } from './types';
 import { cn } from './utils';
-import { generateSpriteSheet, editSpriteSheet } from './services/geminiService';
-import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet } from './utils/imageUtils';
+import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame } from './services/geminiService';
+import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, insertFrame, removeFrame } from './utils/imageUtils';
 
 export default function SpriteMagic() {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -255,7 +255,6 @@ export default function SpriteMagic() {
       setHasResult(true);
       // Panel already collapsed when Generate was clicked
       setTokens(prev => Math.max(0, prev - 1));
-      triggerConfetti();
       
       // Show appropriate success message
       if (hadIssues && issues.length > 0) {
@@ -554,6 +553,146 @@ export default function SpriteMagic() {
     }
   };
 
+  const handleInsertFrame = async (index: number, position: 'before' | 'after') => {
+    if (!generatedImage) return;
+
+    console.log('=== INSERT FRAME STARTED ===');
+    console.log('Insert index:', index);
+    console.log('Position:', position);
+    console.log('Current grid:', { rows: gridRows, cols: gridCols });
+
+    setIsEditing(true);
+    setStatusText(`Generating new frame...`);
+
+    try {
+      // Determine which frames to use as references
+      const totalFrames = gridRows * gridCols;
+      let frameBefore: string | null = null;
+      let frameAfter: string | null = null;
+
+      if (position === 'before') {
+        // Inserting before index
+        // frameAfter is at index, frameBefore is at index-1 (if exists)
+        frameAfter = await cropFrame(generatedImage, index, gridRows, gridCols);
+        if (index > 0) {
+          frameBefore = await cropFrame(generatedImage, index - 1, gridRows, gridCols);
+        }
+        console.log('Insert Before - References:', {
+          hasBefore: !!frameBefore,
+          hasAfter: !!frameAfter,
+          beforeIndex: index - 1,
+          afterIndex: index
+        });
+      } else {
+        // Inserting after index
+        // frameBefore is at index, frameAfter is at index+1 (if exists)
+        frameBefore = await cropFrame(generatedImage, index, gridRows, gridCols);
+        if (index < totalFrames - 1) {
+          frameAfter = await cropFrame(generatedImage, index + 1, gridRows, gridCols);
+        }
+        console.log('Insert After - References:', {
+          hasBefore: !!frameBefore,
+          hasAfter: !!frameAfter,
+          beforeIndex: index,
+          afterIndex: index + 1
+        });
+      }
+
+      // Generate the in-between frame using AI
+      console.log('Generating in-between frame with AI...');
+      const modelId = 'gemini-3-pro-image-preview';
+      const newFrameDataUrl = await generateInBetweenFrame(
+        frameBefore,
+        frameAfter,
+        selectedAction,
+        prompt,
+        selectedArtStyle,
+        modelId
+      );
+      console.log('Generated frame data URL length:', newFrameDataUrl.length);
+
+      // Insert the frame into the sprite sheet
+      console.log('Inserting frame into sprite sheet...');
+      const { newSheetSrc, newCols } = await insertFrame(
+        generatedImage,
+        newFrameDataUrl,
+        index,
+        position,
+        gridRows,
+        gridCols
+      );
+      console.log('New grid dimensions:', { rows: gridRows, cols: newCols });
+
+      // Update the sprite sheet and grid dimensions
+      _setGridCols(newCols);
+      pushToHistory(newSheetSrc);
+
+      // Clear frame selection
+      setSelectedFrameIndices([]);
+      setActiveFrameIndex(null);
+      setSelectedFrame(null);
+
+      console.log('=== INSERT FRAME COMPLETED ===');
+      toast.success(`New frame inserted ${position} Frame ${index + 1}!`);
+    } catch (error: any) {
+      console.error('=== INSERT FRAME FAILED ===');
+      console.error('Error:', error);
+      toast.error(error.message || 'Failed to insert frame. Please try again.');
+    } finally {
+      setIsEditing(false);
+      setStatusText('');
+    }
+  };
+
+  const handleRemoveFrame = async (index: number) => {
+    if (!generatedImage) return;
+
+    console.log('=== REMOVE FRAME STARTED ===');
+    console.log('Remove index:', index);
+    console.log('Current grid:', { rows: gridRows, cols: gridCols });
+
+    // Validate we can remove (need at least 2 frames to maintain animation)
+    const totalFrames = gridRows * gridCols;
+    if (totalFrames <= 2) {
+      toast.error('Cannot remove frame: sprite sheet must have at least 2 frames');
+      return;
+    }
+
+    setIsEditing(true);
+    setStatusText(`Removing Frame ${index + 1}...`);
+
+    try {
+      // Remove the frame from the sprite sheet
+      console.log('Removing frame from sprite sheet...');
+      const { newSheetSrc, newCols } = await removeFrame(
+        generatedImage,
+        index,
+        gridRows,
+        gridCols
+      );
+      console.log('Grid dimensions unchanged:', { rows: gridRows, cols: newCols });
+
+      // Update the sprite sheet (grid dimensions stay the same to preserve frame size)
+      // The removed frame's slot will be empty/transparent
+      pushToHistory(newSheetSrc);
+
+      // Clear frame selection
+      setSelectedFrameIndices([]);
+      setActiveFrameIndex(null);
+      setSelectedFrame(null);
+
+      console.log('=== REMOVE FRAME COMPLETED ===');
+      toast.success(`Frame ${index + 1} removed successfully!`);
+    } catch (error: any) {
+      console.error('=== REMOVE FRAME FAILED ===');
+      console.error('Error:', error);
+      toast.error(error.message || 'Failed to remove frame. Please try again.');
+    } finally {
+      setIsEditing(false);
+      setStatusText('');
+    }
+  };
+
   // Soft back to editor: keep the generated image so user can return to it.
   const backToEditor = () => {
     setResult(false);
@@ -803,6 +942,8 @@ export default function SpriteMagic() {
                       onClearResult={reset}
                       onAutoAlign={handleAutoAlignFrame}
                       onAlignAll={handleAutoAlignSheet}
+                      onInsertFrame={handleInsertFrame}
+                      onRemoveFrame={handleRemoveFrame}
                       generationPrompt={generationPrompt}
                       generationModel={generationModel}
                       generationCharacterDescription={generationCharacterDescription}
