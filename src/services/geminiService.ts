@@ -420,6 +420,179 @@ OUTPUT: Generate the modified sprite sheet with CLEAR, VISIBLE changes as reques
   }
 };
 
+/**
+ * Generate an in-between frame for smooth animation transitions
+ * Takes two adjacent frames and generates a frame that smoothly transitions between them
+ */
+export const generateInBetweenFrame = async (
+  frameBefore: string | null,
+  frameAfter: string | null,
+  action: string,
+  characterDescription: string,
+  artStyle: string,
+  modelId: string = 'gemini-3-pro-image-preview'
+): Promise<string> => {
+  console.log('[InBetween] ===== STARTING IN-BETWEEN FRAME GENERATION =====');
+  console.log('[InBetween] Action:', action);
+  console.log('[InBetween] Art style:', artStyle);
+  console.log('[InBetween] Has before frame:', !!frameBefore);
+  console.log('[InBetween] Has after frame:', !!frameAfter);
+
+  try {
+    const ai = await getClient();
+    console.log('[InBetween] Got AI client successfully');
+
+    // Build the prompt based on what frames we have
+    let prompt = '';
+    const parts: any[] = [];
+
+    if (frameBefore && frameAfter) {
+      // We have both frames - generate a true in-between
+      prompt = `PERSONA: You are a master game sprite animator creating smooth animation transitions.
+
+TASK: Generate a single sprite frame that creates a smooth transition between the two frames shown.
+
+CHARACTER: ${characterDescription}
+ACTION: ${action} animation
+ART STYLE: ${artStyle}
+
+CRITICAL REQUIREMENTS:
+• The frame MUST be visually between the two reference frames (before and after)
+• Match the EXACT same art style, proportions, and character design
+• Create a natural, fluid motion transition
+• Keep the EXACT same dimensions and transparent background
+• Ensure the character pose is intermediate between the two shown poses
+• Maintain consistent sprite quality and detail level
+
+ANIMATION GUIDANCE:
+• Analyze the movement/change between the two frames
+• Create a pose/expression that logically bridges them
+• Ensure smooth visual flow when played in sequence
+• Keep body proportions and character features identical
+
+OUTPUT: A single sprite frame that smoothly transitions from the first to the second frame.`;
+
+      const cleanBefore = frameBefore.split(',')[1] || frameBefore;
+      const cleanAfter = frameAfter.split(',')[1] || frameAfter;
+
+      parts.push(
+        { text: prompt },
+        { inlineData: { mimeType: 'image/png', data: cleanBefore } },
+        { text: 'Frame BEFORE (the transition starts here):' },
+        { inlineData: { mimeType: 'image/png', data: cleanAfter } },
+        { text: 'Frame AFTER (the transition ends here):' }
+      );
+    } else if (frameBefore) {
+      // Only have before frame - create a next logical frame
+      prompt = `PERSONA: You are a master game sprite animator creating smooth animation sequences.
+
+TASK: Generate the next logical frame in this animation sequence.
+
+CHARACTER: ${characterDescription}
+ACTION: ${action} animation
+ART STYLE: ${artStyle}
+
+REFERENCE: You are given the previous frame. Generate the NEXT frame that continues this animation naturally.
+
+CRITICAL REQUIREMENTS:
+• Create the next logical pose/expression in the ${action} animation
+• Match the EXACT same art style, proportions, and character design
+• Keep the EXACT same dimensions and transparent background
+• Ensure smooth, natural progression from the reference frame
+• Maintain consistent sprite quality and detail level
+
+ANIMATION GUIDANCE:
+• Analyze the current pose/expression in the reference
+• Determine the next natural position in the ${action} sequence
+• Create smooth, incremental movement (not a dramatic jump)
+• Keep the animation feeling fluid and professional
+
+OUTPUT: A single sprite frame that naturally follows the reference frame.`;
+
+      const cleanBefore = frameBefore.split(',')[1] || frameBefore;
+      parts.push(
+        { text: prompt },
+        { text: 'Previous frame (generate the NEXT frame after this):' },
+        { inlineData: { mimeType: 'image/png', data: cleanBefore } }
+      );
+    } else if (frameAfter) {
+      // Only have after frame - create a preceding frame
+      prompt = `PERSONA: You are a master game sprite animator creating smooth animation sequences.
+
+TASK: Generate the frame that comes BEFORE this animation frame.
+
+CHARACTER: ${characterDescription}
+ACTION: ${action} animation
+ART STYLE: ${artStyle}
+
+REFERENCE: You are given the next frame. Generate the frame that comes BEFORE it in the animation.
+
+CRITICAL REQUIREMENTS:
+• Create the logical preceding pose/expression in the ${action} animation
+• Match the EXACT same art style, proportions, and character design
+• Keep the EXACT same dimensions and transparent background
+• Ensure smooth transition TO the reference frame
+• Maintain consistent sprite quality and detail level
+
+ANIMATION GUIDANCE:
+• Analyze the pose/expression in the reference frame
+• Determine what natural position would come before it
+• Create smooth, incremental movement (not a dramatic jump)
+• Keep the animation feeling fluid and professional
+
+OUTPUT: A single sprite frame that naturally precedes the reference frame.`;
+
+      const cleanAfter = frameAfter.split(',')[1] || frameAfter;
+      parts.push(
+        { text: prompt },
+        { text: 'Next frame (generate the frame BEFORE this):' },
+        { inlineData: { mimeType: 'image/png', data: cleanAfter } }
+      );
+    } else {
+      throw new Error('At least one reference frame (before or after) is required');
+    }
+
+    console.log('[InBetween] Sending request to Gemini...');
+    const response = await ai.models.generateContent({
+      model: modelId,
+      contents: { parts }
+    });
+
+    console.log('[InBetween] Response structure:', {
+      hasCandidates: !!response.candidates,
+      candidatesLength: response.candidates?.length,
+      finishReason: response.candidates?.[0]?.finishReason,
+    });
+
+    // Check for blocked or filtered responses
+    if (response.candidates?.[0]?.finishReason && response.candidates[0].finishReason !== 'STOP') {
+      console.error('[InBetween] Response blocked:', response.candidates[0].finishReason);
+      throw new Error(`Generation blocked by API: ${response.candidates[0].finishReason}`);
+    }
+
+    // Extract image data
+    if (response.candidates && response.candidates.length > 0) {
+      for (const candidate of response.candidates) {
+        if (candidate.content?.parts) {
+          for (const part of candidate.content.parts) {
+            if (part.inlineData?.data) {
+              console.log('[InBetween] Successfully generated in-between frame');
+              return `data:image/png;base64,${part.inlineData.data}`;
+            }
+          }
+        }
+      }
+    }
+
+    console.error('[InBetween] No image found in response');
+    throw new Error('No image generated in response');
+
+  } catch (error) {
+    console.error('[InBetween] Generation failed:', error);
+    throw error;
+  }
+};
+
 // Global interface for AI Studio
 declare global {
   interface AIStudio {

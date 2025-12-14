@@ -599,7 +599,191 @@ export const alignWholeSheet = async (
        ctx.drawImage(tempCanvas, 0, 0, frameW, frameH, destSheetX, destSheetY, frameW, frameH);
     }
   }
-  
+
   return canvas.toDataURL('image/png');
+};
+
+/**
+ * Insert a new frame into the sprite sheet at the specified position
+ * @param sheetSrc - Source sprite sheet data URL
+ * @param newFrameSrc - New frame to insert (data URL)
+ * @param insertIndex - Index where to insert (0-based)
+ * @param position - 'before' or 'after' the insertIndex
+ * @param rows - Number of rows in the grid
+ * @param cols - Number of columns in the grid
+ * @returns Promise<{newSheetSrc: string, newCols: number}> - New sprite sheet and updated column count
+ */
+export const insertFrame = async (
+  sheetSrc: string,
+  newFrameSrc: string,
+  insertIndex: number,
+  position: 'before' | 'after',
+  rows: number,
+  cols: number
+): Promise<{newSheetSrc: string, newCols: number}> => {
+  // Load the sprite sheet image
+  const sheetImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = sheetSrc;
+  });
+
+  // Load the new frame image
+  const newFrameImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = newFrameSrc;
+  });
+
+  // Calculate frame dimensions
+  const frameW = sheetImg.width / cols;
+  const frameH = sheetImg.height / rows;
+  const totalFrames = rows * cols;
+
+  // Extract all existing frames
+  const existingFrames: HTMLCanvasElement[] = [];
+  for (let i = 0; i < totalFrames; i++) {
+    const canvas = document.createElement('canvas');
+    canvas.width = frameW;
+    canvas.height = frameH;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const srcX = col * frameW;
+    const srcY = row * frameH;
+
+    ctx.drawImage(sheetImg, srcX, srcY, frameW, frameH, 0, 0, frameW, frameH);
+    existingFrames.push(canvas);
+  }
+
+  // Create canvas for new frame
+  const newFrameCanvas = document.createElement('canvas');
+  newFrameCanvas.width = frameW;
+  newFrameCanvas.height = frameH;
+  const newFrameCtx = newFrameCanvas.getContext('2d')!;
+  newFrameCtx.imageSmoothingEnabled = false;
+  newFrameCtx.drawImage(newFrameImg, 0, 0, frameW, frameH);
+
+  // Determine actual insert position
+  const actualInsertIndex = position === 'before' ? insertIndex : insertIndex + 1;
+
+  // Insert the new frame
+  const allFrames = [
+    ...existingFrames.slice(0, actualInsertIndex),
+    newFrameCanvas,
+    ...existingFrames.slice(actualInsertIndex)
+  ];
+
+  // Calculate new grid dimensions
+  const newTotalFrames = allFrames.length;
+  const newCols = cols + 1;
+
+  // Create new sprite sheet
+  const newCanvas = document.createElement('canvas');
+  newCanvas.width = frameW * newCols;
+  newCanvas.height = frameH * rows;
+  const ctx = newCanvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+
+  // Draw all frames in the new grid
+  for (let i = 0; i < newTotalFrames; i++) {
+    const col = i % newCols;
+    const row = Math.floor(i / newCols);
+    const destX = col * frameW;
+    const destY = row * frameH;
+
+    ctx.drawImage(allFrames[i], 0, 0, frameW, frameH, destX, destY, frameW, frameH);
+  }
+
+  return {
+    newSheetSrc: newCanvas.toDataURL('image/png'),
+    newCols
+  };
+};
+
+/**
+ * Remove a frame from the sprite sheet
+ * @param sheetSrc - Source sprite sheet data URL
+ * @param removeIndex - Index of frame to remove (0-based)
+ * @param rows - Number of rows in the grid
+ * @param cols - Number of columns in the grid
+ * @returns Promise<{newSheetSrc: string, newCols: number}> - New sprite sheet and updated column count
+ */
+export const removeFrame = async (
+  sheetSrc: string,
+  removeIndex: number,
+  rows: number,
+  cols: number
+): Promise<{newSheetSrc: string, newCols: number}> => {
+  // Load the sprite sheet image
+  const sheetImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = sheetSrc;
+  });
+
+  // Calculate frame dimensions
+  const frameW = sheetImg.width / cols;
+  const frameH = sheetImg.height / rows;
+  const totalFrames = rows * cols;
+
+  // Extract all frames except the one to remove
+  const remainingFrames: HTMLCanvasElement[] = [];
+  for (let i = 0; i < totalFrames; i++) {
+    if (i === removeIndex) continue; // Skip the frame to remove
+
+    const canvas = document.createElement('canvas');
+    canvas.width = frameW;
+    canvas.height = frameH;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const srcX = col * frameW;
+    const srcY = row * frameH;
+
+    ctx.drawImage(sheetImg, srcX, srcY, frameW, frameH, 0, 0, frameW, frameH);
+    remainingFrames.push(canvas);
+  }
+
+  // IMPORTANT: Preserve original grid dimensions to maintain frame size
+  // We keep the same number of columns - the removed frame slot will be empty/transparent
+  const newCols = cols;
+
+  // Validate we still have frames
+  if (remainingFrames.length === 0) {
+    throw new Error('Cannot remove frame: would result in empty sprite sheet');
+  }
+
+  // Create new sprite sheet with SAME dimensions as original
+  const newCanvas = document.createElement('canvas');
+  newCanvas.width = sheetImg.width;  // Keep exact original width
+  newCanvas.height = sheetImg.height; // Keep exact original height
+  const ctx = newCanvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+
+  // Draw all remaining frames in the new grid
+  for (let i = 0; i < remainingFrames.length; i++) {
+    const col = i % newCols;
+    const row = Math.floor(i / newCols);
+    const destX = col * frameW;
+    const destY = row * frameH;
+
+    ctx.drawImage(remainingFrames[i], 0, 0, frameW, frameH, destX, destY, frameW, frameH);
+  }
+
+  return {
+    newSheetSrc: newCanvas.toDataURL('image/png'),
+    newCols
+  };
 };
 
