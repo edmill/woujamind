@@ -24,7 +24,7 @@ import { ACTIONS } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle } from './types';
 import { cn } from './utils';
 import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame } from './services/geminiService';
-import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, insertFrame, removeFrame } from './utils/imageUtils';
+import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
 
 export default function SpriteMagic() {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -693,6 +693,64 @@ export default function SpriteMagic() {
     }
   };
 
+  const handleReplaceFrameWithImage = async (index: number, imageFile: File) => {
+    if (!generatedImage) return;
+
+    console.log('=== REPLACE FRAME WITH IMAGE STARTED ===');
+    console.log('Replace index:', index);
+    console.log('Image file:', imageFile.name, imageFile.type, imageFile.size);
+    console.log('Current grid:', { rows: gridRows, cols: gridCols });
+
+    setIsEditing(true);
+    setStatusText(`Inserting custom image into Frame ${index + 1}...`);
+
+    try {
+      // Convert the uploaded file to data URL
+      const customImageDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            resolve(e.target.result as string);
+          } else {
+            reject(new Error('Failed to read image file'));
+          }
+        };
+        reader.onerror = () => reject(new Error('Failed to read image file'));
+        reader.readAsDataURL(imageFile);
+      });
+      console.log('Custom image loaded, data URL length:', customImageDataUrl.length);
+
+      // Replace the frame with the custom image
+      console.log('Replacing frame with custom image...');
+      const newSheetSrc = await replaceFrameWithImage(
+        generatedImage,
+        customImageDataUrl,
+        index,
+        gridRows,
+        gridCols
+      );
+      console.log('Frame replaced, new sheet data URL length:', newSheetSrc.length);
+
+      // Update the sprite sheet
+      pushToHistory(newSheetSrc);
+
+      // Clear frame selection
+      setSelectedFrameIndices([]);
+      setActiveFrameIndex(null);
+      setSelectedFrame(null);
+
+      console.log('=== REPLACE FRAME WITH IMAGE COMPLETED ===');
+      toast.success(`Frame ${index + 1} replaced with custom image!`);
+    } catch (error: any) {
+      console.error('=== REPLACE FRAME WITH IMAGE FAILED ===');
+      console.error('Error:', error);
+      toast.error(error.message || 'Failed to replace frame. Please try again.');
+    } finally {
+      setIsEditing(false);
+      setStatusText('');
+    }
+  };
+
   // Soft back to editor: keep the generated image so user can return to it.
   const backToEditor = () => {
     setResult(false);
@@ -880,12 +938,13 @@ export default function SpriteMagic() {
                         )}
                         onClick={() => hasResult && setResult(true)}
                      >
-                        <BlobPreview 
+                        <BlobPreview
                            mode={tabMode}
-                           action={selectedAction} 
-                           expression={selectedExpression} 
+                           action={selectedAction}
+                           expression={selectedExpression}
                            isTransparent={isTransparent}
                            isGenerating={isGenerating}
+                           statusText={statusText}
                         />
 
                         {hasResult && (
@@ -944,6 +1003,7 @@ export default function SpriteMagic() {
                       onAlignAll={handleAutoAlignSheet}
                       onInsertFrame={handleInsertFrame}
                       onRemoveFrame={handleRemoveFrame}
+                      onReplaceFrameWithImage={handleReplaceFrameWithImage}
                       generationPrompt={generationPrompt}
                       generationModel={generationModel}
                       generationCharacterDescription={generationCharacterDescription}

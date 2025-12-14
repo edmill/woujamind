@@ -6,18 +6,20 @@ import { motion } from 'framer-motion';
 import { TabMode, ActionType, ExpressionType } from '../types';
 import { cn } from '../utils';
 
-export const BlobPreview = ({ 
+export const BlobPreview = ({
   mode,
-  action, 
+  action,
   expression,
   isTransparent = false,
-  isGenerating = false
-}: { 
+  isGenerating = false,
+  statusText = ''
+}: {
   mode: TabMode;
-  action: ActionType; 
+  action: ActionType;
   expression: ExpressionType;
   isTransparent?: boolean;
   isGenerating?: boolean;
+  statusText?: string;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -318,9 +320,36 @@ export const BlobPreview = ({
         )}
       </motion.div>
       
-      <div className="absolute bottom-6 font-mono text-xs text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-900/80 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
-        {isGenerating ? "GENERATING SPRITES..." : `PREVIEW: ${mode === 'action' ? action.toUpperCase() : expression.toUpperCase()}`}
-      </div>
+      {/* Status Message */}
+      {isGenerating && statusText ? (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="absolute bottom-6 flex flex-col items-center gap-2"
+        >
+          {/* Main status text */}
+          <motion.div
+            key={statusText}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className="font-semibold text-sm text-slate-700 dark:text-slate-200 bg-gradient-to-r from-white/90 to-slate-50/90 dark:from-slate-800/90 dark:to-slate-900/90 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 backdrop-blur-md shadow-lg"
+          >
+            <div className="flex items-center gap-2">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-3 h-3 border-2 border-orange-500 border-t-transparent rounded-full"
+              />
+              <span>{statusText}</span>
+            </div>
+          </motion.div>
+        </motion.div>
+      ) : (
+        <div className="absolute bottom-6 font-mono text-xs text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-900/80 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+          {`PREVIEW: ${mode === 'action' ? action.toUpperCase() : expression.toUpperCase()}`}
+        </div>
+      )}
     </div>
   );
 };

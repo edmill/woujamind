@@ -593,6 +593,77 @@ OUTPUT: A single sprite frame that naturally precedes the reference frame.`;
   }
 };
 
+/**
+ * Generate AI-powered character prompt suggestions for a given category
+ * @param category The category of character prompts to generate (e.g., "Fantasy Heroes", "Sci-Fi Characters")
+ * @param count Number of prompts to generate (default: 5)
+ * @returns Array of generated character prompts
+ */
+export const generateCharacterPrompts = async (
+  category: string,
+  count: number = 5
+): Promise<string[]> => {
+  const ai = await getClient();
+
+  const prompt = `You are a creative game character designer. Generate ${count} detailed character prompts for sprite art creation.
+
+CATEGORY: ${category}
+
+REQUIREMENTS FOR EACH PROMPT:
+• Front-facing pose/view explicitly mentioned
+• Detailed appearance description (species, physique, attire, colors)
+• Specific visual details (hair, accessories, features)
+• Art style guidance (sprite-ready, clean silhouette, animation-friendly)
+• Each prompt should be 1-2 sentences, specific and actionable
+• Include exact colors, clothing items, and distinctive features
+• Optimized for sprite sheet animation generation
+
+FORMAT: Return ONLY a JSON array of strings, no additional text.
+Example: ["prompt 1", "prompt 2", "prompt 3"]
+
+Generate ${count} creative, diverse character prompts for: ${category}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+        parts: [{ text: prompt }]
+      }
+    });
+
+    const text = response.text?.trim() || '';
+
+    // Try to parse JSON response
+    try {
+      // Remove markdown code blocks if present
+      const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const prompts = JSON.parse(cleanText);
+
+      if (Array.isArray(prompts) && prompts.length > 0) {
+        return prompts.slice(0, count);
+      }
+    } catch (parseError) {
+      console.warn('Failed to parse JSON, trying line-based parsing:', parseError);
+
+      // Fallback: try to extract prompts line by line
+      const lines = text.split('\n').filter(line => line.trim().length > 0);
+      const prompts = lines
+        .map(line => line.replace(/^[-•*]\s*/, '').replace(/^"\s*/, '').replace(/\s*"$/, '').trim())
+        .filter(line => line.length > 20); // Filter out short lines that aren't prompts
+
+      if (prompts.length > 0) {
+        return prompts.slice(0, count);
+      }
+    }
+
+    throw new Error('Failed to generate prompts');
+
+  } catch (error) {
+    console.error('[GeneratePrompts] Generation failed:', error);
+    throw error;
+  }
+};
+
 // Global interface for AI Studio
 declare global {
   interface AIStudio {
