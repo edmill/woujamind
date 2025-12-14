@@ -29,6 +29,9 @@ QUALITY STANDARDS:
 • Pixel-perfect consistency - exact character dimensions, proportions, and colors across every frame
 • Professional-grade composition - optimal padding, perfect centering, complete character visibility
 • Production-ready output - pristine white backgrounds (#FFFFFF), zero artifacts or annotations
+• Character props ALLOWED - characters may hold items, weapons, or tools that move with them
+• NO duplicate body parts - each character has exactly one set of limbs/body parts per frame
+• NO cross-frame elements - no projectiles, beams, or connections spanning multiple frames
 • Enhanced detail - leverage advanced model capabilities for superior sprite quality and animation smoothness`;
 
 // LocalStorage keys

@@ -4,18 +4,19 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowLeft, 
-  FileImage, 
-  Film, 
-  Settings2, 
-  Sparkles, 
-  Lock, 
-  Wand2, 
-  Undo, 
-  Redo, 
-  Grid, 
-  MousePointer2, 
+import { toast } from 'sonner';
+import {
+  ArrowLeft,
+  FileImage,
+  Film,
+  Settings2,
+  Sparkles,
+  Lock,
+  Wand2,
+  Undo,
+  Redo,
+  Grid,
+  MousePointer2,
   Play,
   XCircle,
   LayoutList,
@@ -25,10 +26,12 @@ import {
   ZoomOut,
   Maximize2,
   FileText,
-  Copy
+  Copy,
+  Loader2
 } from 'lucide-react';
 import { cn } from '../utils';
 import { extractFrames } from '../utils/imageUtils';
+import { enhancePrompt } from '../services/geminiService';
 
 interface ResultViewProps {
   tokens: number;
@@ -129,7 +132,7 @@ export function ResultView({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [showEditBar, setShowEditBar] = useState(false);
   const [editPrompt, setEditPrompt] = useState("");
-  const [showQuickPrompts, setShowQuickPrompts] = useState(false);
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -137,16 +140,6 @@ export function ResultView({
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const totalFrames = rows * cols;
-
-  // Common editing prompts
-  const quickPrompts = [
-    "Center the character in the frame",
-    "Fix the character's face details",
-    "Adjust the character's position to bottom",
-    "Make the outline thicker",
-    "Smooth out rough edges",
-    "Increase contrast and brightness"
-  ];
 
   // Extract frames from sprite sheet
   useEffect(() => {
@@ -220,20 +213,6 @@ export function ResultView({
 
   // Removed auto-open behavior - user must manually click Magic Edit button
   // Previous behavior: automatically opened edit bar when a single frame was selected
-
-  // Close quick prompts dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (showQuickPrompts) {
-        setShowQuickPrompts(false);
-      }
-    };
-    
-    if (showQuickPrompts) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [showQuickPrompts]);
 
   // Keyboard navigation for frames and animation control
   useEffect(() => {
@@ -515,42 +494,37 @@ export function ResultView({
                        }}
                        autoFocus
                      />
-                     {selectedFrameIndices.length === 1 && (
-                       <div className="relative">
-                         <button
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             setShowQuickPrompts(!showQuickPrompts);
-                           }}
-                           disabled={isEditing}
-                           className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200 dark:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
-                           title="Quick Edit Prompts"
-                         >
-                           <Wand2 className="w-4 h-4" />
-                           <ChevronDown className="w-3 h-3" />
-                         </button>
-                         
-                         {showQuickPrompts && (
-                           <div 
-                             onClick={(e) => e.stopPropagation()}
-                             className="absolute top-full mt-1 right-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl overflow-hidden z-50 w-64"
-                           >
-                             {quickPrompts.map((prompt, idx) => (
-                               <button
-                                 key={idx}
-                                 onClick={() => {
-                                   setEditPrompt(prompt);
-                                   setShowQuickPrompts(false);
-                                 }}
-                                 className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-b-0 first:rounded-t-lg last:rounded-b-lg"
-                               >
-                                 {prompt}
-                               </button>
-                             ))}
-                           </div>
-                         )}
-                       </div>
-                     )}
+                     <button
+                       onClick={async () => {
+                         if (!editPrompt.trim() || isEditing || isEnhancingPrompt) return;
+
+                         setIsEnhancingPrompt(true);
+                         try {
+                           const enhanced = await enhancePrompt(editPrompt);
+                           setEditPrompt(enhanced);
+                           toast.success("Prompt enhanced with AI!");
+                         } catch (error) {
+                           console.error('Enhancement failed:', error);
+                           toast.error("Enhancement failed. Please try again.");
+                         } finally {
+                           setIsEnhancingPrompt(false);
+                         }
+                       }}
+                       disabled={!editPrompt.trim() || isEditing || isEnhancingPrompt}
+                       className={cn(
+                         "flex items-center justify-center p-2 rounded-lg transition-all",
+                         !editPrompt.trim() || isEditing || isEnhancingPrompt
+                           ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
+                           : "bg-gradient-to-r from-orange-500 to-sky-500 text-white hover:shadow-lg hover:shadow-orange-500/30"
+                       )}
+                       title="AI Enhance - Use Gemini to make prompt more precise and detailed"
+                     >
+                       {isEnhancingPrompt ? (
+                         <Loader2 className="w-4 h-4 animate-spin" />
+                       ) : (
+                         <Sparkles className="w-4 h-4" />
+                       )}
+                     </button>
                      <button 
                        onClick={handleSubmitEdit}
                        disabled={!editPrompt.trim() || isEditing}

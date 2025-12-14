@@ -215,8 +215,9 @@ COMPOSITION RULES:
 • No visible grid lines, borders, or cell separators
 • No frame numbers, labels, or text annotations
 • Each sprite completely isolated - no connecting elements between cells
-• If action involves objects, character pantomimes in empty space
-• No projectiles or effects extending beyond the character
+• PROPS: Character may hold props (swords, items, tools) that stay WITH the character in each frame
+• FORBIDDEN: No projectiles, beams, or effects that extend ACROSS multiple frames or leave the character's immediate space
+• FORBIDDEN: No duplicate or extra limbs/body parts - each character has exactly ONE set of body parts
 • Full character body visible in every frame
 
 OUTPUT: ${totalFrames} clean, consistent animation frames in a ${rows}x${cols} invisible grid layout.`;
@@ -271,6 +272,48 @@ OUTPUT: ${totalFrames} clean, consistent animation frames in a ${rows}x${cols} i
 };
 
 /**
+ * AI-POWERED PROMPT ENHANCEMENT
+ * Uses Gemini 2.5 Flash to intelligently enhance user prompts
+ */
+export const enhancePrompt = async (userPrompt: string): Promise<string> => {
+  if (!userPrompt.trim()) return userPrompt;
+
+  try {
+    const ai = await getClient();
+
+    const enhancementPrompt = `You are a professional game artist specializing in sprite sheet character design. Enhance this character description to be more detailed and specific for sprite generation.
+
+USER INPUT: "${userPrompt}"
+
+TASK: Expand this into a detailed character description that includes:
+- Physical appearance (species, build, age if relevant)
+- Clothing and accessories (colors, style, materials)
+- Art style suggestions (pixel art, vector, etc.)
+- Any distinctive features or characteristics
+
+RULES:
+- Keep it concise (2-3 sentences max)
+- Be specific about visual details
+- Maintain the user's original intent
+- Add professional sprite art terminology
+- Focus on what will help generate a consistent sprite sheet
+
+OUTPUT: Return ONLY the enhanced description text, no introduction or explanation.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { parts: [{ text: enhancementPrompt }] }
+    });
+
+    const enhanced = response.text?.trim();
+    return enhanced || userPrompt;
+  } catch (error) {
+    console.error('Prompt enhancement failed:', error);
+    return userPrompt; // Fallback to original
+  }
+};
+
+/**
  * MAGIC EDIT
  */
 export const editSpriteSheet = async (
@@ -290,20 +333,27 @@ export const editSpriteSheet = async (
     const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
     console.log('[Edit] Cleaned base64 length:', cleanBase64.length);
 
-    // Build a more comprehensive edit prompt
-    const fullPrompt = `PERSONA: You are a master pixel artist editing a game sprite sheet. Recreate this exact image with the requested modification while preserving all other aspects perfectly.
+    // Build a more aggressive edit prompt that ensures changes are visible
+    const fullPrompt = `PERSONA: You are a master pixel artist editing a game sprite sheet. Your task is to apply the requested changes CLEARLY and VISIBLY while maintaining sprite sheet structure.
 
 EDIT REQUEST: ${editPrompt}
 
-CRITICAL RULES:
-• Reproduce the EXACT same image dimensions and layout
-• Keep the EXACT same background color (do not change white to any other color)
-• Preserve grid structure and frame count precisely
-• Maintain character design consistency across all frames
-• Only modify what was specifically requested
-• Keep the exact same sprite positions and spacing
+CRITICAL: You MUST apply the requested changes. If the user asks to remove something, REMOVE IT. If they ask to add something, ADD IT. If they ask to change something, CHANGE IT. DO NOT be conservative - make the changes obvious and complete.
 
-OUTPUT: Generate the modified sprite sheet image maintaining pixel-perfect fidelity to the original except for the requested change.`;
+STRUCTURAL RULES (preserve these):
+• Keep the EXACT same image dimensions and layout
+• Keep the EXACT same background color (pure white #FFFFFF)
+• Preserve grid structure and frame count precisely
+• Keep sprite positions and spacing consistent
+
+EDIT RULES (apply these changes):
+• Apply the requested modification COMPLETELY and VISIBLY
+• If removing duplicate body parts, actually remove them from ALL frames
+• If changing colors, change them across ALL frames for consistency
+• If improving quality, enhance detail across ALL frames
+• Make changes obvious - don't be subtle or conservative
+
+OUTPUT: Generate the modified sprite sheet with CLEAR, VISIBLE changes as requested.`;
 
     console.log(`[Edit] Prompt: "${editPrompt}"`);
     console.log(`[Edit] Model: ${modelId}`);
