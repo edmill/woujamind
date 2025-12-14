@@ -4,9 +4,11 @@
  */
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ChevronDown, Wand2, XCircle } from 'lucide-react';
+import { Sparkles, ChevronDown, Wand2, XCircle, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '../utils';
 import { SUGGESTED_PROMPTS } from '../constants';
+import { generateCharacterPrompts } from '../services/geminiService';
 
 interface PromptHelperProps {
   onSelectPrompt: (prompt: string) => void;
@@ -16,6 +18,8 @@ interface PromptHelperProps {
 export function PromptHelper({ onSelectPrompt, currentPrompt }: PromptHelperProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [aiGeneratedPrompts, setAiGeneratedPrompts] = useState<Record<string, string[]>>({});
+  const [isGenerating, setIsGenerating] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -40,6 +44,39 @@ export function PromptHelper({ onSelectPrompt, currentPrompt }: PromptHelperProp
     onSelectPrompt(prompt);
     setIsOpen(false);
     setSelectedCategory(null);
+  };
+
+  const handleRefreshPrompts = async () => {
+    if (!selectedCategory || isGenerating) return;
+
+    setIsGenerating(true);
+    try {
+      const newPrompts = await generateCharacterPrompts(selectedCategory, 5);
+      setAiGeneratedPrompts(prev => ({
+        ...prev,
+        [selectedCategory]: newPrompts
+      }));
+      toast.success('New prompts generated!');
+    } catch (error) {
+      console.error('Failed to generate prompts:', error);
+      toast.error('Failed to generate new prompts. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Get prompts for current category (AI-generated if available, otherwise default)
+  const getCurrentPrompts = (): string[] => {
+    if (!selectedCategory) return [];
+
+    // If we have AI-generated prompts for this category, use them
+    if (aiGeneratedPrompts[selectedCategory]) {
+      return aiGeneratedPrompts[selectedCategory];
+    }
+
+    // Otherwise use default prompts
+    const category = SUGGESTED_PROMPTS.find(c => c.category === selectedCategory);
+    return category?.prompts || [];
   };
 
   return (
@@ -74,10 +111,10 @@ export function PromptHelper({ onSelectPrompt, currentPrompt }: PromptHelperProp
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute top-full right-0 mt-2 w-[420px] max-w-[calc(100vw-2rem)] max-h-[480px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[200]"
+            className="absolute top-full right-0 mt-2 w-[420px] max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 z-[200] flex flex-col max-h-[520px] overflow-hidden"
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-orange-500/10 to-sky-500/10 border-b border-slate-200 dark:border-slate-800 px-4 py-3">
+            <div className="bg-gradient-to-r from-orange-500/10 to-sky-500/10 border-b border-slate-200 dark:border-slate-800 px-6 py-3 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Wand2 className="w-5 h-5 text-orange-600 dark:text-orange-300" />
@@ -92,23 +129,27 @@ export function PromptHelper({ onSelectPrompt, currentPrompt }: PromptHelperProp
                   <XCircle className="w-4 h-4 text-slate-400" />
                 </button>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 ml-7">
                 Choose a category to explore creative character ideas
               </p>
             </div>
 
             {/* Content */}
-            <div className="overflow-y-auto max-h-[400px] sprite-scroll">
+            <div className="overflow-y-auto flex-1 sprite-scroll">
               {!selectedCategory ? (
                 /* Category Selection */
-                <div className="p-3 space-y-2">
+                <div className="p-4 space-y-2">
                   {SUGGESTED_PROMPTS.map((category, idx) => (
                     <motion.button
                       key={category.category}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      whileHover={{ scale: 1.02, x: 4 }}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{
+                        delay: idx * 0.04,
+                        duration: 0.3,
+                        ease: [0.4, 0, 0.2, 1]
+                      }}
+                      whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setSelectedCategory(category.category)}
                       className="w-full text-left px-4 py-3 rounded-xl bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-800/50 hover:from-orange-50 hover:to-sky-50 dark:hover:from-orange-900/20 dark:hover:to-sky-900/20 border border-slate-200 dark:border-slate-700 transition-all group"
@@ -129,11 +170,12 @@ export function PromptHelper({ onSelectPrompt, currentPrompt }: PromptHelperProp
                 </div>
               ) : (
                 /* Prompt Selection */
-                <div className="p-3 space-y-2">
+                <div className="p-4 space-y-2">
                   {/* Back Button */}
                   <motion.button
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                     onClick={() => setSelectedCategory(null)}
                     className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-orange-600 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors mb-2"
                   >
@@ -141,24 +183,46 @@ export function PromptHelper({ onSelectPrompt, currentPrompt }: PromptHelperProp
                     Back to categories
                   </motion.button>
 
-                  {/* Category Title */}
-                  <div className="px-3 py-2 mb-2">
-                    <h4 className="font-bold text-lg text-slate-900 dark:text-white">
-                      {selectedCategory}
-                    </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Click any prompt to use it
-                    </p>
+                  {/* Category Title with Refresh Button */}
+                  <div className="px-3 py-2 mb-2 flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <h4 className="font-bold text-lg text-slate-900 dark:text-white">
+                        {selectedCategory}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {aiGeneratedPrompts[selectedCategory] ? 'AI-generated prompts' : 'Click any prompt to use it'}
+                      </p>
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.05, rotate: 15 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleRefreshPrompts}
+                      disabled={isGenerating}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all",
+                        isGenerating
+                          ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+                          : "bg-gradient-to-r from-orange-500 to-sky-500 text-white hover:shadow-lg hover:shadow-orange-500/30"
+                      )}
+                      title="Generate new AI prompts"
+                    >
+                      <RefreshCw className={cn("w-3.5 h-3.5", isGenerating && "animate-spin")} />
+                      <span>{isGenerating ? 'Generating...' : 'Refresh'}</span>
+                    </motion.button>
                   </div>
 
                   {/* Prompts List */}
-                  {SUGGESTED_PROMPTS.find(c => c.category === selectedCategory)?.prompts.map((prompt, idx) => (
+                  {getCurrentPrompts().map((prompt, idx) => (
                     <motion.button
                       key={idx}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      whileHover={{ scale: 1.01, x: 4 }}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{
+                        delay: idx * 0.04,
+                        duration: 0.3,
+                        ease: [0.4, 0, 0.2, 1]
+                      }}
+                      whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handlePromptSelect(prompt)}
                       className={cn(
@@ -189,8 +253,8 @@ export function PromptHelper({ onSelectPrompt, currentPrompt }: PromptHelperProp
             </div>
 
             {/* Footer */}
-            <div className="border-t border-slate-200 dark:border-slate-800 px-4 py-2 bg-slate-50 dark:bg-slate-900/50">
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center">
+            <div className="border-t border-slate-200 dark:border-slate-800 px-6 py-3 bg-slate-50 dark:bg-slate-900/50 flex-shrink-0">
+              <p className="text-xs text-slate-500 dark:text-slate-400 text-center leading-relaxed">
                 💡 Pro tip: Mix and match ideas or add your own creative twist!
               </p>
             </div>

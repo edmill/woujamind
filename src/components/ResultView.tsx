@@ -89,6 +89,7 @@ interface ResultViewProps {
   // Frame management handlers
   onInsertFrame?: (index: number, position: 'before' | 'after') => void;
   onRemoveFrame?: (index: number) => void;
+  onReplaceFrameWithImage?: (index: number, imageFile: File) => void;
 
   // Generation metadata
   generationPrompt?: string;
@@ -135,6 +136,7 @@ export function ResultView({
   onAlignAll,
   onInsertFrame,
   onRemoveFrame,
+  onReplaceFrameWithImage,
   generationPrompt = '',
   generationModel = '',
   generationCharacterDescription = '',
@@ -158,6 +160,7 @@ export function ResultView({
   const [copied, setCopied] = useState(false);
   const [showInsertDropdown, setShowInsertDropdown] = useState(false);
   const insertDropdownRef = useRef<HTMLDivElement>(null);
+  const replaceImageInputRef = useRef<HTMLInputElement>(null);
   const totalFrames = rows * cols;
 
   // Get current art style information
@@ -383,6 +386,21 @@ export function ResultView({
     setIsPanning(false);
   };
 
+  const handleReplaceImageClick = () => {
+    if (replaceImageInputRef.current) {
+      replaceImageInputRef.current.click();
+    }
+  };
+
+  const handleReplaceImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && onReplaceFrameWithImage && selectedFrameIndices.length === 1) {
+      const file = e.target.files[0];
+      onReplaceFrameWithImage(selectedFrameIndices[0], file);
+      // Clear the input so the same file can be selected again
+      e.target.value = '';
+    }
+  };
+
   return (
     <motion.div 
       key="result"
@@ -556,6 +574,30 @@ export function ResultView({
                              <Minus className="w-4 h-4" />
                              <span className="hidden lg:inline text-xs font-semibold">Remove</span>
                            </button>
+                         )}
+
+                         <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
+
+                         {/* Upload Image Button */}
+                         {onReplaceFrameWithImage && (
+                           <>
+                             <button
+                               onClick={handleReplaceImageClick}
+                               disabled={isEditing}
+                               className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                               title="Replace frame with custom image"
+                             >
+                               <FileImage className="w-4 h-4" />
+                               <span className="hidden lg:inline text-xs font-semibold">Upload</span>
+                             </button>
+                             <input
+                               ref={replaceImageInputRef}
+                               type="file"
+                               accept="image/*"
+                               onChange={handleReplaceImageChange}
+                               className="hidden"
+                             />
+                           </>
                          )}
                        </>
                      )}
