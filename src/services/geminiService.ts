@@ -664,6 +664,121 @@ Generate ${count} creative, diverse character prompts for: ${category}`;
   }
 };
 
+/**
+ * AI-POWERED SPRITE SHEET ALIGNMENT
+ * Uses Gemini Vision to analyze sprite sheet and detect optimal grid boundaries
+ * Returns alignment data for smooth, consistent animations
+ */
+export interface AlignmentAnalysis {
+  detectedRows: number;
+  detectedCols: number;
+  frameWidth: number;
+  frameHeight: number;
+  alignmentIssues: string[];
+  recommendations: string[];
+}
+
+export const aiAnalyzeSpriteSheet = async (
+  imageBase64: string,
+  expectedRows: number,
+  expectedCols: number
+): Promise<AlignmentAnalysis> => {
+  try {
+    const ai = await getClient();
+    const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
+
+    const analysisPrompt = `You are a professional sprite sheet quality analyzer. Analyze this sprite sheet image and provide a detailed technical assessment.
+
+EXPECTED GRID: ${expectedRows} rows × ${expectedCols} columns
+
+TASK: Analyze the sprite sheet and detect:
+1. Actual grid structure (rows and columns)
+2. Frame boundaries and spacing
+3. Character alignment consistency across frames
+4. Any misalignment, drift, or positioning issues
+5. Grid line visibility (should be invisible)
+6. Background consistency
+
+OUTPUT FORMAT (JSON only, no markdown):
+{
+  "detectedRows": number,
+  "detectedCols": number,
+  "frameWidth": number (pixels),
+  "frameHeight": number (pixels),
+  "alignmentIssues": ["issue1", "issue2", ...],
+  "recommendations": ["recommendation1", "recommendation2", ...]
+}
+
+ISSUES TO DETECT:
+- Frames not aligned to consistent grid
+- Characters drifting horizontally or vertically between frames
+- Inconsistent character sizes across frames
+- Visible grid lines or borders
+- Background color inconsistencies
+- Frames overlapping or too close together
+- Missing or empty frames
+
+RECOMMENDATIONS TO PROVIDE:
+- Specific alignment corrections needed
+- Grid boundary adjustments
+- Frame spacing optimizations
+- Character positioning fixes
+
+Return ONLY valid JSON, no additional text or explanation.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+        parts: [
+          { text: analysisPrompt },
+          { inlineData: { mimeType: 'image/png', data: cleanBase64 } }
+        ]
+      }
+    });
+
+    const text = response.text?.trim() || '';
+    
+    // Try to parse JSON response
+    try {
+      // Remove markdown code blocks if present
+      const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const analysis = JSON.parse(cleanText) as AlignmentAnalysis;
+      
+      // Validate and fallback to expected values if detection fails
+      return {
+        detectedRows: analysis.detectedRows || expectedRows,
+        detectedCols: analysis.detectedCols || expectedCols,
+        frameWidth: analysis.frameWidth || 0,
+        frameHeight: analysis.frameHeight || 0,
+        alignmentIssues: Array.isArray(analysis.alignmentIssues) ? analysis.alignmentIssues : [],
+        recommendations: Array.isArray(analysis.recommendations) ? analysis.recommendations : []
+      };
+    } catch (parseError) {
+      console.warn('Failed to parse AI analysis JSON, using fallback:', parseError);
+      // Fallback: return expected values with generic issues
+      return {
+        detectedRows: expectedRows,
+        detectedCols: expectedCols,
+        frameWidth: 0,
+        frameHeight: 0,
+        alignmentIssues: ['Could not analyze sprite sheet structure'],
+        recommendations: ['Perform manual alignment check']
+      };
+    }
+  } catch (error) {
+    console.error('AI sprite sheet analysis failed:', error);
+    // Return safe fallback
+    return {
+      detectedRows: expectedRows,
+      detectedCols: expectedCols,
+      frameWidth: 0,
+      frameHeight: 0,
+      alignmentIssues: ['AI analysis unavailable'],
+      recommendations: ['Using standard alignment algorithm']
+    };
+  }
+};
+
 // Global interface for AI Studio
 declare global {
   interface AIStudio {

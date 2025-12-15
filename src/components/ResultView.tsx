@@ -985,37 +985,6 @@ export function ResultView({
                  <Settings2 className="w-5 h-5" />
                  Tweak Settings
                </button>
-               
-               <button 
-                 onClick={() => {
-                   setPrompt('');
-                   setSelectedFile(null);
-                   setFilePreview(null);
-                   setHasResult(false);
-                   onClearResult?.();
-                   reset();
-                 }}
-                 className={cn(
-                   "px-6 py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2 shadow-lg transition-all",
-                   tokens > 0 
-                     ? "bg-gradient-to-r from-orange-500 to-sky-500 hover:shadow-orange-500/25 hover:scale-[1.02]" 
-                     : "bg-slate-700 cursor-not-allowed opacity-50"
-                 )}
-                 disabled={tokens <= 0}
-               >
-                 {tokens > 0 ? (
-                   <>
-                     <Sparkles className="w-5 h-5" />
-                     <span>Create New</span>
-                     <span className="bg-white/20 px-2 py-0.5 rounded text-xs ml-1">1 Token</span>
-                   </>
-                 ) : (
-                   <>
-                     <Lock className="w-5 h-5" />
-                     <span>Need Tokens</span>
-                   </>
-                 )}
-               </button>
             </div>
          </div>
 

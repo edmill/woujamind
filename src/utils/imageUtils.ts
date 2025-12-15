@@ -36,5 +36,7 @@ export {
 export {
   cleanSpriteSheet,
   alignFrameInSheet,
-  alignWholeSheet
+  alignWholeSheet,
+  aiSmartAlignSpriteSheet,
+  type SmartAlignmentResult
 } from './spriteAlignment';

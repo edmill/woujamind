@@ -24,7 +24,7 @@ import { ACTIONS } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle } from './types';
 import { cn } from './utils';
 import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame } from './services/geminiService';
-import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
+import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
 
 export default function Woujamind() {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -245,22 +245,35 @@ export default function Woujamind() {
       setGenerationModel(result.modelId);
       setGenerationCharacterDescription(result.characterDescription);
 
-      // Post-process: Clean up magenta backgrounds and grid lines
-      setStatusText("Cleaning sprite sheet...");
-      const { cleaned, hadIssues, issues } = await cleanSpriteSheet(result.imageData, gridRows, finalCols);
+      // Post-process: AI-powered alignment and cleaning
+      // This ensures smooth animations by detecting and fixing alignment issues
+      const alignmentResult = await aiSmartAlignSpriteSheet(
+        result.imageData,
+        gridRows,
+        finalCols,
+        (status) => setStatusText(status) // Progress callback
+      );
       
-      // Save to history instead of just setting state
-      pushToHistory(cleaned);
+      // Save aligned sprite sheet to history
+      pushToHistory(alignmentResult.aligned);
       setResult(true);
       setHasResult(true);
       // Panel already collapsed when Generate was clicked
       setTokens(prev => Math.max(0, prev - 1));
       
-      // Show appropriate success message
-      if (hadIssues && issues.length > 0) {
-        toast.success(`Sprite sheet generated! Fixed: ${issues.join(', ')}`);
+      // Show appropriate success message with alignment details
+      if (alignmentResult.hadIssues && alignmentResult.fixedIssues.length > 0) {
+        const issueCount = alignmentResult.fixedIssues.length;
+        const mainIssues = alignmentResult.fixedIssues.slice(0, 3).join(', ');
+        const moreText = issueCount > 3 ? ` and ${issueCount - 3} more` : '';
+        toast.success(`Sprite sheet generated and aligned! Fixed: ${mainIssues}${moreText}`);
       } else {
         toast.success("Sprite sheet generated successfully! 🎉");
+      }
+      
+      // Log AI analysis recommendations if available
+      if (alignmentResult.analysis.recommendations.length > 0) {
+        console.log('[AI Alignment] Recommendations:', alignmentResult.analysis.recommendations);
       }
       
     } catch (error: any) {
@@ -833,12 +846,18 @@ export default function Woujamind() {
         
         <div className="w-full max-w-[96%] 2xl:max-w-[1800px] mx-auto relative z-10 flex-1 flex flex-col min-h-0">
           
-          <Header 
+          <Header
             tokens={tokens}
             setShowPricing={setShowPricing}
             theme={theme}
             toggleTheme={toggleTheme}
             onSettingsClick={() => setIsSettingsOpen(true)}
+            onNewClick={() => {
+              setPrompt('');
+              setSelectedFile(null);
+              setFilePreview(null);
+              reset();
+            }}
           />
 
           {/* Main Layout - Flex Container */}
