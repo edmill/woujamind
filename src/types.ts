@@ -1,5 +1,5 @@
 /**
- * Type definitions for SpriteMagic
+ * Type definitions for Woujamind
  */
 import React from 'react';
 
