@@ -115,9 +115,68 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
   // Get background color from corners
   const bgColor = getBackgroundColor(ctx, width, height);
 
-  // Higher threshold for better background removal
+  // Use flood fill from edges for more accurate background detection
+  const visited = new Uint8Array(width * height);
   const threshold = 40;
 
+  // Flood fill helper
+  const floodFill = (startX: number, startY: number) => {
+    const queue: Array<{x: number, y: number}> = [{x: startX, y: startY}];
+
+    while (queue.length > 0) {
+      const {x, y} = queue.shift()!;
+
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+
+      const pixelIndex = y * width + x;
+      if (visited[pixelIndex]) continue;
+
+      const dataIndex = pixelIndex * 4;
+      const r = data[dataIndex];
+      const g = data[dataIndex + 1];
+      const b = data[dataIndex + 2];
+      const a = data[dataIndex + 3];
+
+      // Skip already transparent
+      if (a < 10) {
+        visited[pixelIndex] = 1;
+        continue;
+      }
+
+      // Check if pixel matches background color
+      const rDiff = r - bgColor.r;
+      const gDiff = g - bgColor.g;
+      const bDiff = b - bgColor.b;
+      const colorDistance = Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
+
+      if (colorDistance < threshold) {
+        visited[pixelIndex] = 1;
+        data[dataIndex + 3] = 0; // Make transparent
+
+        // Add neighbors to queue
+        queue.push({x: x + 1, y});
+        queue.push({x: x - 1, y});
+        queue.push({x, y: y + 1});
+        queue.push({x, y: y - 1});
+      }
+    }
+  };
+
+  // Start flood fill from all edges
+  // Top and bottom edges
+  for (let x = 0; x < width; x++) {
+    floodFill(x, 0);
+    floodFill(x, height - 1);
+  }
+  // Left and right edges
+  for (let y = 0; y < height; y++) {
+    floodFill(0, y);
+    floodFill(width - 1, y);
+  }
+
+  // Second pass: Remove interior background-colored pixels that flood-fill missed
+  // This catches isolated background spots (like white dots) that aren't connected to edges
+  const aggressiveThreshold = 30; // Slightly tighter threshold for interior pixels
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
@@ -127,16 +186,49 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
     // Skip already transparent pixels
     if (a < 10) continue;
 
-    // Calculate color distance
+    // Calculate color distance from background
     const rDiff = r - bgColor.r;
     const gDiff = g - bgColor.g;
     const bDiff = b - bgColor.b;
     const colorDistance = Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
 
-    // If pixel is similar to background, make it transparent
-    if (colorDistance < threshold) {
-      data[i + 3] = 0; // Set alpha to 0
+    // Remove isolated background-colored pixels
+    if (colorDistance < aggressiveThreshold) {
+      data[i + 3] = 0; // Make transparent
     }
+  }
+
+  // Optional: smooth edges for anti-aliasing
+  // Create a second pass to add semi-transparent pixels at edges
+  const smoothed = new Uint8ClampedArray(data);
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = (y * width + x) * 4;
+
+      // If this pixel is opaque, check if neighbors are transparent
+      if (data[idx + 3] > 128) {
+        let transparentNeighbors = 0;
+        const neighbors = [
+          {dx: -1, dy: 0}, {dx: 1, dy: 0},
+          {dx: 0, dy: -1}, {dx: 0, dy: 1}
+        ];
+
+        for (const {dx, dy} of neighbors) {
+          const nIdx = ((y + dy) * width + (x + dx)) * 4;
+          if (data[nIdx + 3] < 128) transparentNeighbors++;
+        }
+
+        // If bordering transparent pixels, reduce opacity slightly for smoother edges
+        if (transparentNeighbors > 0) {
+          smoothed[idx + 3] = Math.max(200, data[idx + 3] - (transparentNeighbors * 15));
+        }
+      }
+    }
+  }
+
+  // Apply smoothed alpha values
+  for (let i = 3; i < data.length; i += 4) {
+    data[i] = smoothed[i];
   }
 
   ctx.putImageData(imageData, 0, 0);

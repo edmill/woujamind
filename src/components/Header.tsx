@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Sun, Moon, Settings2, Plus } from 'lucide-react';
+import { Sun, Moon, Settings2, Plus, Upload } from 'lucide-react';
 import { AnimatedLogo } from './AnimatedLogo';
 import { TokenDisplay } from './TokenDisplay';
 import { Theme } from '../types';
@@ -16,9 +16,10 @@ interface HeaderProps {
   toggleTheme: () => void;
   onSettingsClick?: () => void;
   onNewClick?: () => void;
+  onLoadSpriteSheet?: () => void;
 }
 
-export function Header({ tokens, setShowPricing, theme, toggleTheme, onSettingsClick, onNewClick }: HeaderProps) {
+export function Header({ tokens, setShowPricing, theme, toggleTheme, onSettingsClick, onNewClick, onLoadSpriteSheet }: HeaderProps) {
   return (
     <motion.div 
       initial={{ opacity: 0, y: -20 }}
@@ -38,13 +39,25 @@ export function Header({ tokens, setShowPricing, theme, toggleTheme, onSettingsC
       <div className="flex items-center gap-3 md:gap-4 self-end md:self-auto">
         {onNewClick && (
           <>
-            <button 
+            <button
               onClick={onNewClick}
               className="px-4 py-2 rounded-lg font-semibold text-sm bg-gradient-to-r from-orange-500 to-sky-500 text-white hover:shadow-lg hover:shadow-orange-500/25 hover:scale-[1.02] transition-all flex items-center gap-2"
               title="Create New Animation"
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">New</span>
+            </button>
+          </>
+        )}
+        {onLoadSpriteSheet && (
+          <>
+            <button
+              onClick={onLoadSpriteSheet}
+              className="px-4 py-2 rounded-lg font-semibold text-sm bg-gradient-to-r from-orange-500 to-sky-500 text-white hover:shadow-lg hover:shadow-orange-500/25 hover:scale-[1.02] transition-all flex items-center gap-2"
+              title="Load Existing Sprite Sheet"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">Load</span>
             </button>
             <div className="w-px h-8 bg-slate-200 dark:bg-slate-800 mx-1 hidden md:block" />
           </>

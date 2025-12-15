@@ -161,6 +161,8 @@ export function ResultView({
   const [showInsertDropdown, setShowInsertDropdown] = useState(false);
   const insertDropdownRef = useRef<HTMLDivElement>(null);
   const replaceImageInputRef = useRef<HTMLInputElement>(null);
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(null);
+  const backgroundImageInputRef = useRef<HTMLInputElement>(null);
   const totalFrames = rows * cols;
 
   // Get current art style information
@@ -398,6 +400,36 @@ export function ResultView({
       onReplaceFrameWithImage(selectedFrameIndices[0], file);
       // Clear the input so the same file can be selected again
       e.target.value = '';
+    }
+  };
+
+  const handleBackgroundImageClick = () => {
+    if (backgroundImageInputRef.current) {
+      backgroundImageInputRef.current.click();
+    }
+  };
+
+  const handleBackgroundImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const url = URL.createObjectURL(file);
+
+      // Revoke old URL if exists
+      if (backgroundImageUrl) {
+        URL.revokeObjectURL(backgroundImageUrl);
+      }
+
+      setBackgroundImageUrl(url);
+      toast.success('Background image loaded for transparency testing');
+      e.target.value = '';
+    }
+  };
+
+  const handleClearBackgroundImage = () => {
+    if (backgroundImageUrl) {
+      URL.revokeObjectURL(backgroundImageUrl);
+      setBackgroundImageUrl(null);
+      toast.success('Background image removed');
     }
   };
 
@@ -880,24 +912,51 @@ export function ResultView({
                </div>
                
                {/* Controls */}
-               <div className="flex items-center gap-3">
-                  <button 
+               <div className="flex items-center gap-2">
+                  <button
                      onClick={() => setIsTransparent(!isTransparent)}
                      className={cn(
                        "p-1.5 rounded-lg border transition-all",
-                       isTransparent 
-                         ? "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300" 
+                       isTransparent
+                         ? "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300"
                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400"
                      )}
                      title="Toggle Transparency"
                   >
                      <Grid className="w-4 h-4" />
                   </button>
+
+                  <button
+                     onClick={backgroundImageUrl ? handleClearBackgroundImage : handleBackgroundImageClick}
+                     className={cn(
+                       "p-1.5 rounded-lg border transition-all",
+                       backgroundImageUrl
+                         ? "bg-sky-100 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300"
+                         : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400"
+                     )}
+                     title={backgroundImageUrl ? "Remove test background" : "Upload test background to validate transparency"}
+                  >
+                     {backgroundImageUrl ? <XCircle className="w-4 h-4" /> : <FileImage className="w-4 h-4" />}
+                  </button>
+
+                  <input
+                    ref={backgroundImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBackgroundImageChange}
+                    className="hidden"
+                  />
                </div>
             </div>
 
             <div className="flex-1 bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-orange-500/30 flex flex-col items-center justify-center relative overflow-hidden group shadow-lg min-h-0">
-               {!isTransparent ? (
+               {/* Background Layer */}
+               {backgroundImageUrl ? (
+                 <div
+                   className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                   style={{ backgroundImage: `url(${backgroundImageUrl})` }}
+                 />
+               ) : !isTransparent ? (
                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+CjxwYXRoIGQ9Ik0wIDBoMTB2MTBIMHptMTAgMTBoMTB2MTBIMTB6IiBmaWxsPSIjMWUyOTNiIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-20" />
                ) : (
                  <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#0ea5e9_0.5px,transparent_0.5px),radial-gradient(#0ea5e9_0.5px,#e5e5f7_0.5px)] bg-[length:20px_20px] bg-[position:0_0,10px_10px]" />

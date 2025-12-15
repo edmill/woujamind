@@ -20,6 +20,7 @@ import { SettingsModal, getStoredApiKey, getStoredRules } from './components/Set
 import { Header } from './components/Header';
 import { InputSidebar } from './components/InputSidebar';
 import { ResultView } from './components/ResultView';
+import SpriteSheetUploadModal from './components/SpriteSheetUploadModal';
 import { ACTIONS } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle } from './types';
 import { cn } from './utils';
@@ -67,6 +68,10 @@ export default function Woujamind() {
   
   // Settings Modal State
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+
+  // Upload Modal State
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
+  const [uploadSource, setUploadSource] = useState<'generated' | 'uploaded'>('generated');
 
   // New states for download options
   const [fps, setFps] = useState<number>(8);
@@ -782,6 +787,59 @@ export default function Woujamind() {
     setSelectedFrameIndices([]);
     setActiveFrameIndex(null);
     setSelectedFrame(null);
+    setUploadSource('generated');
+  };
+
+  const handleSpriteSheetUpload = async (file: File, rows: number, cols: number) => {
+    try {
+      // Convert file to data URL
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            resolve(e.target.result as string);
+          } else {
+            reject(new Error('Failed to read file'));
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Update grid dimensions
+      _setGridRows(rows);
+      _setGridCols(cols);
+
+      // Set as uploaded source
+      setUploadSource('uploaded');
+
+      // Initialize history with uploaded image
+      setHistory([dataUrl]);
+      setHistoryIndex(0);
+      setGeneratedImage(dataUrl);
+
+      // Clear generation metadata since this is uploaded
+      setGenerationPrompt('');
+      setGenerationModel('');
+      setGenerationCharacterDescription('');
+
+      // Navigate to ResultView
+      setResult(true);
+      setHasResult(true);
+
+      // Close modal
+      setIsUploadModalOpen(false);
+
+      // Clear frame selection
+      setSelectedFrameIndices([]);
+      setActiveFrameIndex(null);
+      setSelectedFrame(null);
+
+      toast.success(`Sprite sheet loaded! ${rows}×${cols} grid (${rows * cols} frames)`);
+    } catch (error) {
+      console.error('Upload failed:', error);
+      toast.error('Failed to load sprite sheet. Please try again.');
+    }
   };
 
   const handleDownloadSheet = () => {
@@ -843,7 +901,12 @@ export default function Woujamind() {
           onApiKeyChange={handleApiKeyChange}
           currentApiKey={storedApiKey}
         />
-        
+        <SpriteSheetUploadModal
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onUpload={handleSpriteSheetUpload}
+        />
+
         <div className="w-full max-w-[96%] 2xl:max-w-[1800px] mx-auto relative z-10 flex-1 flex flex-col min-h-0">
           
           <Header
@@ -853,11 +916,16 @@ export default function Woujamind() {
             toggleTheme={toggleTheme}
             onSettingsClick={() => setIsSettingsOpen(true)}
             onNewClick={() => {
+              if (hasResult) {
+                const confirmed = window.confirm('Starting new will clear your current sprite sheet. Continue?');
+                if (!confirmed) return;
+              }
               setPrompt('');
               setSelectedFile(null);
               setFilePreview(null);
               reset();
             }}
+            onLoadSpriteSheet={() => setIsUploadModalOpen(true)}
           />
 
           {/* Main Layout - Flex Container */}
