@@ -1,5 +1,5 @@
 /**
- * SpriteMagic Component
+ * Woujamind Component
  * Main orchestrator for the sprite generation interface.
  */
 
@@ -26,7 +26,7 @@ import { cn } from './utils';
 import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame } from './services/geminiService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
 
-export default function SpriteMagic() {
+export default function Woujamind() {
   const [theme, setTheme] = useState<Theme>('dark');
   const [prompt, setPrompt] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

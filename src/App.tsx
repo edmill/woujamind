@@ -1,6 +1,6 @@
 import React from 'react';
 import { Toaster } from 'sonner';
-import SpriteMagic from './Component';
+import Woujamind from './Component';
 
 // Configure Tailwind for the environment
 if (typeof window !== 'undefined') {
@@ -61,7 +61,7 @@ if (typeof window !== 'undefined') {
 export default function App() {
   return (
     <div className="w-full h-full overflow-x-hidden max-w-full">
-      <SpriteMagic />
+      <Woujamind />
       <Toaster 
         position="top-right" 
         richColors 

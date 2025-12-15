@@ -143,8 +143,8 @@ export const generateSpriteSheet = async (
     customRules = DEFAULT_SYSTEM_RULES;
   }
 
-  console.log(`[SpriteMagic] Using model: ${modelId}`);
-  console.log(`[SpriteMagic] Custom rules (first 100 chars):`, customRules?.substring(0, 100));
+  console.log(`[Woujamind] Using model: ${modelId}`);
+  console.log(`[Woujamind] Custom rules (first 100 chars):`, customRules?.substring(0, 100));
   try {
     const ai = await getClient();
     

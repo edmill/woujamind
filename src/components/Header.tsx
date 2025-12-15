@@ -28,9 +28,9 @@ export function Header({ tokens, setShowPricing, theme, toggleTheme, onSettingsC
         <AnimatedLogo />
         <div>
           <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-600 via-sky-600 to-orange-500 dark:from-orange-400 dark:via-sky-400 dark:to-orange-300">
-            Sprite Magic
+            Woujamind
           </h1>
-          <p className="text-slate-500 text-sm">AI-Powered Character Alchemist</p>
+          <p className="text-slate-500 text-sm">AI-Powered Sprite Sheet Generator</p>
         </div>
       </div>
 
