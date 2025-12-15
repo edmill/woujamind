@@ -50,8 +50,30 @@ export function AnimatedLogo() {
             />
 
             {/* Eyes */}
-            <div className="absolute top-[35%] left-[25%] w-1.5 h-2 bg-black/80 rounded-full" />
-            <div className="absolute top-[35%] right-[25%] w-1.5 h-2 bg-black/80 rounded-full" />
+            <motion.div 
+              className="absolute top-[35%] left-[25%] w-1.5 h-2 bg-black/80 rounded-full"
+              animate={{
+                scaleY: [1, 0.1, 1],
+              }}
+              transition={{
+                duration: 0.15,
+                repeat: Infinity,
+                repeatDelay: 3,
+                ease: "easeInOut"
+              }}
+            />
+            <motion.div 
+              className="absolute top-[35%] right-[25%] w-1.5 h-2 bg-black/80 rounded-full"
+              animate={{
+                scaleY: [1, 0.1, 1],
+              }}
+              transition={{
+                duration: 0.15,
+                repeat: Infinity,
+                repeatDelay: 3,
+                ease: "easeInOut"
+              }}
+            />
           </div>
 
           {/* Shadow */}
