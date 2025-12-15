@@ -918,8 +918,8 @@ export function ResultView({
                      className={cn(
                        "p-1.5 rounded-lg border transition-all",
                        isTransparent
-                         ? "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300"
-                         : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400"
+                         ? "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                         : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300"
                      )}
                      title="Toggle Transparency"
                   >
@@ -931,8 +931,8 @@ export function ResultView({
                      className={cn(
                        "p-1.5 rounded-lg border transition-all",
                        backgroundImageUrl
-                         ? "bg-sky-100 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300"
-                         : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400"
+                         ? "bg-sky-100 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-900/50"
+                         : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300"
                      )}
                      title={backgroundImageUrl ? "Remove test background" : "Upload test background to validate transparency"}
                   >

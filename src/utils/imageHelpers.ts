@@ -174,27 +174,51 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
     floodFill(width - 1, y);
   }
 
-  // Second pass: Remove interior background-colored pixels that flood-fill missed
-  // This catches isolated background spots (like white dots) that aren't connected to edges
-  const aggressiveThreshold = 30; // Slightly tighter threshold for interior pixels
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    const a = data[i + 3];
+  // Second pass: ONLY remove pure white pixels that are near already-transparent areas
+  // This is more conservative and won't remove white parts of the sprite (like gloves or teeth)
+  const pureWhiteThreshold = 5; // Very tight - only removes nearly pure white
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = (y * width + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const a = data[idx + 3];
 
-    // Skip already transparent pixels
-    if (a < 10) continue;
+      // Skip already transparent pixels
+      if (a < 10) continue;
 
-    // Calculate color distance from background
-    const rDiff = r - bgColor.r;
-    const gDiff = g - bgColor.g;
-    const bDiff = b - bgColor.b;
-    const colorDistance = Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
+      // Only process nearly pure white pixels (very close to 255, 255, 255)
+      const isNearlyPureWhite = (
+        Math.abs(r - 255) <= pureWhiteThreshold &&
+        Math.abs(g - 255) <= pureWhiteThreshold &&
+        Math.abs(b - 255) <= pureWhiteThreshold
+      );
 
-    // Remove isolated background-colored pixels
-    if (colorDistance < aggressiveThreshold) {
-      data[i + 3] = 0; // Make transparent
+      if (!isNearlyPureWhite) continue;
+
+      // Check if any neighbor is already transparent
+      let hasTransparentNeighbor = false;
+      const neighbors = [
+        {dx: -1, dy: 0}, {dx: 1, dy: 0},
+        {dx: 0, dy: -1}, {dx: 0, dy: 1},
+        {dx: -1, dy: -1}, {dx: 1, dy: -1},
+        {dx: -1, dy: 1}, {dx: 1, dy: 1}
+      ];
+
+      for (const {dx, dy} of neighbors) {
+        const nIdx = ((y + dy) * width + (x + dx)) * 4;
+        if (data[nIdx + 3] < 10) {
+          hasTransparentNeighbor = true;
+          break;
+        }
+      }
+
+      // Only remove if it's pure white AND next to transparent area
+      // This avoids removing white gloves, teeth, etc. that are interior to the sprite
+      if (hasTransparentNeighbor) {
+        data[idx + 3] = 0;
+      }
     }
   }
 
