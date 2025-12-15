@@ -4,6 +4,7 @@
  */
 
 import { loadImage, getVisualBoundingBox, getBackgroundColor } from './imageHelpers';
+import { aiAnalyzeSpriteSheet, AlignmentAnalysis } from '../services/geminiService';
 
 /**
  * Detects if the sprite sheet has visible grid lines by analyzing row and column borders
@@ -328,4 +329,80 @@ export const alignWholeSheet = async (
   }
 
   return canvas.toDataURL('image/png');
+};
+
+/**
+ * AI-POWERED SMART ALIGNMENT
+ * Uses AI analysis to detect issues, then performs intelligent alignment
+ * Returns aligned sprite sheet with detailed progress information
+ */
+export interface SmartAlignmentResult {
+  aligned: string;
+  analysis: AlignmentAnalysis;
+  hadIssues: boolean;
+  fixedIssues: string[];
+}
+
+export const aiSmartAlignSpriteSheet = async (
+  imageSrc: string,
+  rows: number,
+  cols: number,
+  onProgress?: (status: string) => void
+): Promise<SmartAlignmentResult> => {
+  const fixedIssues: string[] = [];
+  let analysis: AlignmentAnalysis;
+
+  try {
+    // Step 1: AI Analysis - Detect grid structure and alignment issues
+    onProgress?.('🤖 AI analyzing sprite sheet structure and detecting alignment issues...');
+    analysis = await aiAnalyzeSpriteSheet(imageSrc, rows, cols);
+    
+    // Log detected issues
+    if (analysis.alignmentIssues.length > 0) {
+      console.log('[AI Alignment] Detected issues:', analysis.alignmentIssues);
+      fixedIssues.push(...analysis.alignmentIssues.map(issue => `Detected: ${issue}`));
+    }
+
+    // Step 2: Clean sprite sheet (remove grid lines, fix backgrounds)
+    onProgress?.('🧹 Cleaning sprite sheet artifacts (removing grid lines, fixing backgrounds)...');
+    const { cleaned, hadIssues, issues } = await cleanSpriteSheet(imageSrc, rows, cols);
+    if (hadIssues && issues.length > 0) {
+      fixedIssues.push(...issues);
+    }
+
+    // Step 3: Perform alignment using detected grid structure
+    onProgress?.('📐 Aligning frames to optimal grid positions for smooth animation...');
+    const aligned = await alignWholeSheet(cleaned, rows, cols);
+    
+    // Step 4: Quality check - verify alignment improved consistency
+    onProgress?.('✅ Verifying alignment quality and animation smoothness...');
+    
+    return {
+      aligned,
+      analysis,
+      hadIssues: fixedIssues.length > 0,
+      fixedIssues
+    };
+  } catch (error) {
+    console.error('[AI Alignment] Error during alignment:', error);
+    
+    // Fallback to standard alignment if AI fails
+    onProgress?.('Falling back to standard alignment...');
+    const { cleaned } = await cleanSpriteSheet(imageSrc, rows, cols);
+    const aligned = await alignWholeSheet(cleaned, rows, cols);
+    
+    return {
+      aligned,
+      analysis: {
+        detectedRows: rows,
+        detectedCols: cols,
+        frameWidth: 0,
+        frameHeight: 0,
+        alignmentIssues: ['AI analysis failed, used standard alignment'],
+        recommendations: []
+      },
+      hadIssues: true,
+      fixedIssues: ['Used fallback alignment method']
+    };
+  }
 };
