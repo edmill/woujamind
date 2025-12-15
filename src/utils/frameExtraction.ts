@@ -76,12 +76,90 @@ export const createGifBlob = async (frames: HTMLCanvasElement[], delayMs: number
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
 
-    // Quantize colors
-    const palette = quantize(imageData.data, 256);
-    const index = applyPalette(imageData.data, palette);
+    // Check if frame has transparent pixels (alpha < 128)
+    let hasTransparency = false;
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 128) {
+        hasTransparency = true;
+        break;
+      }
+    }
 
-    gif.writeFrame(index, width, height, { palette, delay: delayMs });
+    let palette: number[][];
+    let index: Uint8Array;
+    let transparentIndex: number | undefined;
+
+    if (hasTransparency) {
+      // Reserve palette index 0 for transparent pixels
+      // Quantize to 255 colors (leaving room for transparent)
+      const opaqueData = new Uint8ClampedArray(data.length);
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 128) {
+          // Temporarily set transparent pixels to black for quantization
+          opaqueData[i] = 0;
+          opaqueData[i + 1] = 0;
+          opaqueData[i + 2] = 0;
+          opaqueData[i + 3] = 255;
+        } else {
+          opaqueData[i] = data[i];
+          opaqueData[i + 1] = data[i + 1];
+          opaqueData[i + 2] = data[i + 2];
+          opaqueData[i + 3] = data[i + 3];
+        }
+      }
+
+      // Quantize opaque pixels to 255 colors
+      palette = quantize(opaqueData, 255);
+
+      // Add transparent color at index 0 (black with alpha marker)
+      palette.unshift([0, 0, 0]);
+
+      // Create index mapping
+      index = new Uint8Array(width * height);
+      for (let i = 0; i < width * height; i++) {
+        const pixelIndex = i * 4;
+        if (data[pixelIndex + 3] < 128) {
+          // Transparent pixel maps to index 0
+          index[i] = 0;
+        } else {
+          // Find closest color in palette (skip index 0 which is transparent)
+          const r = data[pixelIndex];
+          const g = data[pixelIndex + 1];
+          const b = data[pixelIndex + 2];
+
+          let closestIndex = 1;
+          let minDistance = Infinity;
+
+          for (let j = 1; j < palette.length; j++) {
+            const [pr, pg, pb] = palette[j];
+            const distance = Math.sqrt(
+              (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2
+            );
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestIndex = j;
+            }
+          }
+          index[i] = closestIndex;
+        }
+      }
+
+      transparentIndex = 0;
+    } else {
+      // No transparency, use standard quantization
+      palette = quantize(data, 256);
+      index = applyPalette(data, palette);
+    }
+
+    // Write frame with optional transparency
+    const options: any = { palette, delay: delayMs };
+    if (transparentIndex !== undefined) {
+      options.transparent = transparentIndex;
+    }
+
+    gif.writeFrame(index, width, height, options);
   });
 
   gif.finish();
