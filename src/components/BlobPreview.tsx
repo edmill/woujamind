@@ -97,7 +97,16 @@ export const BlobPreview = ({
         ...style,
         x: mousePos.x, 
         y: mousePos.y 
-      }} 
+      }}
+      animate={{
+        scaleY: [1, 0.1, 1],
+      }}
+      transition={{
+        duration: 0.15,
+        repeat: Infinity,
+        repeatDelay: 3,
+        ease: "easeInOut"
+      }}
     />
   );
 
