@@ -888,12 +888,11 @@ export function ResultView({
                    </div>
                  )}
                </div>
-            </div>
 
-            {/* Generations Remaining */}
-            <div className="flex items-center px-1 shrink-0 pt-2">
-               <div className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-                  Generations remaining: <span className="text-orange-500 font-bold ml-1">{tokens}</span>
+               {/* Generations Remaining - Moved inside container at top-right, below toolbar */}
+               <div className="absolute top-[4.5rem] right-4 z-40 flex items-center px-3 py-1.5 bg-slate-900/90 backdrop-blur-md rounded-full text-white text-xs font-medium shadow-lg border border-slate-700">
+                  <span className="text-slate-300">Generations remaining:</span>
+                  <span className="text-orange-500 font-bold ml-2">{tokens}</span>
                </div>
             </div>
          </div>
@@ -1033,17 +1032,6 @@ export function ResultView({
                       />
                   </div>
                </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-4 justify-end pt-4 shrink-0">
-               <button 
-                 onClick={reset}
-                 className="px-6 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-2"
-               >
-                 <Settings2 className="w-5 h-5" />
-                 Tweak Settings
-               </button>
             </div>
          </div>
 
