@@ -26,14 +26,8 @@ export function Header({ tokens, setShowPricing, theme, toggleTheme, onSettingsC
       animate={{ opacity: 1, y: 0 }}
       className="flex-shrink-0 mb-6 flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 gap-4"
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-center">
         <AnimatedLogo />
-        <div>
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-600 via-sky-600 to-orange-500 dark:from-orange-400 dark:via-sky-400 dark:to-orange-300">
-            Woujamind
-          </h1>
-          <p className="text-slate-500 text-sm">AI-Powered Sprite Sheet Generator</p>
-        </div>
       </div>
 
       <div className="flex items-center gap-3 md:gap-4 self-end md:self-auto">
