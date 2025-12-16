@@ -5,7 +5,6 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { TabMode, ActionType, ExpressionType } from '../types';
 import { cn } from '../utils';
-import { AssistantSphere } from './AssistantSphere';
 
 export const BlobPreview = ({
   mode,
@@ -360,9 +359,6 @@ export const BlobPreview = ({
           {`PREVIEW: ${mode === 'action' ? action.toUpperCase() : expression.toUpperCase()}`}
         </div>
       )}
-
-      {/* Cursor-following Assistant Sphere */}
-      <AssistantSphere containerRef={containerRef} />
     </div>
   );
 };

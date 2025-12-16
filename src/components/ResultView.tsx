@@ -702,7 +702,7 @@ export function ResultView({
                          "flex items-center justify-center p-2 rounded-lg transition-all",
                          !editPrompt.trim() || isEditing || isEnhancingPrompt
                            ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
-                           : "bg-gradient-to-r from-orange-500 to-sky-500 text-white hover:shadow-lg hover:shadow-orange-500/30"
+                           : "bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 text-white hover:shadow-lg hover:shadow-orange-500/30"
                        )}
                        title="AI Enhance - Use Gemini to make prompt more precise and detailed"
                      >
@@ -996,7 +996,7 @@ export function ResultView({
                      )}
                    </div>
                  ) : (
-                   <div className="w-32 h-32 bg-gradient-to-br from-orange-500 to-sky-500 rounded-lg shadow-[0_0_50px_rgba(249,115,22,0.6)] flex items-center justify-center text-white font-bold border-4 border-white dark:border-orange-400 text-center text-sm p-2 animate-bounce-slow">
+                   <div className="w-32 h-32 bg-gradient-to-br from-orange-500 via-orange-400 to-blue-500 rounded-lg shadow-[0_0_50px_rgba(249,115,22,0.6)] flex items-center justify-center text-white font-bold border-4 border-white dark:border-orange-400 text-center text-sm p-2 animate-bounce-slow">
                       ANIMATION PREVIEW
                    </div>
                  )}
