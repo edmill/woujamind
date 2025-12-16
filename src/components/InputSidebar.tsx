@@ -147,7 +147,7 @@ export function InputSidebar({
               </div>
 
               <div className="relative group">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-sky-500 rounded-2xl opacity-10 dark:opacity-20 group-hover:opacity-30 dark:group-hover:opacity-40 transition duration-500 blur" />
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 rounded-2xl opacity-10 dark:opacity-20 group-hover:opacity-30 dark:group-hover:opacity-40 transition duration-500 blur" />
                 <div className="relative bg-white dark:bg-slate-900 rounded-2xl p-2 border border-slate-200 dark:border-slate-800 shadow-sm">
                   <textarea
                     value={prompt}
@@ -455,7 +455,7 @@ export function InputSidebar({
                   className={cn(
                     "flex-1 relative overflow-hidden rounded-xl px-8 py-5 font-bold text-xl text-white shadow-2xl transition-all",
                     (tokens > 0 && hasApiKey)
-                      ? "bg-gradient-to-r from-orange-500 via-sky-500 to-orange-600 bg-[size:200%_auto] hover:bg-right" 
+                      ? "bg-orange-500 hover:bg-orange-600"
                       : "bg-slate-200 dark:bg-slate-800 cursor-not-allowed",
                     "disabled:opacity-50 disabled:grayscale"
                   )}

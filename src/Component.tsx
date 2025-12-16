@@ -7,9 +7,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
-import { 
+import {
   Zap,
   Grid,
+  List,
   Settings2
 } from 'lucide-react';
 
@@ -21,11 +22,14 @@ import { Header } from './components/Header';
 import { InputSidebar } from './components/InputSidebar';
 import { ResultView } from './components/ResultView';
 import SpriteSheetUploadModal from './components/SpriteSheetUploadModal';
+import { FileLibraryView, ViewMode } from './components/FileLibraryView';
+import { EmptyStateView } from './components/EmptyStateView';
 import { ACTIONS } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle } from './types';
 import { cn } from './utils';
 import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame } from './services/geminiService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
+import { initDB, saveSpriteSheet, getSpriteSheetsByDate, deleteSpriteSheet, StoredSpriteSheet } from './utils/spriteStorage';
 
 export default function Woujamind() {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -76,7 +80,12 @@ export default function Woujamind() {
   // New states for download options
   const [fps, setFps] = useState<number>(8);
   const [isTransparent, setIsTransparent] = useState<boolean>(false);
-  
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+
+  // Sphere state management
+  type SphereState = 'hidden' | 'idle' | 'working' | 'swoosh';
+  const [sphereState, setSphereState] = useState<SphereState>('idle');
+
   // Paywall & Token State
   const [tokens, setTokens] = useState<number>(1); // Start with 1 free token
   const [showPricing, setShowPricing] = useState(false);
@@ -85,6 +94,22 @@ export default function Woujamind() {
   // Grid configuration
   const [gridRows, _setGridRows] = useState<number>(2);
   const [gridCols, _setGridCols] = useState<number>(4);
+
+  // Saved sprites state
+  const [savedSprites, setSavedSprites] = useState<{
+    today: StoredSpriteSheet[];
+    yesterday: StoredSpriteSheet[];
+    thisWeek: StoredSpriteSheet[];
+    thisMonth: StoredSpriteSheet[];
+    older: StoredSpriteSheet[];
+  }>({
+    today: [],
+    yesterday: [],
+    thisWeek: [],
+    thisMonth: [],
+    older: [],
+  });
+  const [isLoadingSprites, setIsLoadingSprites] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -157,6 +182,109 @@ export default function Woujamind() {
       }
     }
   }, [selectedFile]);
+
+  // Effect: Load saved sprites from IndexedDB
+  useEffect(() => {
+    const loadSprites = async () => {
+      try {
+        await initDB();
+        const sprites = await getSpriteSheetsByDate();
+        setSavedSprites(sprites);
+      } catch (error) {
+        console.error('Failed to load sprites:', error);
+        toast.error('Failed to load saved sprite sheets');
+      } finally {
+        setIsLoadingSprites(false);
+      }
+    };
+
+    loadSprites();
+  }, []);
+
+  // Manage sphere state based on sprites and generation status
+  useEffect(() => {
+    const hasSprites = !isLoadingSprites && Object.values(savedSprites).some(arr => arr.length > 0);
+
+    if (!hasSprites) {
+      setSphereState('hidden');
+    } else if (isGenerating) {
+      setSphereState('working');
+    } else if (sphereState === 'working' && !isGenerating) {
+      // Just finished generating - trigger swoosh
+      setSphereState('swoosh');
+    } else if (sphereState !== 'swoosh' && sphereState !== 'working') {
+      setSphereState('idle');
+    }
+  }, [isLoadingSprites, savedSprites, isGenerating]);
+
+  // Handler for when swoosh animation completes
+  const handleSwooshComplete = () => {
+    setSphereState('idle');
+  };
+
+  // Helper function to reload sprites
+  const reloadSprites = async () => {
+    try {
+      const sprites = await getSpriteSheetsByDate();
+      setSavedSprites(sprites);
+    } catch (error) {
+      console.error('Failed to reload sprites:', error);
+    }
+  };
+
+  // Handler to open saved sprite in ResultView
+  const handleOpenSprite = (sprite: StoredSpriteSheet) => {
+    console.log('[Open Sprite] Loading sprite:', sprite.id);
+    // Load sprite data into current state
+    setGeneratedImage(sprite.imageData);
+    setHistory(sprite.history);
+    setHistoryIndex(sprite.historyIndex);
+    setResult(true);
+    setHasResult(true);
+    _setGridRows(sprite.gridRows);
+    _setGridCols(sprite.gridCols);
+    setFps(sprite.fps);
+    setIsTransparent(sprite.isTransparent);
+    setGenerationPrompt(sprite.prompt);
+    setGenerationCharacterDescription(sprite.characterDescription || '');
+    setGenerationModel(sprite.modelId);
+    setSelectedAction(sprite.selectedAction as ActionType);
+    if (sprite.selectedExpression) {
+      setSelectedExpression(sprite.selectedExpression as ExpressionType);
+    }
+    setSelectedArtStyle(sprite.artStyle as ArtStyle);
+    toast.success(`Opened ${sprite.name}`);
+  };
+
+  // Handler to delete saved sprite
+  const handleDeleteSprite = async (id: string) => {
+    try {
+      console.log('[Delete Sprite] Deleting sprite:', id);
+      await deleteSpriteSheet(id);
+      await reloadSprites();
+
+      // Check if there are any sprites left after deletion
+      const updatedSprites = await getSpriteSheetsByDate();
+      const hasAnySprites = Object.values(updatedSprites).some(arr => arr.length > 0);
+      console.log('[Delete Sprite] Sprites remaining:', hasAnySprites, 'hasResult:', hasResult);
+
+      // If there are no more sprites and we have a result loaded, clear it
+      if (!hasAnySprites && hasResult) {
+        console.log('[Delete Sprite] No sprites left, clearing result');
+        // Clear the loaded sprite and return to editor
+        setGeneratedImage('');
+        setResult(false);
+        setHasResult(false);
+        setHistory([]);
+        setHistoryIndex(-1);
+      }
+
+      toast.success('Sprite sheet deleted');
+    } catch (error) {
+      console.error('Failed to delete sprite:', error);
+      toast.error('Failed to delete sprite sheet');
+    }
+  };
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
@@ -265,7 +393,31 @@ export default function Woujamind() {
       setHasResult(true);
       // Panel already collapsed when Generate was clicked
       setTokens(prev => Math.max(0, prev - 1));
-      
+
+      // Auto-save to IndexedDB
+      try {
+        await saveSpriteSheet({
+          imageData: alignmentResult.aligned,
+          prompt: result.prompt,
+          characterDescription: result.characterDescription,
+          selectedAction,
+          selectedExpression,
+          artStyle: selectedArtStyle,
+          gridRows,
+          gridCols: finalCols,
+          fps,
+          isTransparent,
+          modelId: result.modelId,
+          history: [alignmentResult.aligned],
+          historyIndex: 0,
+        });
+        await reloadSprites();
+        console.log('Sprite sheet auto-saved to local storage');
+      } catch (error) {
+        console.error('Failed to auto-save sprite sheet:', error);
+        // Don't show error to user - non-critical failure
+      }
+
       // Show appropriate success message with alignment details
       if (alignmentResult.hadIssues && alignmentResult.fixedIssues.length > 0) {
         const issueCount = alignmentResult.fixedIssues.length;
@@ -926,6 +1078,8 @@ export default function Woujamind() {
               reset();
             }}
             onLoadSpriteSheet={() => setIsUploadModalOpen(true)}
+            sphereState={sphereState}
+            onSwooshComplete={handleSwooshComplete}
           />
 
           {/* Main Layout - Flex Container */}
@@ -994,52 +1148,69 @@ export default function Woujamind() {
                      exit={{ opacity: 0, scale: 0.9, filter: "blur(10px)" }}
                      className="flex-1 flex flex-col gap-4 h-full"
                    >
-                     <div className="flex items-center justify-between mb-2 shrink-0">
-                       <h3 className="text-sm font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
-                         {tabMode === 'action' ? 'Action Preview' : 'Expression Preview'}
-                       </h3>
-                       <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                             <Settings2 className="w-3 h-3" />
-                             <span>Preview Config</span>
-                          </div>
-                          <button 
-                            onClick={() => setIsTransparent(!isTransparent)}
-                            className={cn(
-                              "text-xs px-2 py-1 rounded border transition-colors flex items-center gap-1",
-                              isTransparent 
-                                ? "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300" 
-                                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500"
-                            )}
-                          >
-                             <Grid className="w-3 h-3" />
-                             {isTransparent ? 'Transparent' : 'Grid'}
-                          </button>
+                     {/* Only show view mode toggle when sprites exist */}
+                     {!isLoadingSprites && Object.values(savedSprites).some(arr => arr.length > 0) && (
+                       <div className="flex items-center justify-end mb-2 shrink-0">
+                         <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                               <Settings2 className="w-3 h-3" />
+                               <span>View Mode</span>
+                            </div>
+                            <div className="flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                              <button
+                                onClick={() => setViewMode('grid')}
+                                className={cn(
+                                  "px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5",
+                                  viewMode === 'grid'
+                                    ? "bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm"
+                                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                                )}
+                              >
+                                <Grid className="w-3.5 h-3.5" />
+                                <span>Grid</span>
+                              </button>
+                              <button
+                                onClick={() => setViewMode('list')}
+                                className={cn(
+                                  "px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5",
+                                  viewMode === 'list'
+                                    ? "bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm"
+                                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                                )}
+                              >
+                                <List className="w-3.5 h-3.5" />
+                                <span>List</span>
+                              </button>
+                            </div>
+                         </div>
                        </div>
-                     </div>
+                     )}
                      
-                     <div 
+                     <div
                         className={cn(
                           "flex-1 relative rounded-2xl transition-all overflow-hidden min-h-[400px] h-full border border-slate-200 dark:border-slate-800 shadow-sm",
-                          hasResult ? "cursor-pointer group ring-offset-4 ring-offset-slate-50 dark:ring-offset-[#0a0a0e]" : ""
+                          hasResult && !isLoadingSprites && Object.values(savedSprites).some(arr => arr.length > 0) ? "cursor-pointer group ring-offset-4 ring-offset-slate-50 dark:ring-offset-[#0a0a0e]" : ""
                         )}
-                        onClick={() => hasResult && setResult(true)}
+                        onClick={() => {
+                          // Only navigate to result if we have sprites and a result
+                          const hasSprites = !isLoadingSprites && Object.values(savedSprites).some(arr => arr.length > 0);
+                          if (hasResult && hasSprites) {
+                            setResult(true);
+                          }
+                        }}
                      >
-                        <BlobPreview
-                           mode={tabMode}
-                           action={selectedAction}
-                           expression={selectedExpression}
-                           isTransparent={isTransparent}
-                           isGenerating={isGenerating}
-                           statusText={statusText}
-                        />
-
-                        {hasResult && (
-                          <div className="absolute inset-0 z-10 bg-slate-900/5 dark:bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[2px] rounded-2xl border-2 border-orange-500/50 border-dashed">
-                            <div className="bg-white dark:bg-slate-800 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
-                              <span className="font-bold text-slate-900 dark:text-white pr-2">Return to Result</span>
-                            </div>
-                          </div>
+                        {!isLoadingSprites && Object.values(savedSprites).some(arr => arr.length > 0) ? (
+                          <FileLibraryView
+                            sprites={savedSprites}
+                            onOpenSprite={handleOpenSprite}
+                            onDeleteSprite={handleDeleteSprite}
+                            viewMode={viewMode}
+                          />
+                        ) : (
+                          <EmptyStateView
+                            isGenerating={isGenerating}
+                            statusText={statusText}
+                          />
                         )}
                      </div>
                      

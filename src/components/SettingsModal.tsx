@@ -352,7 +352,7 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
                       />
                       <button
                         onClick={() => handleSaveRules('25')}
-                        className="w-full relative flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20 overflow-hidden"
+                        className="w-full relative flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20 overflow-hidden"
                       >
                         <AnimatePresence mode="wait">
                           {showSaveSuccess.type === 'rules25' ? (
@@ -403,7 +403,7 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
                       />
                       <button
                         onClick={() => handleSaveRules('30')}
-                        className="w-full relative flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20 overflow-hidden"
+                        className="w-full relative flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20 overflow-hidden"
                       >
                         <AnimatePresence mode="wait">
                           {showSaveSuccess.type === 'rules30' ? (
@@ -448,7 +448,7 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
               </button>
               <button 
                 onClick={handleSave}
-                className="relative flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 to-sky-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20 overflow-hidden min-w-[140px]"
+                className="relative flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20 overflow-hidden min-w-[140px]"
               >
                 <AnimatePresence mode="wait">
                   {showSaveSuccess.type === 'all' ? (

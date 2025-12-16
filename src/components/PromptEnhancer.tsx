@@ -46,7 +46,7 @@ export function PromptEnhancer({ currentPrompt, onEnhance, disabled }: PromptEnh
         "flex items-center justify-center w-8 h-8 rounded-lg transition-all",
         disabled || !currentPrompt.trim() || isEnhancing
           ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
-          : "bg-gradient-to-r from-orange-500 to-sky-500 text-white hover:shadow-lg hover:shadow-orange-500/30"
+          : "bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 text-white hover:shadow-lg hover:shadow-orange-500/30"
       )}
       title="Enhance prompt with professional sprite art keywords"
     >

@@ -9,6 +9,8 @@ import { AnimatedLogo } from './AnimatedLogo';
 import { TokenDisplay } from './TokenDisplay';
 import { Theme } from '../types';
 
+type SphereState = 'hidden' | 'idle' | 'working' | 'swoosh';
+
 interface HeaderProps {
   tokens: number;
   setShowPricing: (show: boolean) => void;
@@ -17,9 +19,11 @@ interface HeaderProps {
   onSettingsClick?: () => void;
   onNewClick?: () => void;
   onLoadSpriteSheet?: () => void;
+  sphereState?: SphereState;
+  onSwooshComplete?: () => void;
 }
 
-export function Header({ tokens, setShowPricing, theme, toggleTheme, onSettingsClick, onNewClick, onLoadSpriteSheet }: HeaderProps) {
+export function Header({ tokens, setShowPricing, theme, toggleTheme, onSettingsClick, onNewClick, onLoadSpriteSheet, sphereState, onSwooshComplete }: HeaderProps) {
   return (
     <motion.div 
       initial={{ opacity: 0, y: -20 }}
@@ -27,7 +31,7 @@ export function Header({ tokens, setShowPricing, theme, toggleTheme, onSettingsC
       className="flex-shrink-0 mb-6 flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 gap-4"
     >
       <div className="flex items-center">
-        <AnimatedLogo />
+        <AnimatedLogo sphereState={sphereState} onSwooshComplete={onSwooshComplete} />
       </div>
 
       <div className="flex items-center gap-3 md:gap-4 self-end md:self-auto">
@@ -35,7 +39,7 @@ export function Header({ tokens, setShowPricing, theme, toggleTheme, onSettingsC
           <>
             <button
               onClick={onNewClick}
-              className="px-4 py-2 rounded-lg font-semibold text-sm bg-gradient-to-r from-orange-500 to-sky-500 text-white hover:shadow-lg hover:shadow-orange-500/25 hover:scale-[1.02] transition-all flex items-center gap-2"
+              className="px-4 py-2 rounded-lg font-semibold text-sm bg-orange-500 text-white hover:bg-orange-600 hover:shadow-lg hover:shadow-orange-500/25 active:scale-95 transition-all flex items-center gap-2"
               title="Create New Animation"
             >
               <Plus className="w-4 h-4" />
@@ -47,7 +51,7 @@ export function Header({ tokens, setShowPricing, theme, toggleTheme, onSettingsC
           <>
             <button
               onClick={onLoadSpriteSheet}
-              className="px-4 py-2 rounded-lg font-semibold text-sm bg-gradient-to-r from-orange-500 to-sky-500 text-white hover:shadow-lg hover:shadow-orange-500/25 hover:scale-[1.02] transition-all flex items-center gap-2"
+              className="px-4 py-2 rounded-lg font-semibold text-sm bg-blue-500 text-white hover:bg-blue-600 hover:shadow-lg hover:shadow-blue-500/25 active:scale-95 transition-all flex items-center gap-2"
               title="Load Existing Sprite Sheet"
             >
               <Upload className="w-4 h-4" />

@@ -248,7 +248,7 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-r from-orange-500 to-sky-500 rounded-lg">
+              <div className="p-2 bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 rounded-lg">
                 <Upload className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -536,7 +536,7 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
               {step === 'detect' && (
                 <button
                   onClick={handleUseDetected}
-                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-orange-500 to-sky-500 text-white rounded-lg hover:shadow-lg transition-all font-bold"
+                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 text-white rounded-lg hover:shadow-lg transition-all font-bold"
                 >
                   Load
                   <ChevronRight className="w-4 h-4" />
@@ -546,7 +546,7 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
               {step === 'manual' && (
                 <button
                   onClick={handleUseManual}
-                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-orange-500 to-sky-500 text-white rounded-lg hover:shadow-lg transition-all font-bold"
+                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 text-white rounded-lg hover:shadow-lg transition-all font-bold"
                 >
                   Load
                   <ChevronRight className="w-4 h-4" />
