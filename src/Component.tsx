@@ -207,17 +207,20 @@ export default function Woujamind() {
   useEffect(() => {
     const hasSprites = !isLoadingSprites && Object.values(savedSprites).some(arr => arr.length > 0);
 
-    if (!hasSprites) {
-      setSphereState('hidden');
-    } else if (isGenerating) {
+    if (isGenerating) {
+      // Show sphere in working state during generation
       setSphereState('working');
     } else if (sphereState === 'working' && !isGenerating) {
       // Just finished generating - trigger swoosh
       setSphereState('swoosh');
+    } else if (!hasSprites) {
+      // No sprites and not generating - hide sphere
+      setSphereState('hidden');
     } else if (sphereState !== 'swoosh' && sphereState !== 'working') {
+      // Has sprites, not generating - show idle
       setSphereState('idle');
     }
-  }, [isLoadingSprites, savedSprites, isGenerating]);
+  }, [isLoadingSprites, savedSprites, isGenerating, sphereState]);
 
   // Handler for when swoosh animation completes
   const handleSwooshComplete = () => {
