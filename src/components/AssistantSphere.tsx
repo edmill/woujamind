@@ -91,8 +91,7 @@ export function AssistantSphere({ containerRef }: AssistantSphereProps) {
         <div className="w-full h-full bg-gradient-to-br from-sky-400 to-blue-600 shadow-[inset_-3px_-3px_8px_rgba(0,0,0,0.2),inset_3px_3px_8px_rgba(255,255,255,0.5)] rounded-full">
           {/* Shine */}
           <div
-            className="absolute top-1 left-2 w-2 h-1 bg-white/70 rounded-full blur-[1px]"
-            style={{ transform: "rotate(-20deg)" }}
+            className="absolute top-1 left-2 w-2 h-1 bg-white/70 rounded-full blur-[1px] -rotate-[20deg]"
           />
 
           {/* Eyes */}

@@ -161,7 +161,7 @@ export function SpriteCardPreview({ sprite, onOpen, onDelete }: SpriteCardPrevie
           <button
             onClick={handleDownloadPNG}
             disabled={isDeleting || isDownloading}
-            className="p-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors disabled:opacity-50 shadow-lg"
+            className="p-2 bg-teal-500 hover:bg-teal-600 rounded-lg text-white transition-colors disabled:opacity-50 shadow-lg"
             title="Download PNG sprite sheet"
           >
             <FileImage className="w-4 h-4" />
