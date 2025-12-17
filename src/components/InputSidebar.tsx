@@ -16,8 +16,8 @@ import {
   Wand2 
 } from 'lucide-react';
 import { cn } from '../utils';
-import { ART_STYLES, ACTIONS, EXPRESSIONS, ALIGNMENT_MODES } from '../constants';
-import { ArtStyle, TabMode, ActionType, ExpressionType, AlignmentMode } from '../types';
+import { ART_STYLES, ACTIONS, EXPRESSIONS } from '../constants';
+import { ArtStyle, TabMode, ActionType, ExpressionType } from '../types';
 import { PromptHelper } from './PromptHelper';
 import { PromptEnhancer } from './PromptEnhancer';
 
@@ -39,10 +39,6 @@ interface InputSidebarProps {
   // Art Style
   selectedArtStyle: ArtStyle;
   setSelectedArtStyle: (style: ArtStyle) => void;
-
-  // Alignment Mode
-  selectedAlignmentMode: AlignmentMode;
-  setSelectedAlignmentMode: (mode: AlignmentMode) => void;
 
   // Motion & Mood
   tabMode: TabMode;
@@ -73,8 +69,6 @@ export function InputSidebar({
   fileInputRef,
   selectedArtStyle,
   setSelectedArtStyle,
-  selectedAlignmentMode,
-  setSelectedAlignmentMode,
   tabMode,
   setTabMode,
   selectedAction,
@@ -425,54 +419,6 @@ export function InputSidebar({
                       ))}
                   </motion.div>
                 )}
-              </div>
-            </section>
-
-            {/* 4. Alignment Mode */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">4</span>
-                  Alignment
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                {ALIGNMENT_MODES.map((mode) => (
-                  <motion.button
-                    key={mode.id}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setSelectedAlignmentMode(mode.id)}
-                    className={cn(
-                      "relative p-3 rounded-xl border-2 text-left transition-all h-24 overflow-hidden group",
-                      selectedAlignmentMode === mode.id
-                        ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
-                        : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-600"
-                    )}
-                  >
-                    <div className={cn(
-                      "absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity bg-gradient-to-br",
-                      selectedAlignmentMode === mode.id ? "from-orange-500 to-amber-500 opacity-10" : "from-slate-400 to-slate-600"
-                    )} />
-                    <div className="relative z-10 h-full flex flex-col justify-between">
-                      <div className="flex justify-between items-start">
-                        <div className="text-2xl">
-                          {mode.icon}
-                        </div>
-                        {selectedAlignmentMode === mode.id && <CheckCircle2 className="w-4 h-4 text-orange-500" />}
-                      </div>
-                      <div>
-                        <div className={cn("font-bold text-sm", selectedAlignmentMode === mode.id ? "text-orange-900 dark:text-white" : "text-slate-600 dark:text-slate-300")}>
-                          {mode.label}
-                        </div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
-                          {mode.description.split(' - ')[0]}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.button>
-                ))}
               </div>
             </section>
 

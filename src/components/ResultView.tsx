@@ -40,6 +40,7 @@ import { extractFrames } from '../utils/imageUtils';
 import { enhancePrompt } from '../services/geminiService';
 import { ArtStyle } from '../types';
 import { ART_STYLES } from '../constants';
+import { GeneratingOverlay } from './GeneratingOverlay';
 
 interface ResultViewProps {
   tokens: number;
@@ -178,8 +179,34 @@ export function ResultView({
   const parallaxAnimationRef = useRef<number | null>(null);
   const totalFrames = rows * cols;
 
+  // Generating overlay state
+  const [isSwooshing, setIsSwooshing] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const wasGeneratingRef = useRef(false);
+
   // Get current art style information
   const currentArtStyle = ART_STYLES.find(style => style.id === selectedArtStyle) || ART_STYLES[0];
+
+  // Manage generating overlay state
+  useEffect(() => {
+    // Show overlay when generating
+    if (isGenerating) {
+      setShowOverlay(true);
+      setIsSwooshing(false);
+      wasGeneratingRef.current = true;
+    }
+    // When generation completes, trigger swoosh
+    else if (wasGeneratingRef.current && imageSrc) {
+      setIsSwooshing(true);
+      wasGeneratingRef.current = false;
+    }
+  }, [isGenerating, imageSrc]);
+
+  // Handler for when swoosh animation completes
+  const handleSwooshComplete = () => {
+    setIsSwooshing(false);
+    setShowOverlay(false);
+  };
 
   // Extract frames from sprite sheet
   useEffect(() => {
@@ -525,12 +552,23 @@ export function ResultView({
   };
 
   return (
-    <motion.div 
+    <motion.div
       key="result"
       initial={{ opacity: 0, scale: 0.9, y: 20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
-      className="h-full flex flex-col gap-6"
+      className="h-full flex flex-col gap-6 relative"
     >
+      {/* Generating Overlay */}
+      <AnimatePresence>
+        {showOverlay && (
+          <GeneratingOverlay
+            statusText={statusText}
+            isSwooshing={isSwooshing}
+            onSwooshComplete={handleSwooshComplete}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Result Header */}
       <div className="flex items-center justify-between shrink-0">
          <div className="flex items-center gap-4">

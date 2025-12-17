@@ -26,7 +26,7 @@ import SpriteSheetUploadModal from './components/SpriteSheetUploadModal';
 import { FileLibraryView, ViewMode } from './components/FileLibraryView';
 import { EmptyStateView } from './components/EmptyStateView';
 import { ACTIONS } from './constants';
-import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, AlignmentMode } from './types';
+import { TabMode, ActionType, ExpressionType, Theme, ArtStyle } from './types';
 import { cn } from './utils';
 import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame } from './services/geminiService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
@@ -42,7 +42,6 @@ export default function Woujamind() {
   const [selectedAction, setSelectedAction] = useState<ActionType>('idle');
   const [selectedExpression, setSelectedExpression] = useState<ExpressionType>('neutral');
   const [selectedArtStyle, setSelectedArtStyle] = useState<ArtStyle>('pixel');
-  const [selectedAlignmentMode, setSelectedAlignmentMode] = useState<AlignmentMode>('auto');
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<boolean>(false);
@@ -208,20 +207,19 @@ export default function Woujamind() {
   useEffect(() => {
     const hasSprites = !isLoadingSprites && Object.values(savedSprites).some(arr => arr.length > 0);
 
+    // During generation, the main sphere animation is in ResultView overlay
+    // So we keep the header sphere idle or hidden
     if (isGenerating) {
-      // Show sphere in working state during generation
-      setSphereState('working');
-    } else if (sphereState === 'working' && !isGenerating) {
-      // Just finished generating - trigger swoosh
-      setSphereState('swoosh');
+      // Hide header sphere during generation (main show is in ResultView)
+      setSphereState('hidden');
     } else if (!hasSprites) {
       // No sprites and not generating - hide sphere
       setSphereState('hidden');
-    } else if (sphereState !== 'swoosh' && sphereState !== 'working') {
+    } else {
       // Has sprites, not generating - show idle
       setSphereState('idle');
     }
-  }, [isLoadingSprites, savedSprites, isGenerating, sphereState]);
+  }, [isLoadingSprites, savedSprites, isGenerating]);
 
   // Handler for when swoosh animation completes
   const handleSwooshComplete = () => {
@@ -326,10 +324,11 @@ export default function Woujamind() {
       setShowPricing(true);
       return;
     }
-    
+
     setIsGenerating(true);
     setStatusText("Analyzing character...");
-    setResult(false);
+    // Immediately transition to ResultView to show loading overlay
+    setResult(true);
     setHasResult(false);
     setGeneratedImage(null);
     setSelectedFrameIndices([]);
@@ -390,8 +389,7 @@ export default function Woujamind() {
         result.imageData,
         gridRows,
         finalCols,
-        (status) => setStatusText(status), // Progress callback
-        selectedAlignmentMode // Alignment mode
+        (status) => setStatusText(status) // Progress callback
       );
       
       // Save aligned sprite sheet to history
@@ -701,7 +699,7 @@ export default function Woujamind() {
     setIsEditing(true);
     setStatusText(`Auto-aligning Frame ${index + 1}...`);
     try {
-      const newSheet = await alignFrameInSheet(generatedImage, index, gridRows, gridCols, selectedAlignmentMode);
+      const newSheet = await alignFrameInSheet(generatedImage, index, gridRows, gridCols);
       pushToHistory(newSheet);
       toast.success(`Frame ${index + 1} aligned successfully!`);
     } catch (e) {
@@ -718,7 +716,7 @@ export default function Woujamind() {
     setIsEditing(true);
     setStatusText("Auto-aligning Full Sheet...");
     try {
-      const newSheet = await alignWholeSheet(generatedImage, gridRows, gridCols, selectedAlignmentMode);
+      const newSheet = await alignWholeSheet(generatedImage, gridRows, gridCols);
       pushToHistory(newSheet);
       toast.success("All frames aligned successfully!");
     } catch (e) {
@@ -1210,8 +1208,6 @@ export default function Woujamind() {
               fileInputRef={fileInputRef}
               selectedArtStyle={selectedArtStyle}
               setSelectedArtStyle={setSelectedArtStyle}
-              selectedAlignmentMode={selectedAlignmentMode}
-              setSelectedAlignmentMode={setSelectedAlignmentMode}
               tabMode={tabMode}
               setTabMode={setTabMode}
               selectedAction={selectedAction}
