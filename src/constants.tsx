@@ -2,7 +2,7 @@
  * Constants and Configuration
  */
 import React from 'react';
-import { ActionOption, ExpressionOption, ArtStyleOption } from './types';
+import { ActionOption, ExpressionOption, ArtStyleOption, AlignmentModeOption } from './types';
 import { 
   IdleIcon, 
   WalkIcon, 
@@ -118,10 +118,31 @@ export const ART_STYLES: ArtStyleOption[] = [
     description: '3D pixel cubes (Minecraft style)',
     previewColor: 'from-blue-500 to-indigo-500'
   },
-  { 
-    id: 'watercolor', 
-    label: 'Watercolor', 
+  {
+    id: 'watercolor',
+    label: 'Watercolor',
     description: 'Soft edges and blending colors',
     previewColor: 'from-teal-300 to-blue-300'
+  }
+];
+
+export const ALIGNMENT_MODES: AlignmentModeOption[] = [
+  {
+    id: 'auto',
+    label: 'Auto',
+    description: 'Smart alignment - centers tall sprites with effects, bottom-aligns normal sprites',
+    icon: '✨'
+  },
+  {
+    id: 'bottom',
+    label: 'Bottom',
+    description: 'Bottom alignment - sprites stand on baseline (best for walk/run)',
+    icon: '⬇️'
+  },
+  {
+    id: 'center',
+    label: 'Center',
+    description: 'Center alignment - sprites centered in frame (best for flying/floating)',
+    icon: '◯'
   }
 ];
