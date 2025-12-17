@@ -4,20 +4,25 @@
  */
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ImageIcon, 
-  XCircle, 
-  Palette, 
-  CheckCircle2, 
-  Sword, 
-  Smile, 
-  RefreshCw, 
-  Lock, 
-  Wand2 
+import {
+  ImageIcon,
+  XCircle,
+  Palette,
+  CheckCircle2,
+  Sword,
+  Smile,
+  RefreshCw,
+  Lock,
+  Wand2,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  Info
 } from 'lucide-react';
 import { cn } from '../utils';
 import { ART_STYLES, ACTIONS, EXPRESSIONS } from '../constants';
-import { ArtStyle, TabMode, ActionType, ExpressionType } from '../types';
+import { ArtStyle, TabMode, ActionType, ExpressionType, SpriteDirection, MultiViewData } from '../types';
 import { PromptHelper } from './PromptHelper';
 import { PromptEnhancer } from './PromptEnhancer';
 
@@ -47,7 +52,12 @@ interface InputSidebarProps {
   setSelectedAction: (action: ActionType) => void;
   selectedExpression: ExpressionType;
   setSelectedExpression: (exp: ExpressionType) => void;
-  
+
+  // Sprite Direction
+  selectedDirection: SpriteDirection;
+  setSelectedDirection: (dir: SpriteDirection) => void;
+  multiViewData: MultiViewData | null;
+
   // Generation
   tokens: number;
   isGenerating: boolean;
@@ -75,6 +85,9 @@ export function InputSidebar({
   setSelectedAction,
   selectedExpression,
   setSelectedExpression,
+  selectedDirection,
+  setSelectedDirection,
+  multiViewData,
   tokens,
   isGenerating,
   handleGenerate,
@@ -83,6 +96,7 @@ export function InputSidebar({
   onConnectApiKey
 }: InputSidebarProps) {
   const [showImagePreview, setShowImagePreview] = React.useState(false);
+  const [showDiagonals, setShowDiagonals] = React.useState(false);
 
   return (
     <AnimatePresence mode="sync">
@@ -420,6 +434,113 @@ export function InputSidebar({
                   </motion.div>
                 )}
               </div>
+            </section>
+
+            {/* 4. Sprite Direction */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">4</span>
+                  Sprite Direction
+                </h2>
+              </div>
+
+              {/* Multi-view indicator if detected */}
+              {multiViewData && (
+                <div className="bg-sky-100 dark:bg-sky-900/30 border border-sky-300 dark:border-sky-700 rounded-xl p-3">
+                  <p className="text-xs text-sky-700 dark:text-sky-300 flex items-start gap-2">
+                    <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    <span>Detected {multiViewData.viewCount} character views! Select direction to match reference angles.</span>
+                  </p>
+                </div>
+              )}
+
+              {/* Direction buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Cardinal Directions */}
+                {(['front', 'back', 'left', 'right'] as const).map((dir) => {
+                  const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
+                  const icons = {
+                    front: <ArrowUp className="w-4 h-4" />,
+                    back: <ArrowDown className="w-4 h-4" />,
+                    left: <ArrowLeft className="w-4 h-4" />,
+                    right: <ArrowRight className="w-4 h-4" />
+                  };
+
+                  return (
+                    <motion.button
+                      key={dir}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setSelectedDirection(dir)}
+                      className={cn(
+                        "relative p-3 rounded-xl border-2 text-left transition-all h-20",
+                        selectedDirection === dir
+                          ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+                          : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-800 dark:bg-slate-900/50"
+                      )}
+                    >
+                      {hasReferenceView && (
+                        <div className="absolute top-1 right-1">
+                          <CheckCircle2 className="w-3 h-3 text-sky-500" title="Reference view available" />
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <div className={cn("transition-colors", selectedDirection === dir ? "text-orange-600" : "text-slate-400")}>
+                          {icons[dir]}
+                        </div>
+                        <div className={cn("font-bold text-sm capitalize", selectedDirection === dir ? "text-orange-900 dark:text-white" : "text-slate-600")}>
+                          {dir}
+                        </div>
+                      </div>
+                    </motion.button>
+                  );
+                })}
+
+                {/* Diagonal Directions (collapsible) */}
+                {showDiagonals && (['front-left', 'front-right', 'back-left', 'back-right'] as const).map((dir) => {
+                  const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
+
+                  return (
+                    <motion.button
+                      key={dir}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setSelectedDirection(dir)}
+                      className={cn(
+                        "relative p-3 rounded-xl border-2 text-left transition-all h-20",
+                        selectedDirection === dir
+                          ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+                          : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-800 dark:bg-slate-900/50"
+                      )}
+                    >
+                      {hasReferenceView && (
+                        <div className="absolute top-1 right-1">
+                          <CheckCircle2 className="w-3 h-3 text-sky-500" title="Reference view available" />
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <div className={cn("transition-colors", selectedDirection === dir ? "text-orange-600" : "text-slate-400")}>
+                          <ArrowUp className="w-4 h-4" style={{ transform: 'rotate(45deg)' }} />
+                        </div>
+                        <div className={cn("font-bold text-xs", selectedDirection === dir ? "text-orange-900 dark:text-white" : "text-slate-600")}>
+                          {dir.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-')}
+                        </div>
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => setShowDiagonals(!showDiagonals)}
+                className="text-xs text-slate-500 hover:text-orange-600 transition-colors"
+              >
+                {showDiagonals ? 'Hide' : 'Show'} diagonal directions
+              </button>
             </section>
 
             {/* API Key Warning */}
