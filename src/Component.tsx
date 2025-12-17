@@ -26,9 +26,9 @@ import SpriteSheetUploadModal from './components/SpriteSheetUploadModal';
 import { FileLibraryView, ViewMode } from './components/FileLibraryView';
 import { EmptyStateView } from './components/EmptyStateView';
 import { ACTIONS } from './constants';
-import { TabMode, ActionType, ExpressionType, Theme, ArtStyle } from './types';
+import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData } from './types';
 import { cn } from './utils';
-import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame } from './services/geminiService';
+import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame, analyzeCharacter } from './services/geminiService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
 import { initDB, saveSpriteSheet, getSpriteSheetsByDate, deleteSpriteSheet, StoredSpriteSheet } from './utils/spriteStorage';
 
@@ -42,6 +42,8 @@ export default function Woujamind() {
   const [selectedAction, setSelectedAction] = useState<ActionType>('idle');
   const [selectedExpression, setSelectedExpression] = useState<ExpressionType>('neutral');
   const [selectedArtStyle, setSelectedArtStyle] = useState<ArtStyle>('pixel');
+  const [selectedDirection, setSelectedDirection] = useState<SpriteDirection>('right');
+  const [multiViewData, setMultiViewData] = useState<MultiViewData | null>(null);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<boolean>(false);
@@ -516,14 +518,34 @@ export default function Woujamind() {
     triggerConfetti();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedFile(file);
-      setFilePreview(URL.createObjectURL(file));
+      const preview = URL.createObjectURL(file);
+      setFilePreview(preview);
       setSelectedArtStyle('inherited');
       setResult(false);
       setGeneratedImage(null);
+
+      // Analyze for multi-view detection
+      try {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const base64 = event.target?.result as string;
+          const analysis = await analyzeCharacter(base64, '');
+          if (analysis.isMultiView && analysis.viewData) {
+            setMultiViewData(analysis.viewData);
+            toast.info(`Detected ${analysis.viewData.viewCount} character views! You can select which angle to use.`);
+          } else {
+            setMultiViewData(null);
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch (e) {
+        console.warn('Multi-view analysis failed', e);
+        setMultiViewData(null);
+      }
     }
   };
 

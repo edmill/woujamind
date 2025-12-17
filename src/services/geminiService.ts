@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import type { StyleParameters, MultiViewData, CharacterAnalysis, SpriteDirection } from '../types';
 
 // API Key management - supports stored key, window.aistudio, and env var
 const getApiKey = async (): Promise<string> => {
@@ -33,26 +34,126 @@ const getClient = async () => {
 
 /**
  * STAGE 1: THE ANALYST
- * Extracts a consistent character definition.
+ * Extracts a consistent character definition with style parameters.
  */
 export const analyzeCharacter = async (
   imageBase64: string,
   userDescription: string
-): Promise<string> => {
+): Promise<CharacterAnalysis> => {
   const ai = await getClient();
   const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
 
-  const prompt = `
-    Analyze this character image and the user's notes: "${userDescription}".
-    Provide a concise, objective visual description of the character design.
-    Focus strictly on:
-    - Appearance (Species, gender, age, physique).
-    - Attire (Clothing items, exact colors, accessories).
-    - Distinctive features (Hair style, face, markings).
-    - Art Style (Pixel art, flat vector, etc).
-    
-    Output strictly the description string. Do not include intro/outro text.
-  `;
+  const descPrompt = `Analyze this character image and the user's notes: "${userDescription}".
+Provide a concise, objective visual description of the character design.
+Focus strictly on:
+- Appearance (Species, gender, age, physique).
+- Attire (Clothing items, exact colors, accessories).
+- Distinctive features (Hair style, face, markings).
+
+Output strictly the description string. Do not include intro/outro text.`;
+
+  try {
+    const [descResponse, styleParams, multiViewData] = await Promise.all([
+      // Character description
+      ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: {
+          parts: [
+            { text: descPrompt },
+            { inlineData: { mimeType: 'image/png', data: cleanBase64 } }
+          ]
+        }
+      }),
+      // Style analysis
+      analyzeStyleParameters(imageBase64),
+      // Multi-view detection
+      detectMultiViewCharacter(imageBase64)
+    ]);
+
+    const characterDescription = descResponse.text?.trim() || userDescription;
+
+    return {
+      characterDescription,
+      styleParameters: styleParams,
+      isMultiView: multiViewData !== null,
+      viewData: multiViewData || undefined
+    };
+
+  } catch (e) {
+    console.warn("Analysis failed, falling back to user description", e);
+    return {
+      characterDescription: userDescription,
+      styleParameters: await analyzeStyleParameters(imageBase64),
+      isMultiView: false,
+      viewData: undefined
+    };
+  }
+};
+
+/**
+ * ADVANCED STYLE ANALYSIS
+ * Extracts detailed style parameters from reference image using Gemini Vision
+ */
+export const analyzeStyleParameters = async (
+  imageBase64: string
+): Promise<StyleParameters> => {
+  const ai = await getClient();
+  const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
+
+  const prompt = `You are a professional digital artist and technical art analyzer specializing in sprite art.
+Analyze this image and extract PRECISE technical style parameters.
+
+CRITICAL: Return ONLY valid JSON in the exact format specified. No markdown, no explanation.
+
+Analyze these aspects:
+
+1. LINE & EDGE PROPERTIES:
+   - Line weight (ultra-thin, thin, medium, thick, heavy, variable)
+   - Line style (clean, sketchy, pixel-perfect, organic, geometric)
+   - Edge quality (crisp, soft, anti-aliased, pixelated, feathered)
+
+2. SHADING & RENDERING:
+   - Shading technique (flat, cel-shaded, gradient, dithered, hatched, soft-shaded)
+   - Lighting model (ambient, directional, rim-lit, dramatic, soft)
+   - Contrast level (low, medium, high, very-high)
+
+3. COLOR PROPERTIES:
+   - Extract 5-8 primary hex colors used
+   - Total color count (approximate)
+   - Saturation level (desaturated, moderate, saturated, vibrant)
+   - Temperature (cool, neutral, warm)
+
+4. TEXTURE & DETAIL:
+   - Texture level (minimal, moderate, detailed, highly-detailed)
+   - Detail density (simple, moderate, complex)
+   - Surface finish (matte, glossy, metallic, mixed)
+
+5. OVERALL CLASSIFICATION:
+   - Art style category (pixel, low-poly, vector, hand-drawn, voxel, watercolor, mixed, custom)
+   - Technical notes (array of specific observations)
+
+OUTPUT FORMAT (strict JSON):
+{
+  "lineWeight": "medium",
+  "lineStyle": "clean",
+  "edgeQuality": "crisp",
+  "shadingTechnique": "cel-shaded",
+  "lightingModel": "directional",
+  "contrastLevel": "high",
+  "colorPalette": {
+    "primaryColors": ["#FF5733", "#33FF57", "#3357FF"],
+    "colorCount": 12,
+    "saturation": "saturated",
+    "temperature": "warm"
+  },
+  "textureLevel": "moderate",
+  "detailDensity": "moderate",
+  "surfaceFinish": "matte",
+  "artStyleCategory": "vector",
+  "technicalNotes": ["Bold outlines", "Flat color fills", "No gradients"]
+}
+
+Return ONLY the JSON object above, no additional text.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -65,29 +166,277 @@ export const analyzeCharacter = async (
       }
     });
 
-    const refinedPrompt = response.text?.trim();
-    return refinedPrompt || userDescription;
+    const text = response.text?.trim() || '';
+    // Remove markdown code blocks if present
+    const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    const styleParams = JSON.parse(cleanText) as StyleParameters;
+    return styleParams;
 
   } catch (e) {
-    console.warn("Analysis failed, falling back to user description", e);
-    return userDescription;
+    console.warn("Style analysis failed, using defaults", e);
+    // Return safe defaults
+    return {
+      lineWeight: 'medium',
+      lineStyle: 'clean',
+      edgeQuality: 'crisp',
+      shadingTechnique: 'flat',
+      lightingModel: 'ambient',
+      contrastLevel: 'medium',
+      colorPalette: {
+        primaryColors: [],
+        colorCount: 0,
+        saturation: 'moderate',
+        temperature: 'neutral'
+      },
+      textureLevel: 'moderate',
+      detailDensity: 'moderate',
+      surfaceFinish: 'matte',
+      artStyleCategory: 'custom',
+      technicalNotes: ['Style analysis unavailable']
+    };
   }
 };
 
-// Action mapping from new UI to spritegen.ai format
+/**
+ * Convert extracted style parameters to detailed prompt for generation
+ */
+const styleParametersToPrompt = (params: StyleParameters): string => {
+  const parts: string[] = [];
+
+  // Line & Edge
+  parts.push(`LINE QUALITY: ${params.lineWeight} ${params.lineStyle} lines with ${params.edgeQuality} edges.`);
+
+  // Shading
+  parts.push(`SHADING: ${params.shadingTechnique} shading with ${params.lightingModel} lighting and ${params.contrastLevel} contrast.`);
+
+  // Color
+  if (params.colorPalette.primaryColors.length > 0) {
+    parts.push(`COLOR PALETTE: Use these exact colors: ${params.colorPalette.primaryColors.join(', ')}. Total ${params.colorPalette.colorCount} colors max, ${params.colorPalette.saturation} saturation, ${params.colorPalette.temperature} temperature.`);
+  }
+
+  // Texture
+  parts.push(`TEXTURE & DETAIL: ${params.textureLevel} texture level, ${params.detailDensity} detail density, ${params.surfaceFinish} surface finish.`);
+
+  // Technical notes
+  if (params.technicalNotes.length > 0) {
+    parts.push(`STYLE NOTES: ${params.technicalNotes.join('; ')}.`);
+  }
+
+  return parts.join('\n');
+};
+
+/**
+ * MULTI-VIEW CHARACTER SHEET DETECTION
+ * Detects if image contains multiple character views (turnaround sheet)
+ * and identifies the direction of each view
+ */
+export const detectMultiViewCharacter = async (
+  imageBase64: string
+): Promise<MultiViewData | null> => {
+  const ai = await getClient();
+  const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
+
+  const prompt = `You are a professional game artist analyzing character reference sheets.
+
+TASK: Determine if this image contains MULTIPLE VIEWS of the SAME CHARACTER (a turnaround sheet),
+or just a SINGLE VIEW.
+
+SINGLE VIEW INDICATORS:
+- Only one character pose/angle visible
+- One figure in the image
+- No repeated character at different angles
+
+MULTI-VIEW INDICATORS (Turnaround Sheet):
+- Same character shown from different angles (front, back, left, right, 3/4 views)
+- Multiple figures that are clearly the same character design
+- Organized layout showing character rotation
+- Labels like "front", "back", "side" may be present
+
+If MULTI-VIEW detected, identify each view's direction and approximate position.
+
+DIRECTIONS:
+- front: Character facing viewer directly
+- back: Character's back to viewer
+- left: Character facing left (showing right side to viewer)
+- right: Character facing right (showing left side to viewer)
+- front-left: 3/4 view, mostly front but turned left
+- front-right: 3/4 view, mostly front but turned right
+- back-left: 3/4 view, mostly back but turned left
+- back-right: 3/4 view, mostly back but turned right
+
+OUTPUT FORMAT (strict JSON):
+
+If SINGLE VIEW:
+{
+  "isMultiView": false
+}
+
+If MULTI-VIEW:
+{
+  "isMultiView": true,
+  "viewCount": 4,
+  "detectedViews": [
+    {
+      "direction": "front",
+      "position": "left",
+      "confidence": 0.95,
+      "description": "Character facing forward, centered in leftmost position"
+    },
+    {
+      "direction": "right",
+      "position": "center-left",
+      "confidence": 0.9,
+      "description": "Character facing right, second from left"
+    }
+  ],
+  "layoutType": "horizontal",
+  "recommendations": ["Use front view for front-facing sprites", "Use right view for side-facing actions"]
+}
+
+Return ONLY valid JSON, no additional text.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+        parts: [
+          { text: prompt },
+          { inlineData: { mimeType: 'image/png', data: cleanBase64 } }
+        ]
+      }
+    });
+
+    const text = response.text?.trim() || '';
+    const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const result = JSON.parse(cleanText);
+
+    if (!result.isMultiView) {
+      return null; // Single view image
+    }
+
+    // Multi-view detected - return the detection data
+    return {
+      viewCount: result.viewCount,
+      detectedViews: result.detectedViews.map((view: any) => ({
+        direction: view.direction as SpriteDirection,
+        description: view.description,
+        position: view.position,
+        confidence: view.confidence
+      })),
+      layoutType: result.layoutType,
+      recommendations: result.recommendations || []
+    };
+
+  } catch (e) {
+    console.warn("Multi-view detection failed", e);
+    return null; // Treat as single view on error
+  }
+};
+
+// Action mapping with directional prompts
+interface DirectionalPrompts {
+  front: string;
+  back: string;
+  left: string;
+  right: string;
+  'front-left': string;
+  'front-right': string;
+  'back-left': string;
+  'back-right': string;
+}
+
 interface SpriteAction {
   id: string;
   label: string;
-  prompt: string;
+  prompts: DirectionalPrompts;
 }
 
 const ACTION_MAP: Record<string, SpriteAction> = {
-  'idle': { id: 'idle', label: 'Idle / Breathing', prompt: 'idle stance, facing right, subtle breathing motion, eyes blinking, slight bobbing' },
-  'walk': { id: 'walk', label: 'Walk Cycle', prompt: 'smooth walking cycle, facing right, side view, legs crossing, arms swinging naturally' },
-  'run': { id: 'run', label: 'Run Cycle', prompt: 'fast running cycle, facing right, dynamic forward lean, clean movement lines, aggressive gait' },
-  'jump': { id: 'jump', label: 'Jump', prompt: 'jump sequence, facing right: anticipation, launch, mid-air tuck, landing' },
-  'attack': { id: 'attack', label: 'Attack / Slash', prompt: 'combat attack sequence, facing right, striking thin air (pantomime), wind up, strike, follow through, no enemies, no blood' },
-  'cast': { id: 'cast', label: 'Cast Spell', prompt: 'magic casting animation, facing right, gathering energy in hands (pantomime), no projectiles leaving the frame' },
+  'idle': {
+    id: 'idle',
+    label: 'Idle / Breathing',
+    prompts: {
+      front: 'idle stance, facing viewer directly, frontal view, subtle breathing motion, eyes blinking, slight bobbing, neutral posture',
+      back: 'idle stance, back to viewer, rear view, subtle breathing motion, slight bobbing, relaxed posture',
+      left: 'idle stance, facing left, side profile view, subtle breathing motion, eyes blinking, slight bobbing',
+      right: 'idle stance, facing right, side profile view, subtle breathing motion, eyes blinking, slight bobbing',
+      'front-left': 'idle stance, 3/4 view facing front-left, subtle breathing motion, eyes visible, slight bobbing',
+      'front-right': 'idle stance, 3/4 view facing front-right, subtle breathing motion, eyes visible, slight bobbing',
+      'back-left': 'idle stance, 3/4 view facing back-left, rear-angle view, subtle breathing, back partially visible',
+      'back-right': 'idle stance, 3/4 view facing back-right, rear-angle view, subtle breathing, back partially visible'
+    }
+  },
+  'walk': {
+    id: 'walk',
+    label: 'Walk Cycle',
+    prompts: {
+      front: 'smooth walking cycle, facing viewer, frontal walk, legs crossing in perspective, arms swinging naturally, forward movement toward viewer',
+      back: 'smooth walking cycle, back to viewer, rear walk, legs crossing, arms swinging, walking away from viewer',
+      left: 'smooth walking cycle, facing left, side profile view, legs crossing, arms swinging naturally, standard walk cycle',
+      right: 'smooth walking cycle, facing right, side profile view, legs crossing, arms swinging naturally, standard walk cycle',
+      'front-left': 'smooth walking cycle, 3/4 front-left view, dynamic diagonal movement, natural stride',
+      'front-right': 'smooth walking cycle, 3/4 front-right view, dynamic diagonal movement, natural stride',
+      'back-left': 'smooth walking cycle, 3/4 back-left view, walking away at angle, back partially visible',
+      'back-right': 'smooth walking cycle, 3/4 back-right view, walking away at angle, back partially visible'
+    }
+  },
+  'run': {
+    id: 'run',
+    label: 'Run Cycle',
+    prompts: {
+      front: 'fast running cycle, facing viewer, frontal run, dynamic forward lean, aggressive gait, pumping arms, running toward viewer',
+      back: 'fast running cycle, back to viewer, rear run, running away from viewer, arms pumping, dynamic movement',
+      left: 'fast running cycle, facing left, side profile view, dynamic forward lean, aggressive gait, clean movement lines',
+      right: 'fast running cycle, facing right, side profile view, dynamic forward lean, aggressive gait, clean movement lines',
+      'front-left': 'fast running cycle, 3/4 front-left view, diagonal sprint, dynamic lean, powerful stride',
+      'front-right': 'fast running cycle, 3/4 front-right view, diagonal sprint, dynamic lean, powerful stride',
+      'back-left': 'fast running cycle, 3/4 back-left view, running away at angle, energetic movement',
+      'back-right': 'fast running cycle, 3/4 back-right view, running away at angle, energetic movement'
+    }
+  },
+  'jump': {
+    id: 'jump',
+    label: 'Jump',
+    prompts: {
+      front: 'jump sequence, facing viewer, frontal view: anticipation crouch, launch upward, mid-air peak arms up, landing crouch',
+      back: 'jump sequence, back to viewer, rear view: anticipation crouch, launch upward, mid-air peak, landing',
+      left: 'jump sequence, facing left, side profile view: anticipation, launch, mid-air tuck, descent, landing',
+      right: 'jump sequence, facing right, side profile view: anticipation, launch, mid-air tuck, descent, landing',
+      'front-left': 'jump sequence, 3/4 front-left view, diagonal jump, dynamic aerial pose',
+      'front-right': 'jump sequence, 3/4 front-right view, diagonal jump, dynamic aerial pose',
+      'back-left': 'jump sequence, 3/4 back-left view, jumping away at angle',
+      'back-right': 'jump sequence, 3/4 back-right view, jumping away at angle'
+    }
+  },
+  'attack': {
+    id: 'attack',
+    label: 'Attack / Slash',
+    prompts: {
+      front: 'combat attack sequence, facing viewer, frontal strike, wind up, powerful strike forward at viewer, follow through, no enemies, no blood',
+      back: 'combat attack sequence, back to viewer, rear attack, striking away from viewer, wind up visible from behind, follow through',
+      left: 'combat attack sequence, facing left, side profile strike, wind up, strike across body, follow through, pantomime',
+      right: 'combat attack sequence, facing right, side profile strike, wind up, strike across body, follow through, pantomime',
+      'front-left': 'combat attack sequence, 3/4 front-left view, diagonal strike, dynamic slashing motion',
+      'front-right': 'combat attack sequence, 3/4 front-right view, diagonal strike, dynamic slashing motion',
+      'back-left': 'combat attack sequence, 3/4 back-left view, attacking away from viewer',
+      'back-right': 'combat attack sequence, 3/4 back-right view, attacking away from viewer'
+    }
+  },
+  'cast': {
+    id: 'cast',
+    label: 'Cast Spell',
+    prompts: {
+      front: 'magic casting animation, facing viewer, frontal cast, gathering energy in hands held forward, magical gesture, hands toward viewer, pantomime',
+      back: 'magic casting animation, back to viewer, rear cast, gathering energy, hands raised visible from back, magical pose',
+      left: 'magic casting animation, facing left, side profile cast, gathering energy in hands (pantomime), mystical gestures',
+      right: 'magic casting animation, facing right, side profile cast, gathering energy in hands (pantomime), mystical gestures',
+      'front-left': 'magic casting animation, 3/4 front-left view, diagonal spellcast, energy gathering, dynamic pose',
+      'front-right': 'magic casting animation, 3/4 front-right view, diagonal spellcast, energy gathering, dynamic pose',
+      'back-left': 'magic casting animation, 3/4 back-left view, casting away from viewer, magical gestures',
+      'back-right': 'magic casting animation, 3/4 back-right view, casting away from viewer, magical gestures'
+    }
+  }
 };
 
 // Style mapping from new UI to spritegen.ai format
@@ -118,6 +467,8 @@ export interface SpriteSheetResult {
   prompt: string;
   modelId: string;
   characterDescription: string;
+  styleParameters?: StyleParameters;
+  direction: SpriteDirection;
 }
 
 /**
@@ -130,10 +481,12 @@ export const generateSpriteSheet = async (
   expressionId: string,
   artStyleId: string,
   userPrompt: string,
+  direction: SpriteDirection = 'right',
   rows: number = 2,
   cols: number = 4,
   modelId: string = 'gemini-3-pro-image-preview',
-  customRules?: string
+  customRules?: string,
+  multiViewData?: MultiViewData | null
 ): Promise<SpriteSheetResult> => {
   // If no custom rules provided, load from localStorage based on model
   if (!customRules && typeof window !== 'undefined') {
@@ -151,20 +504,24 @@ export const generateSpriteSheet = async (
     // Get action and style
     const action = ACTION_MAP[actionId] || ACTION_MAP['idle'];
     const stylePrompt = STYLE_MAP[artStyleId] || STYLE_MAP['pixel'];
-    
-    // Build character description
+
+    // Build character description and analyze style
     let characterDescription = userPrompt || "A game character sprite";
+    let analysis: CharacterAnalysis | null = null;
     if (imageBase64) {
       // If we have an image, analyze it first
-      characterDescription = await analyzeCharacter(imageBase64, userPrompt);
+      analysis = await analyzeCharacter(imageBase64, userPrompt);
+      characterDescription = analysis.characterDescription;
     }
 
-    // Build action instructions
+    // Build action instructions with directional prompt
     const totalFrames = rows * cols;
+    const actionPrompt = action.prompts[direction] || action.prompts.right;
     const actionInstructions = `
-      ACTION: ${action.label} (${action.prompt})
+      ACTION: ${action.label} (${actionPrompt})
+      DIRECTION: ${direction.toUpperCase()}
       ${expressionId !== 'neutral' ? `EXPRESSION: ${expressionId}` : ''}
-      INSTRUCTION: Create a ${totalFrames}-frame animation loop of this action.
+      INSTRUCTION: Create a ${totalFrames}-frame animation loop of this action from the ${direction} direction.
       IMPORTANT: Animate the character IN-PLACE (like a treadmill). Do not move the character across the screen. Center the character in every grid cell.
     `;
 
@@ -181,15 +538,26 @@ export const generateSpriteSheet = async (
       (Math.abs(curr.val - targetRatio) < Math.abs(prev.val - targetRatio) ? curr : prev)
     ).id;
 
+    // Build style instructions - use extracted parameters if available
+    let styleInstructions: string;
+    if (artStyleId === 'inherited' && analysis?.styleParameters) {
+      styleInstructions = `STYLE REQUIREMENTS:\n${styleParametersToPrompt(analysis.styleParameters)}\nMatch the reference image style EXACTLY.`;
+    } else if (stylePrompt) {
+      styleInstructions = `STYLE: ${stylePrompt}`;
+    } else {
+      styleInstructions = 'STYLE: Match the reference image style exactly';
+    }
+
     // Build the prompt - optimized for Gemini 3 Pro Image
     const prompt = `${customRules}
 
 TASK: Create a ${rows}x${cols} sprite sheet (${totalFrames} frames total) for game animation.
 
 CHARACTER: ${characterDescription}
-${stylePrompt ? `STYLE: ${stylePrompt}` : 'STYLE: Match the reference image style exactly'}
+${styleInstructions}
 
-ANIMATION: ${action.label} - ${action.prompt}${expressionId !== 'neutral' ? `\nEXPRESSION: ${expressionId}` : ''}
+ANIMATION: ${action.label} - ${actionPrompt}
+DIRECTION: ${direction.toUpperCase()}${expressionId !== 'neutral' ? `\nEXPRESSION: ${expressionId}` : ''}
 
 CRITICAL: Each of the ${totalFrames} frames MUST show a DIFFERENT pose/position in the animation sequence.
 Frame 1: Starting pose
@@ -270,7 +638,9 @@ OUTPUT: ${totalFrames} clean, consistent animation frames in a ${rows}x${cols} i
               imageData: `data:image/png;base64,${part.inlineData.data}`,
               prompt: prompt.trim(),
               modelId: modelId,
-              characterDescription: characterDescription
+              characterDescription: characterDescription,
+              styleParameters: analysis?.styleParameters,
+              direction: direction
             };
           }
         }

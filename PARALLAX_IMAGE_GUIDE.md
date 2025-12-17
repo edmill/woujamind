@@ -149,3 +149,4 @@ Add these to your prompts to ensure larger dimensions:
 - Use `--ar 16:9` or `--aspect 16:9`
 - Add `--quality 2` or `--v 6` for higher resolution
 - Specify: `"2400x1350, 8k, ultra detailed"`
+
