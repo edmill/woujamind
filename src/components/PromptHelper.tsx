@@ -89,8 +89,8 @@ export function PromptHelper({ onSelectPrompt, currentPrompt }: PromptHelperProp
         className={cn(
           "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
           isOpen
-            ? "bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 text-white shadow-lg shadow-orange-500/30"
-            : "bg-gradient-to-r from-orange-500/10 to-sky-500/10 text-orange-600 dark:text-orange-300 hover:from-orange-500/20 hover:to-sky-500/20 border border-orange-500/20"
+            ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30"
+            : "bg-orange-500/10 text-orange-600 dark:text-orange-300 hover:bg-orange-500/20 border border-orange-500/20"
         )}
       >
         <Sparkles className="w-4 h-4" />
@@ -202,7 +202,7 @@ export function PromptHelper({ onSelectPrompt, currentPrompt }: PromptHelperProp
                         "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all",
                         isGenerating
                           ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
-                          : "bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 text-white hover:shadow-lg hover:shadow-orange-500/30"
+                          : "bg-orange-500 text-white hover:bg-orange-600 hover:shadow-lg hover:shadow-orange-500/30 active:scale-95"
                       )}
                       title="Generate new AI prompts"
                     >

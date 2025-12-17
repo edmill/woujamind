@@ -69,7 +69,7 @@ export function EmptyStateView({
                     rotate: { duration: 20, repeat: Infinity, ease: "linear" },
                     scale: { duration: 3, repeat: Infinity, ease: "easeInOut" }
                   }}
-                  className="absolute -inset-2 rounded-full bg-gradient-to-r from-orange-400 via-amber-400 to-blue-400 blur-md opacity-50"
+                  className="absolute -inset-2 rounded-full bg-gradient-to-r from-teal-400 to-orange-400 blur-md opacity-50"
                 />
 
                 {/* Assistant Sphere */}
@@ -88,11 +88,10 @@ export function EmptyStateView({
                   className="relative w-12 h-12"
                 >
                   {/* Sphere Body */}
-                  <div className="w-full h-full bg-gradient-to-br from-orange-400 via-amber-400 to-blue-500 shadow-[inset_-3px_-3px_8px_rgba(0,0,0,0.2),inset_3px_3px_8px_rgba(255,255,255,0.5)] rounded-full">
+                  <div className="w-full h-full bg-gradient-to-br from-teal-400 to-orange-500 shadow-[inset_-3px_-3px_8px_rgba(0,0,0,0.2),inset_3px_3px_8px_rgba(255,255,255,0.5)] rounded-full">
                     {/* Shine */}
                     <div
-                      className="absolute top-2 left-3 w-3 h-2 bg-white/70 rounded-full blur-[1px]"
-                      style={{ transform: "rotate(-20deg)" }}
+                      className="absolute top-2 left-3 w-3 h-2 bg-white/70 rounded-full blur-[1px] -rotate-[20deg]"
                     />
 
                     {/* Eyes that follow mouse */}
@@ -140,7 +139,7 @@ export function EmptyStateView({
               </div>
 
               {/* Title */}
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 bg-clip-text text-transparent">
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-teal-500 to-orange-500 bg-clip-text text-transparent">
                 No Sprite Sheets Yet
               </h3>
             </div>

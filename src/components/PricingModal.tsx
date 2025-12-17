@@ -138,7 +138,7 @@ export function PricingModal({ isOpen, onClose, onPurchase, currentTokens }: Pri
                     </div>
                   </div>
 
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onPurchase(plan.tokens);
@@ -146,7 +146,7 @@ export function PricingModal({ isOpen, onClose, onPurchase, currentTokens }: Pri
                     className={cn(
                       "w-full py-3 rounded-xl font-bold transition-all",
                       plan.popular
-                        ? "bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg hover:shadow-orange-500/25"
+                        ? "bg-orange-500 text-white hover:bg-orange-600 shadow-lg hover:shadow-orange-500/25 active:scale-95"
                         : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700"
                     )}
                   >

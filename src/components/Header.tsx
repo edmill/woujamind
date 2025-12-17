@@ -51,7 +51,7 @@ export function Header({ tokens, setShowPricing, theme, toggleTheme, onSettingsC
           <>
             <button
               onClick={onLoadSpriteSheet}
-              className="px-4 py-2 rounded-lg font-semibold text-sm bg-blue-500 text-white hover:bg-blue-600 hover:shadow-lg hover:shadow-blue-500/25 active:scale-95 transition-all flex items-center gap-2"
+              className="px-4 py-2 rounded-lg font-semibold text-sm bg-teal-500 text-white hover:bg-teal-600 hover:shadow-lg hover:shadow-teal-500/25 active:scale-95 transition-all flex items-center gap-2"
               title="Load Existing Sprite Sheet"
             >
               <Upload className="w-4 h-4" />

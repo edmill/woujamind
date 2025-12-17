@@ -54,7 +54,7 @@ export function AnimatedLogo({ sphereState = 'idle', onSwooshComplete }: Animate
                   onSwooshComplete();
                 }
               }}
-              className="absolute left-[calc(50%-2px)] top-[calc(52%+10px)] -translate-y-1/2 -translate-x-1/2"
+              className="absolute left-[calc(45%-2px)] top-[calc(52%+10px)] -translate-y-1/2 -translate-x-1/2"
             >
               {/* Outer Glow */}
               <motion.div
@@ -66,7 +66,11 @@ export function AnimatedLogo({ sphereState = 'idle', onSwooshComplete }: Animate
                   rotate: { duration: sphereState === 'working' ? 2 : 20, repeat: Infinity, ease: "linear" },
                   scale: { duration: sphereState === 'working' ? 0.5 : 3, repeat: Infinity, ease: "easeInOut" }
                 }}
-                className="absolute -inset-2 rounded-full bg-gradient-to-r from-orange-400 via-amber-400 to-blue-400 blur-md opacity-50 group-hover:opacity-75 transition duration-500"
+                className={`absolute -inset-2 rounded-full blur-md opacity-50 group-hover:opacity-75 transition duration-500 ${
+                  sphereState === 'working'
+                    ? 'bg-gradient-to-r from-purple-400 via-purple-500 to-indigo-400'
+                    : 'bg-gradient-to-r from-teal-400 to-orange-400'
+                }`}
               />
 
               {/* Assistant Sphere */}
@@ -94,12 +98,15 @@ export function AnimatedLogo({ sphereState = 'idle', onSwooshComplete }: Animate
               >
             {/* Sphere Body */}
             <div
-              className="w-full h-full bg-gradient-to-br from-orange-400 via-amber-400 to-blue-500 shadow-[inset_-3px_-3px_8px_rgba(0,0,0,0.2),inset_3px_3px_8px_rgba(255,255,255,0.5)] rounded-full"
+              className={`w-full h-full shadow-[inset_-3px_-3px_8px_rgba(0,0,0,0.2),inset_3px_3px_8px_rgba(255,255,255,0.5)] rounded-full ${
+                sphereState === 'working'
+                  ? 'bg-gradient-to-br from-purple-400 via-purple-500 to-indigo-500'
+                  : 'bg-gradient-to-br from-teal-400 to-orange-500'
+              }`}
             >
               {/* Shine */}
               <div
-                className="absolute top-1 left-2 w-2 h-1 bg-white/70 rounded-full blur-[1px]"
-                style={{ transform: "rotate(-20deg)" }}
+                className="absolute top-1 left-2 w-2 h-1 bg-white/70 rounded-full blur-[1px] -rotate-[20deg]"
               />
 
               {/* Eyes */}
@@ -139,7 +146,7 @@ export function AnimatedLogo({ sphereState = 'idle', onSwooshComplete }: Animate
 
       {/* Brand Text */}
       <div className="flex flex-col">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-500 to-orange-500 bg-clip-text text-transparent">
           Woujamind
         </h1>
         <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
