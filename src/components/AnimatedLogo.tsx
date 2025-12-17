@@ -57,21 +57,97 @@ export function AnimatedLogo({ sphereState = 'idle', onSwooshComplete }: Animate
               className="absolute left-[calc(45%-2px)] top-[calc(52%+10px)] -translate-y-1/2 -translate-x-1/2"
             >
               {/* Outer Glow */}
-              <motion.div
-                animate={{
-                  rotate: 360,
-                  scale: sphereState === 'working' ? [1, 1.2, 1] : [1, 1.1, 1]
-                }}
-                transition={{
-                  rotate: { duration: sphereState === 'working' ? 2 : 20, repeat: Infinity, ease: "linear" },
-                  scale: { duration: sphereState === 'working' ? 0.5 : 3, repeat: Infinity, ease: "easeInOut" }
-                }}
-                className={`absolute -inset-2 rounded-full blur-md opacity-50 group-hover:opacity-75 transition duration-500 ${
-                  sphereState === 'working'
-                    ? 'bg-gradient-to-r from-purple-400 via-purple-500 to-indigo-400'
-                    : 'bg-gradient-to-r from-teal-400 to-orange-400'
-                }`}
-              />
+              {sphereState === 'working' ? (
+                <>
+                  {/* Outer rotating rainbow ring */}
+                  <motion.div
+                    animate={{
+                      rotate: 360,
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{
+                      rotate: { duration: 3, repeat: Infinity, ease: "linear" },
+                      scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                    }}
+                    className="absolute -inset-6 rounded-full blur-2xl opacity-70 bg-[conic-gradient(from_0deg,#ff0080,#ff8800,#ffff00,#00ff88,#0088ff,#8800ff,#ff0080)]"
+                  />
+
+                  {/* Middle counter-rotating ring */}
+                  <motion.div
+                    animate={{
+                      rotate: -360,
+                      opacity: [0.6, 1, 0.6]
+                    }}
+                    transition={{
+                      rotate: { duration: 2, repeat: Infinity, ease: "linear" },
+                      opacity: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+                    }}
+                    className="absolute -inset-5 rounded-full blur-xl opacity-80 bg-[conic-gradient(from_180deg,#a855f7,#ec4899,#f59e0b,#10b981,#3b82f6,#8b5cf6,#a855f7)]"
+                  />
+
+                  {/* Inner fast-spinning bright ring */}
+                  <motion.div
+                    animate={{
+                      rotate: 360,
+                      scale: [0.9, 1.2, 0.9]
+                    }}
+                    transition={{
+                      rotate: { duration: 1.5, repeat: Infinity, ease: "linear" },
+                      scale: { duration: 1, repeat: Infinity, ease: "easeInOut" }
+                    }}
+                    className="absolute -inset-4 rounded-full blur-lg opacity-90 bg-[conic-gradient(from_90deg,#fbbf24,#f472b6,#60a5fa,#34d399,#fbbf24)]"
+                  />
+
+                  {/* Pulsing glow base */}
+                  <motion.div
+                    animate={{
+                      opacity: [0.4, 0.7, 0.4],
+                      scale: [1.2, 1.4, 1.2]
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="absolute -inset-3 bg-gradient-to-r from-violet-500/50 via-fuchsia-500/50 to-cyan-500/50 rounded-full blur-2xl"
+                  />
+
+                  {/* Sparkle particles */}
+                  {[...Array(6)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      animate={{
+                        scale: [0, 1, 0],
+                        opacity: [0, 1, 0],
+                        rotate: 360
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        delay: i * 0.3,
+                        ease: "easeInOut"
+                      }}
+                      className="absolute w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+                      style={{
+                        left: `${50 + 40 * Math.cos((i * Math.PI * 2) / 6)}%`,
+                        top: `${50 + 40 * Math.sin((i * Math.PI * 2) / 6)}%`
+                      }}
+                    />
+                  ))}
+                </>
+              ) : (
+                <motion.div
+                  animate={{
+                    rotate: 360,
+                    scale: [1, 1.1, 1]
+                  }}
+                  transition={{
+                    rotate: { duration: 20, repeat: Infinity, ease: "linear" },
+                    scale: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+                  }}
+                  className="absolute -inset-2 rounded-full blur-md opacity-50 group-hover:opacity-75 transition duration-500 bg-gradient-to-r from-teal-400 to-orange-400"
+                />
+              )}
 
               {/* Assistant Sphere */}
               <motion.div

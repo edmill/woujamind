@@ -179,11 +179,14 @@ export const cleanSpriteSheet = async (
 
 // --- ALIGNMENT LOGIC ---
 
+export type AlignmentMode = 'auto' | 'bottom' | 'center';
+
 export const alignFrameInSheet = async (
   sheetSrc: string,
   frameIndex: number,
   rows: number,
-  cols: number
+  cols: number,
+  alignmentMode: AlignmentMode = 'auto'
 ): Promise<string> => {
   const sheet = await loadImage(sheetSrc);
   const frameW = Math.floor(sheet.naturalWidth / cols);
@@ -233,13 +236,35 @@ export const alignFrameInSheet = async (
     // Center horizontally
     const destX = Math.floor((frameW - bbox.width) / 2);
 
-    // Vertical positioning: use bottom alignment with consistent padding
-    // This ensures all sprites "stand" at the same baseline
-    const paddingBottom = Math.max(
-      Math.floor(frameH * 0.08), // At least 8% padding from bottom
-      4 // Minimum 4 pixels
-    );
-    const destY = Math.floor(frameH - bbox.height - paddingBottom);
+    // Calculate vertical alignment based on mode
+    let destY: number;
+
+    if (alignmentMode === 'center') {
+      // Center alignment mode - always center vertically
+      destY = Math.floor((frameH - bbox.height) / 2);
+    } else if (alignmentMode === 'bottom') {
+      // Bottom alignment mode - always align to bottom with padding
+      const paddingBottom = Math.max(
+        Math.floor(frameH * 0.08), // At least 8% padding from bottom
+        4 // Minimum 4 pixels
+      );
+      destY = Math.floor(frameH - bbox.height - paddingBottom);
+    } else {
+      // Auto mode - smart alignment based on bbox height
+      const bboxHeightRatio = bbox.height / frameH;
+
+      if (bboxHeightRatio > 0.80) {
+        // Tall bbox (includes effects/raised arms) - use center alignment
+        destY = Math.floor((frameH - bbox.height) / 2);
+      } else {
+        // Normal bbox - use bottom alignment for grounded feel
+        const paddingBottom = Math.max(
+          Math.floor(frameH * 0.08), // At least 8% padding from bottom
+          4 // Minimum 4 pixels
+        );
+        destY = Math.floor(frameH - bbox.height - paddingBottom);
+      }
+    }
 
     // Ensure sprite doesn't go off top of frame
     const finalDestY = Math.max(2, destY); // At least 2px from top
@@ -256,10 +281,79 @@ export const alignFrameInSheet = async (
   return canvas.toDataURL('image/png');
 };
 
+/**
+ * Helper function to find the character's anchor point (base/feet position + horizontal center)
+ * This is more reliable than center of mass for grounded characters
+ */
+const getCharacterAnchor = (
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  bgColor: { r: number; g: number; b: number; a: number } | null,
+  bbox: { minX: number; minY: number; maxX: number; maxY: number; width: number; height: number } | null
+): { x: number; y: number } | null => {
+  if (!bbox) return null;
+
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+
+  // Find the bottom-most solid pixels (character's feet/base)
+  // Scan from bottom up to find the first row with significant content
+  let baseY = bbox.maxY;
+
+  // Find horizontal center by calculating center of mass in X direction only
+  // but weighted more heavily toward the bottom half (where feet/body are)
+  let totalX = 0;
+  let totalWeight = 0;
+
+  // Focus on bottom 60% of the sprite for X-position (where feet/torso are)
+  const focusStartY = bbox.minY + Math.floor(bbox.height * 0.4);
+
+  for (let y = focusStartY; y <= bbox.maxY; y++) {
+    for (let x = bbox.minX; x <= bbox.maxX; x++) {
+      const idx = (y * width + x) * 4;
+      const a = data[idx + 3];
+
+      // Skip transparent or background pixels
+      if (a < 50) continue;
+
+      if (bgColor) {
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const diff = Math.abs(r - bgColor.r) + Math.abs(g - bgColor.g) + Math.abs(b - bgColor.b);
+        if (diff < 30) continue;
+      }
+
+      // Weight more heavily toward the bottom (feet)
+      const distanceFromBottom = bbox.maxY - y;
+      const verticalWeight = 1 + (bbox.height - distanceFromBottom) / bbox.height; // Higher weight at bottom
+      const weight = (a / 255) * verticalWeight;
+
+      totalX += x * weight;
+      totalWeight += weight;
+    }
+  }
+
+  if (totalWeight === 0) {
+    // Fallback: use bbox center
+    return {
+      x: Math.round((bbox.minX + bbox.maxX) / 2),
+      y: baseY
+    };
+  }
+
+  return {
+    x: Math.round(totalX / totalWeight), // Weighted horizontal center (body/feet centerline)
+    y: baseY // Bottom of character (feet position)
+  };
+};
+
 export const alignWholeSheet = async (
   sheetSrc: string,
   rows: number,
-  cols: number
+  cols: number,
+  alignmentMode: AlignmentMode = 'auto'
 ): Promise<string> => {
   const sheet = await loadImage(sheetSrc);
   const frameW = Math.floor(sheet.naturalWidth / cols);
@@ -272,14 +366,56 @@ export const alignWholeSheet = async (
   if (!ctx) throw new Error("Context creation failed");
   ctx.imageSmoothingEnabled = false;
 
-  // Iterate all frames
+  // FIRST PASS: Analyze all frames to find consistent anchor point
+  const frameCenters: Array<{ x: number; y: number; bbox: any } | null> = [];
+
   for (let i = 0; i < rows * cols; i++) {
     const row = Math.floor(i / cols);
     const col = i % cols;
     const destSheetX = col * frameW;
     const destSheetY = row * frameH;
 
-    // 1. Extract raw frame data
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = frameW;
+    tempCanvas.height = frameH;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) {
+      frameCenters.push(null);
+      continue;
+    }
+    tempCtx.imageSmoothingEnabled = false;
+    tempCtx.drawImage(sheet, destSheetX, destSheetY, frameW, frameH, 0, 0, frameW, frameH);
+
+    const bgColor = getBackgroundColor(tempCtx, frameW, frameH);
+    const bbox = getVisualBoundingBox(tempCtx, frameW, frameH, bgColor);
+    const anchor = getCharacterAnchor(tempCtx, frameW, frameH, bgColor, bbox);
+
+    frameCenters.push(anchor ? { ...anchor, bbox } : null);
+  }
+
+  // Calculate median center point (more robust than average)
+  const validCenters = frameCenters.filter(c => c !== null) as Array<{ x: number; y: number; bbox: any }>;
+  if (validCenters.length === 0) {
+    // Fallback to original image if no valid frames
+    ctx.drawImage(sheet, 0, 0);
+    return canvas.toDataURL('image/png');
+  }
+
+  // Find median X and Y positions
+  const sortedX = validCenters.map(c => c.x).sort((a, b) => a - b);
+  const sortedY = validCenters.map(c => c.y).sort((a, b) => a - b);
+  const medianX = sortedX[Math.floor(sortedX.length / 2)];
+  const medianY = sortedY[Math.floor(sortedY.length / 2)];
+
+  console.log(`[Alignment] Character anchor point - X: ${medianX} (body center), Y: ${medianY} (feet/base)`);
+
+  // SECOND PASS: Align all frames to the consistent anchor point
+  for (let i = 0; i < rows * cols; i++) {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const destSheetX = col * frameW;
+    const destSheetY = row * frameH;
+
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = frameW;
     tempCanvas.height = frameH;
@@ -289,42 +425,35 @@ export const alignWholeSheet = async (
 
     tempCtx.drawImage(sheet, destSheetX, destSheetY, frameW, frameH, 0, 0, frameW, frameH);
 
-    // 2. Detect BG
     const bgColor = getBackgroundColor(tempCtx, frameW, frameH);
-
-    // 3. Get BBox
     const bbox = getVisualBoundingBox(tempCtx, frameW, frameH, bgColor);
+    const frameCenter = frameCenters[i];
 
+    // Fill background
     if (bgColor) {
       ctx.fillStyle = `rgba(${bgColor.r}, ${bgColor.g}, ${bgColor.b}, ${bgColor.a / 255})`;
       ctx.fillRect(destSheetX, destSheetY, frameW, frameH);
     } else {
-       ctx.clearRect(destSheetX, destSheetY, frameW, frameH);
+      ctx.clearRect(destSheetX, destSheetY, frameW, frameH);
     }
 
-    if (bbox) {
-       // Calculate alignment with improved consistency
-       // Center horizontally
-       const alignX = Math.floor((frameW - bbox.width) / 2);
+    if (bbox && frameCenter) {
+      // Calculate offset to align this frame's center to the median center
+      const offsetX = medianX - frameCenter.x;
+      const offsetY = medianY - frameCenter.y;
 
-       // Bottom alignment with consistent padding
-       const paddingBottom = Math.max(
-         Math.floor(frameH * 0.08), // At least 8% padding from bottom
-         4 // Minimum 4 pixels
-       );
-       const alignY = Math.floor(frameH - bbox.height - paddingBottom);
+      // Draw the frame with offset to align centers
+      const drawX = destSheetX + bbox.minX + offsetX;
+      const drawY = destSheetY + bbox.minY + offsetY;
 
-       // Ensure sprite doesn't go off top of frame
-       const finalAlignY = Math.max(2, alignY); // At least 2px from top
-
-       ctx.drawImage(
-         tempCanvas,
-         bbox.minX, bbox.minY, bbox.width, bbox.height,
-         destSheetX + alignX, destSheetY + finalAlignY, bbox.width, bbox.height
-       );
+      ctx.drawImage(
+        tempCanvas,
+        bbox.minX, bbox.minY, bbox.width, bbox.height,
+        drawX, drawY, bbox.width, bbox.height
+      );
     } else {
-       // Empty or noise only - copy original just in case
-       ctx.drawImage(tempCanvas, 0, 0, frameW, frameH, destSheetX, destSheetY, frameW, frameH);
+      // Empty or noise only - copy original
+      ctx.drawImage(tempCanvas, 0, 0, frameW, frameH, destSheetX, destSheetY, frameW, frameH);
     }
   }
 
@@ -347,7 +476,8 @@ export const aiSmartAlignSpriteSheet = async (
   imageSrc: string,
   rows: number,
   cols: number,
-  onProgress?: (status: string) => void
+  onProgress?: (status: string) => void,
+  alignmentMode: AlignmentMode = 'auto'
 ): Promise<SmartAlignmentResult> => {
   const fixedIssues: string[] = [];
   let analysis: AlignmentAnalysis;
@@ -372,7 +502,7 @@ export const aiSmartAlignSpriteSheet = async (
 
     // Step 3: Perform alignment using detected grid structure
     onProgress?.('📐 Aligning frames to optimal grid positions for smooth animation...');
-    const aligned = await alignWholeSheet(cleaned, rows, cols);
+    const aligned = await alignWholeSheet(cleaned, rows, cols, alignmentMode);
     
     // Step 4: Quality check - verify alignment improved consistency
     onProgress?.('✅ Verifying alignment quality and animation smoothness...');
@@ -389,7 +519,7 @@ export const aiSmartAlignSpriteSheet = async (
     // Fallback to standard alignment if AI fails
     onProgress?.('Falling back to standard alignment...');
     const { cleaned } = await cleanSpriteSheet(imageSrc, rows, cols);
-    const aligned = await alignWholeSheet(cleaned, rows, cols);
+    const aligned = await alignWholeSheet(cleaned, rows, cols, alignmentMode);
     
     return {
       aligned,

@@ -26,7 +26,7 @@ import SpriteSheetUploadModal from './components/SpriteSheetUploadModal';
 import { FileLibraryView, ViewMode } from './components/FileLibraryView';
 import { EmptyStateView } from './components/EmptyStateView';
 import { ACTIONS } from './constants';
-import { TabMode, ActionType, ExpressionType, Theme, ArtStyle } from './types';
+import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, AlignmentMode } from './types';
 import { cn } from './utils';
 import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame } from './services/geminiService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
@@ -42,7 +42,8 @@ export default function Woujamind() {
   const [selectedAction, setSelectedAction] = useState<ActionType>('idle');
   const [selectedExpression, setSelectedExpression] = useState<ExpressionType>('neutral');
   const [selectedArtStyle, setSelectedArtStyle] = useState<ArtStyle>('pixel');
-  
+  const [selectedAlignmentMode, setSelectedAlignmentMode] = useState<AlignmentMode>('auto');
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<boolean>(false);
   const [hasResult, setHasResult] = useState<boolean>(false);
@@ -389,7 +390,8 @@ export default function Woujamind() {
         result.imageData,
         gridRows,
         finalCols,
-        (status) => setStatusText(status) // Progress callback
+        (status) => setStatusText(status), // Progress callback
+        selectedAlignmentMode // Alignment mode
       );
       
       // Save aligned sprite sheet to history
@@ -699,7 +701,7 @@ export default function Woujamind() {
     setIsEditing(true);
     setStatusText(`Auto-aligning Frame ${index + 1}...`);
     try {
-      const newSheet = await alignFrameInSheet(generatedImage, index, gridRows, gridCols);
+      const newSheet = await alignFrameInSheet(generatedImage, index, gridRows, gridCols, selectedAlignmentMode);
       pushToHistory(newSheet);
       toast.success(`Frame ${index + 1} aligned successfully!`);
     } catch (e) {
@@ -716,7 +718,7 @@ export default function Woujamind() {
     setIsEditing(true);
     setStatusText("Auto-aligning Full Sheet...");
     try {
-      const newSheet = await alignWholeSheet(generatedImage, gridRows, gridCols);
+      const newSheet = await alignWholeSheet(generatedImage, gridRows, gridCols, selectedAlignmentMode);
       pushToHistory(newSheet);
       toast.success("All frames aligned successfully!");
     } catch (e) {
@@ -1196,7 +1198,7 @@ export default function Woujamind() {
             `}</style>
             
             {/* LEFT COLUMN: Controls (Collapsible) */}
-            <InputSidebar 
+            <InputSidebar
               isDesktop={isDesktop}
               result={result}
               prompt={prompt}
@@ -1208,6 +1210,8 @@ export default function Woujamind() {
               fileInputRef={fileInputRef}
               selectedArtStyle={selectedArtStyle}
               setSelectedArtStyle={setSelectedArtStyle}
+              selectedAlignmentMode={selectedAlignmentMode}
+              setSelectedAlignmentMode={setSelectedAlignmentMode}
               tabMode={tabMode}
               setTabMode={setTabMode}
               selectedAction={selectedAction}

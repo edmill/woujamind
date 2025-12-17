@@ -203,12 +203,19 @@ Frame 8: Different pose (completing the loop back to frame 1)
 
 DO NOT create ${totalFrames} identical copies - each frame must show clear visual progression through the ${action.label} animation.
 
-LAYOUT REQUIREMENTS:
+LAYOUT REQUIREMENTS - CRITICAL FOR ANIMATION:
 • Arrange sprites in an invisible ${rows}x${cols} grid (mathematical spacing only)
-• Each character centered in its cell with consistent positioning
-• All sprites identical in size, only pose/animation varies
-• Characters animate in-place like a treadmill - no horizontal movement
+• CRITICAL POSITIONING: Imagine a vertical centerline running through the middle of each cell
+  - The character's SPINE/BODY CENTER must align with this centerline in EVERY frame
+  - The character's FEET/BASE must touch an invisible horizontal line at the SAME height in EVERY frame
+  - Think of it like the character is standing on a treadmill with a pole through their center
+• ABSOLUTE REQUIREMENT: The character CANNOT move left, right, up, or down between frames
+  - ONLY the limbs, head tilt, and accessories should move
+  - The torso/body core position must be LOCKED in place
+  - If the character raises their arms, their body stays at the same position
+  - If the character bends, their feet stay planted at the same spot
 • 10% padding minimum from cell edges
+• All sprites must have identical dimensions when overlaid
 
 COMPOSITION RULES:
 • Pure white background (#FFFFFF) - no scenery, ground, or shadows
@@ -216,9 +223,16 @@ COMPOSITION RULES:
 • No frame numbers, labels, or text annotations
 • Each sprite completely isolated - no connecting elements between cells
 • PROPS: Character may hold props (swords, items, tools) that stay WITH the character in each frame
-• FORBIDDEN: No projectiles, beams, or effects that extend ACROSS multiple frames or leave the character's immediate space
+• EFFECTS: Magic effects, sparks, or visual effects should stay CLOSE to the character (within 20% of character height)
+• FORBIDDEN: No projectiles, beams, or effects that extend far from the character or across multiple frames
 • FORBIDDEN: No duplicate or extra limbs/body parts - each character has exactly ONE set of body parts
 • Full character body visible in every frame
+
+POSITIONING VERIFICATION (Check each frame):
+• Measure from the left edge of the cell to the character's center → MUST be identical in all frames
+• Measure from the bottom of the cell to the character's feet → MUST be identical in all frames
+• If you were to overlay all frames, the character's body should be in the exact same position
+• Think: "If this was a flip book, would the character stay in place?" → Answer must be YES
 
 OUTPUT: ${totalFrames} clean, consistent animation frames in a ${rows}x${cols} invisible grid layout.`;
 
