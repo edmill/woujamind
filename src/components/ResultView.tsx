@@ -19,7 +19,6 @@ import {
   MousePointer2,
   Play,
   XCircle,
-  LayoutList,
   Check,
   ChevronDown,
   ChevronUp,
@@ -33,7 +32,8 @@ import {
   Plus,
   Minus,
   Download,
-  Upload
+  Upload,
+  LayoutList
 } from 'lucide-react';
 import { cn } from '../utils';
 import { extractFrames } from '../utils/imageUtils';
@@ -166,17 +166,7 @@ export function ResultView({
   const insertDropdownRef = useRef<HTMLDivElement>(null);
   const replaceImageInputRef = useRef<HTMLInputElement>(null);
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(null);
-  const [parallaxLayers, setParallaxLayers] = useState<{
-    sky?: string;
-    mountains?: string;
-    midground?: string;
-    foreground?: string;
-  }>({});
   const backgroundImageInputRef = useRef<HTMLInputElement>(null);
-  const parallaxLayersInputRef = useRef<HTMLInputElement>(null);
-  const [parallaxOffset, setParallaxOffset] = useState(0);
-  const [backgroundVerticalOffset, setBackgroundVerticalOffset] = useState(0);
-  const parallaxAnimationRef = useRef<number | null>(null);
   const totalFrames = rows * cols;
 
   // Generating overlay state
@@ -257,42 +247,6 @@ export function ResultView({
     };
   }, [isPlaying, frames.length, fps, selectedFrame]);
 
-  // Parallax scrolling animation - only for parallax layers, not single background
-  useEffect(() => {
-    const hasParallaxLayers = Object.keys(parallaxLayers).length > 0;
-    if (!isPlaying || !hasParallaxLayers || selectedFrame !== null) {
-      if (parallaxAnimationRef.current) {
-        cancelAnimationFrame(parallaxAnimationRef.current);
-        parallaxAnimationRef.current = null;
-      }
-      setParallaxOffset(0); // Reset when paused
-      return;
-    }
-
-    let startTime: number | null = null;
-    const animateParallax = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const elapsed = (timestamp - startTime) / 1000; // Convert to seconds
-      
-      // Move background horizontally in a continuous seamless loop
-      // Speed: 50px per second for smooth, visible scrolling
-      const speed = 50; // pixels per second
-      const maxOffset = 1000; // Maximum offset before seamless loop
-      // Positive value moves background left (character appears to move right/forward)
-      // This creates the effect of moving forward through the scene
-      // Using modulo for seamless looping
-      setParallaxOffset((elapsed * speed) % maxOffset);
-      
-      parallaxAnimationRef.current = requestAnimationFrame(animateParallax);
-    };
-
-    parallaxAnimationRef.current = requestAnimationFrame(animateParallax);
-    return () => {
-      if (parallaxAnimationRef.current) {
-        cancelAnimationFrame(parallaxAnimationRef.current);
-      }
-    };
-  }, [isPlaying, parallaxLayers, selectedFrame]);
 
   // Render current frame to canvas
   useEffect(() => {
@@ -507,48 +461,7 @@ export function ResultView({
       URL.revokeObjectURL(backgroundImageUrl);
       setBackgroundImageUrl(null);
     }
-    // Clear parallax layers
-    Object.values(parallaxLayers).forEach(url => {
-      if (url) URL.revokeObjectURL(url);
-    });
-    setParallaxLayers({});
     toast.success('Background image removed');
-  };
-
-  const handleParallaxLayersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && (e.target.files.length === 3 || e.target.files.length === 4)) {
-      const files = Array.from(e.target.files);
-      const newLayers: typeof parallaxLayers = {};
-      
-      // Clear old layers
-      Object.values(parallaxLayers).forEach(url => {
-        if (url) URL.revokeObjectURL(url);
-      });
-
-      if (files.length === 3) {
-        // For 3 layers: background, midground, foreground
-        const layerNames: (keyof typeof parallaxLayers)[] = ['sky', 'midground', 'foreground'];
-        files.forEach((file, index) => {
-          const url = URL.createObjectURL(file);
-          newLayers[layerNames[index]] = url;
-        });
-        toast.success('3 parallax layers loaded! (Background, Midground, Foreground)');
-      } else {
-        // For 4 layers: sky, mountains, midground, foreground
-        const layerNames: (keyof typeof parallaxLayers)[] = ['sky', 'mountains', 'midground', 'foreground'];
-        files.forEach((file, index) => {
-          const url = URL.createObjectURL(file);
-          newLayers[layerNames[index]] = url;
-        });
-        toast.success('4 parallax layers loaded! (Sky, Mountains, Midground, Foreground)');
-      }
-
-      setParallaxLayers(newLayers);
-      setBackgroundImageUrl(null); // Clear single background if parallax layers are set
-      e.target.value = '';
-    } else {
-      toast.error('Please select 3 or 4 images for parallax layers');
-    }
   };
 
   return (
@@ -1049,62 +962,17 @@ export function ResultView({
                   </button>
 
                   <button
-                     onClick={backgroundImageUrl || Object.keys(parallaxLayers).length > 0 ? handleClearBackgroundImage : handleBackgroundImageClick}
+                     onClick={backgroundImageUrl ? handleClearBackgroundImage : handleBackgroundImageClick}
                      className={cn(
                        "p-1.5 rounded-lg border transition-all",
-                       backgroundImageUrl || Object.keys(parallaxLayers).length > 0
+                       backgroundImageUrl
                          ? "bg-sky-100 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-900/50"
                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300"
                      )}
-                     title={backgroundImageUrl || Object.keys(parallaxLayers).length > 0 ? "Remove background" : "Upload single background image"}
+                     title={backgroundImageUrl ? "Remove background" : "Upload background image"}
                   >
-                     {backgroundImageUrl || Object.keys(parallaxLayers).length > 0 ? <XCircle className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                     {backgroundImageUrl ? <XCircle className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
                   </button>
-
-                  <button
-                     onClick={() => parallaxLayersInputRef.current?.click()}
-                     className={cn(
-                       "p-1.5 rounded-lg border transition-all",
-                       Object.keys(parallaxLayers).length > 0
-                         ? "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50"
-                         : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300"
-                     )}
-                     title="Upload 3 or 4 parallax layer images (3: background, midground, foreground | 4: sky, mountains, midground, foreground)"
-                  >
-                     <LayoutList className="w-4 h-4" />
-                  </button>
-
-                  {/* Vertical Position Controls */}
-                  {(backgroundImageUrl || Object.keys(parallaxLayers).length > 0) && (
-                    <div className="flex items-center gap-1 px-1.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <button
-                        onClick={() => setBackgroundVerticalOffset(prev => Math.max(prev - 10, -200))}
-                        className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
-                        title="Move background up"
-                      >
-                        <ChevronUp className="w-3 h-3 text-slate-600 dark:text-slate-400" />
-                      </button>
-                      <span className="text-[10px] font-mono text-slate-500 dark:text-slate-500 min-w-[3rem] text-center">
-                        {backgroundVerticalOffset > 0 ? `+${backgroundVerticalOffset}` : backgroundVerticalOffset}px
-                      </span>
-                      <button
-                        onClick={() => setBackgroundVerticalOffset(prev => Math.min(prev + 10, 200))}
-                        className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
-                        title="Move background down"
-                      >
-                        <ChevronDown className="w-3 h-3 text-slate-600 dark:text-slate-400" />
-                      </button>
-                      {backgroundVerticalOffset !== 0 && (
-                        <button
-                          onClick={() => setBackgroundVerticalOffset(0)}
-                          className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors ml-1"
-                          title="Reset vertical position"
-                        >
-                          <XCircle className="w-3 h-3 text-slate-500 dark:text-slate-400" />
-                        </button>
-                      )}
-                    </div>
-                  )}
 
                   <input
                     ref={backgroundImageInputRef}
@@ -1113,95 +981,12 @@ export function ResultView({
                     onChange={handleBackgroundImageChange}
                     className="hidden"
                   />
-                  <input
-                    ref={parallaxLayersInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleParallaxLayersChange}
-                    className="hidden"
-                  />
                </div>
             </div>
 
             <div className="flex-1 bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-orange-500/30 flex flex-col items-center justify-center relative overflow-hidden group shadow-lg min-h-0">
-               {/* Parallax Background Layers */}
-               {Object.keys(parallaxLayers).length > 0 ? (
-                 <>
-                   {/* Background/Sky Layer - moves barely (0.08x speed for 3 layers, 0.05x for 4) - z-index: 1 */}
-                   {parallaxLayers.sky && (
-                     <div
-                       className="absolute inset-0"
-                       style={{ 
-                         backgroundImage: `url(${parallaxLayers.sky})`,
-                         backgroundSize: 'cover',
-                         backgroundPosition: `${parallaxOffset * (parallaxLayers.mountains ? 0.05 : 0.08)}px center`,
-                         backgroundRepeat: 'repeat-x',
-                         transform: `translateY(${backgroundVerticalOffset}px)`,
-                         willChange: 'background-position, transform',
-                         backfaceVisibility: 'hidden',
-                         WebkitBackfaceVisibility: 'hidden',
-                         zIndex: 1,
-                         imageRendering: 'auto'
-                       }}
-                     />
-                   )}
-                   {/* Mountains Layer - moves at 0.3x speed - z-index: 2 - Only shown if 4 layers */}
-                   {parallaxLayers.mountains && (
-                     <div
-                       className="absolute inset-0"
-                       style={{ 
-                         backgroundImage: `url(${parallaxLayers.mountains})`,
-                         backgroundSize: 'cover',
-                         backgroundPosition: `${parallaxOffset * 0.3}px center`,
-                         backgroundRepeat: 'repeat-x',
-                         transform: `translateY(${backgroundVerticalOffset}px)`,
-                         willChange: 'background-position, transform',
-                         backfaceVisibility: 'hidden',
-                         WebkitBackfaceVisibility: 'hidden',
-                         zIndex: 2,
-                         imageRendering: 'auto'
-                       }}
-                     />
-                   )}
-                   {/* Midground Layer - moves at 0.5x speed for 3 layers, 0.6x for 4 - z-index: 3 */}
-                   {parallaxLayers.midground && (
-                     <div
-                       className="absolute inset-0"
-                       style={{ 
-                         backgroundImage: `url(${parallaxLayers.midground})`,
-                         backgroundSize: 'cover',
-                         backgroundPosition: `${parallaxOffset * (parallaxLayers.mountains ? 0.6 : 0.5)}px center`,
-                         backgroundRepeat: 'repeat-x',
-                         transform: `translateY(${backgroundVerticalOffset}px)`,
-                         willChange: 'background-position, transform',
-                         backfaceVisibility: 'hidden',
-                         WebkitBackfaceVisibility: 'hidden',
-                         zIndex: 3,
-                         imageRendering: 'auto'
-                       }}
-                     />
-                   )}
-                   {/* Foreground Layer - moves at full speed (1x) - z-index: 4 */}
-                   {parallaxLayers.foreground && (
-                     <div
-                       className="absolute inset-0"
-                       style={{ 
-                         backgroundImage: `url(${parallaxLayers.foreground})`,
-                         backgroundSize: 'cover',
-                         backgroundPosition: `${parallaxOffset}px center`,
-                         backgroundRepeat: 'repeat-x',
-                         transform: `translateY(${backgroundVerticalOffset}px)`,
-                         willChange: 'background-position, transform',
-                         backfaceVisibility: 'hidden',
-                         WebkitBackfaceVisibility: 'hidden',
-                         zIndex: 4,
-                         imageRendering: 'auto'
-                       }}
-                     />
-                   )}
-                 </>
-               ) : backgroundImageUrl ? (
+               {/* Background Image */}
+               {backgroundImageUrl ? (
                  <div
                    className="absolute inset-0"
                    style={{ 
@@ -1209,7 +994,6 @@ export function ResultView({
                      backgroundSize: 'cover',
                      backgroundPosition: 'center',
                      backgroundRepeat: 'no-repeat',
-                     transform: `translateY(${backgroundVerticalOffset}px)`,
                      willChange: 'transform'
                    }}
                  />
