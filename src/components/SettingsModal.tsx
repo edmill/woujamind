@@ -4,8 +4,11 @@
  */
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, RotateCcw, ShieldAlert, Key, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Save, RotateCcw, ShieldAlert, Key, CheckCircle2, AlertCircle, Loader2, HardDrive, Download, Trash2, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '../utils';
+import { getStorageStats, clearAllSprites } from '../utils/spriteStorage';
+import { downloadSpriteArchive } from '../utils/archiveUtils';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -50,6 +53,10 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
   const [validationMessage, setValidationMessage] = useState<string>('');
   const [activeRulesTab, setActiveRulesTab] = useState<'25' | '30'>('25');
   const [showSaveSuccess, setShowSaveSuccess] = useState<{ type: 'rules25' | 'rules30' | 'all' | null }>({ type: null });
+  const [storageStats, setStorageStats] = useState<{ count: number; estimatedSize: number } | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -63,8 +70,46 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
       setGemini30Rules(stored30Rules || DEFAULT_GEMINI_30_RULES);
       setValidationStatus('idle');
       setValidationMessage('');
+
+      // Load storage stats
+      getStorageStats().then(setStorageStats).catch(console.error);
     }
   }, [isOpen, currentApiKey]);
+
+  const handleExportAll = async () => {
+    setIsExporting(true);
+    try {
+      await downloadSpriteArchive();
+      toast.success(`Exported ${storageStats?.count || 0} sprite sheets!`);
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast.error('Failed to export sprites. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    setShowClearConfirm(true);
+  };
+
+  const handleConfirmClear = async () => {
+    setIsClearing(true);
+    try {
+      await clearAllSprites();
+      setStorageStats({ count: 0, estimatedSize: 0 });
+      setShowClearConfirm(false);
+      toast.success('All sprite sheets cleared from local storage!');
+
+      // Reload saved sprites in parent component
+      window.location.reload();
+    } catch (error) {
+      console.error('Clear failed:', error);
+      toast.error('Failed to clear sprites. Please try again.');
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   const validateApiKey = async () => {
     if (!apiKey.trim()) {
@@ -183,7 +228,7 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
           >
             {/* Header */}
             <div className="relative bg-slate-50 dark:bg-slate-950 p-6 overflow-hidden border-b border-slate-200 dark:border-slate-800">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 via-sky-500 to-orange-500" />
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500 via-orange-500 to-teal-500" />
               <button 
                 onClick={onClose}
                 className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
@@ -202,7 +247,85 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-              
+
+              {/* Storage Management Section */}
+              <section className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <HardDrive className="w-5 h-5 text-teal-600 dark:text-teal-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h3 className="font-bold text-slate-900 dark:text-white mb-1">Storage Management</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                      Export your sprite sheets to reclaim browser storage space
+                    </p>
+
+                    {/* Storage Stats */}
+                    <div className="flex items-center justify-between p-3 bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800 rounded-lg mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-teal-500"></div>
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          {storageStats?.count || 0} sprite sheets
+                        </span>
+                      </div>
+                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                        ~{storageStats?.estimatedSize?.toFixed(2) || 0} MB
+                      </span>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleExportAll}
+                        disabled={!storageStats?.count || isExporting}
+                        className={cn(
+                          "flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2",
+                          storageStats?.count && !isExporting
+                            ? "bg-teal-500 text-white hover:bg-teal-600 shadow-lg hover:shadow-xl active:scale-95"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+                        )}
+                      >
+                        {isExporting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Exporting...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4" />
+                            Export All (.zip)
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={handleClearAll}
+                        disabled={!storageStats?.count || isClearing}
+                        className={cn(
+                          "flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2",
+                          storageStats?.count && !isClearing
+                            ? "bg-red-500 text-white hover:bg-red-600 shadow-lg hover:shadow-xl active:scale-95"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+                        )}
+                      >
+                        {isClearing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Clearing...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-4 h-4" />
+                            Clear All
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Divider */}
+              <div className="h-px bg-slate-200 dark:bg-slate-800"></div>
+
               {/* API Key Section */}
               <section className="space-y-4">
                 <div className="flex items-center gap-2">
@@ -477,6 +600,47 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
                 </AnimatePresence>
               </button>
             </div>
+
+            {/* Clear Confirmation Dialog */}
+            {showClearConfirm && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowClearConfirm(false)}>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-2 border-red-500 dark:border-red-500/50 max-w-md w-full p-6"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+                      <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                      Clear All Sprites?
+                    </h3>
+                  </div>
+
+                  <p className="text-slate-600 dark:text-slate-400 mb-6">
+                    This will permanently delete all {storageStats?.count || 0} sprite sheets from local storage.
+                    Make sure you've exported them first!
+                  </p>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowClearConfirm(false)}
+                      className="flex-1 px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmClear}
+                      className="flex-1 px-4 py-2.5 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-all shadow-lg hover:shadow-xl"
+                    >
+                      Delete All
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
           </motion.div>
         </div>
       )}
