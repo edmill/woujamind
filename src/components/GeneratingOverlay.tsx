@@ -117,25 +117,24 @@ export function GeneratingOverlay({
             className="absolute -inset-10 bg-gradient-to-r from-violet-500/50 via-fuchsia-500/50 to-cyan-500/50 rounded-full blur-3xl"
           />
 
-          {/* Sparkle particles */}
-          {[...Array(8)].map((_, i) => (
+          {/* Tiny sparkle particles that fade in/out */}
+          {[...Array(12)].map((_, i) => (
             <motion.div
               key={i}
               animate={{
-                scale: [0, 1.5, 0],
-                opacity: [0, 1, 0],
-                rotate: 360
+                opacity: [0, 0.8, 0],
+                scale: [0.8, 1, 0.8]
               }}
               transition={{
-                duration: 2,
+                duration: 2.5,
                 repeat: Infinity,
-                delay: i * 0.25,
+                delay: i * 0.2,
                 ease: "easeInOut"
               }}
-              className="absolute w-3 h-3 rounded-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.9)]"
+              className="absolute w-1 h-1 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.6)]"
               style={{
-                left: `${50 + 50 * Math.cos((i * Math.PI * 2) / 8)}%`,
-                top: `${50 + 50 * Math.sin((i * Math.PI * 2) / 8)}%`
+                left: `${50 + 45 * Math.cos((i * Math.PI * 2) / 12)}%`,
+                top: `${50 + 45 * Math.sin((i * Math.PI * 2) / 12)}%`
               }}
             />
           ))}
@@ -192,23 +191,17 @@ export function GeneratingOverlay({
           </motion.div>
         </motion.div>
 
-        {/* Status text */}
+        {/* Status text - simple and clean */}
         {!isSwooshing && statusText && (
           <motion.div
             key={statusText}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="font-semibold text-lg text-slate-700 dark:text-slate-200 bg-white/90 dark:bg-slate-800/90 px-6 py-3 rounded-2xl border-2 border-slate-200 dark:border-slate-700 backdrop-blur-md shadow-2xl"
+            transition={{ duration: 0.3 }}
+            className="font-medium text-base text-slate-800 dark:text-slate-100 px-4 py-2 drop-shadow-lg"
           >
-            <div className="flex items-center gap-3">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full"
-              />
-              <span>{statusText}</span>
-            </div>
+            {statusText}
           </motion.div>
         )}
       </div>

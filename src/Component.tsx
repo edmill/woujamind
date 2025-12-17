@@ -326,18 +326,19 @@ export default function Woujamind() {
     }
 
     setIsGenerating(true);
-    setStatusText("Analyzing character...");
+    setStatusText("Preparing your request...");
     // Immediately transition to ResultView to show loading overlay
     setResult(true);
     setHasResult(false);
     setGeneratedImage(null);
     setSelectedFrameIndices([]);
     setActiveFrameIndex(null);
-    
+
     try {
       // Convert file to base64 if provided
       let imageBase64: string | null = null;
       if (selectedFile) {
+        setStatusText("Processing reference image...");
         imageBase64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target?.result as string);
@@ -346,7 +347,7 @@ export default function Woujamind() {
         });
       }
 
-      setStatusText("Generating sprite sheet...");
+      setStatusText("Analyzing character design and action requirements...");
       
       // Reset history for new generation
       setHistory([]);
@@ -364,7 +365,9 @@ export default function Woujamind() {
       // Get model-specific rules (using gemini-3-pro-image-preview for best quality and animation support)
       const modelId = 'gemini-3-pro-image-preview';
       const customRules = getStoredRules(modelId);
-      
+
+      setStatusText(`Generating ${finalCols * gridRows} frame sprite sheet with ${selectedAction} animation...`);
+
       // Generate the sprite sheet
       const result = await generateSpriteSheet(
         imageBase64,
@@ -383,6 +386,8 @@ export default function Woujamind() {
       setGenerationModel(result.modelId);
       setGenerationCharacterDescription(result.characterDescription);
 
+      setStatusText("Sprite sheet generated! Running intelligent alignment analysis...");
+
       // Post-process: AI-powered alignment and cleaning
       // This ensures smooth animations by detecting and fixing alignment issues
       const alignmentResult = await aiSmartAlignSpriteSheet(
@@ -398,6 +403,8 @@ export default function Woujamind() {
       setHasResult(true);
       // Panel already collapsed when Generate was clicked
       setTokens(prev => Math.max(0, prev - 1));
+
+      setStatusText("Saving sprite sheet to local storage...");
 
       // Auto-save to IndexedDB
       try {
@@ -604,12 +611,14 @@ export default function Woujamind() {
         console.log('--- SINGLE FRAME EDIT MODE ---');
         console.log('Editing frame index:', targetIndex);
         console.log('Frame number (1-based):', targetIndex + 1);
-        setStatusText(`Refining Frame ${targetIndex + 1}...`);
+        setStatusText(`Isolating frame ${targetIndex + 1} from sprite sheet...`);
 
         // 1. Crop
         console.log('Step 1: Cropping frame...');
         const croppedFrame = await cropFrame(generatedImage, targetIndex, gridRows, gridCols);
         console.log('Cropped frame data URL length:', croppedFrame.length);
+
+        setStatusText(`Applying AI edits to frame ${targetIndex + 1}: "${trimmedPrompt}"...`);
 
         // 2. Edit
         const modelId = 'gemini-3-pro-image-preview';
@@ -618,6 +627,8 @@ export default function Woujamind() {
         console.log('Edit prompt being sent:', trimmedPrompt);
         const editedFrame = await editSpriteSheet(croppedFrame, trimmedPrompt, modelId);
         console.log('Edited frame data URL length:', editedFrame.length);
+
+        setStatusText(`Integrating edited frame ${targetIndex + 1} back into sprite sheet...`);
 
         // 3. Paste
         console.log('Step 3: Pasting edited frame back...');
@@ -633,7 +644,7 @@ export default function Woujamind() {
         console.log('--- MULTI-FRAME BATCH EDIT MODE ---');
         console.log('Number of frames to edit:', selectedFrameIndices.length);
         console.log('Frame indices:', selectedFrameIndices);
-        setStatusText(`Editing ${selectedFrameIndices.length} selected frames...`);
+        setStatusText(`Preparing batch edit of ${selectedFrameIndices.length} frames...`);
         const modelId = 'gemini-3-pro-image-preview';
         let currentSheet = generatedImage;
 
@@ -641,7 +652,7 @@ export default function Woujamind() {
         for (let i = 0; i < selectedFrameIndices.length; i++) {
           const frameIndex = selectedFrameIndices[i];
           console.log(`Processing frame ${i + 1}/${selectedFrameIndices.length}:`, frameIndex);
-          setStatusText(`Editing frame ${frameIndex + 1} (${i + 1}/${selectedFrameIndices.length})...`);
+          setStatusText(`Processing frame ${frameIndex + 1} of ${selectedFrameIndices.length}: "${trimmedPrompt}"...`);
 
           console.log('  Cropping frame:', frameIndex);
           const croppedFrame = await cropFrame(currentSheet, frameIndex, gridRows, gridCols);
@@ -659,7 +670,7 @@ export default function Woujamind() {
         // FULL SHEET EDIT MODE (no frames selected)
         console.log('--- FULL SHEET EDIT MODE ---');
         console.log('Editing entire sprite sheet');
-        setStatusText("Refining Sheet...");
+        setStatusText(`Applying AI edits to entire ${gridRows}×${gridCols} sprite sheet...`);
         const modelId = 'gemini-3-pro-image-preview';
         console.log('Model:', modelId);
         console.log('Edit prompt being sent:', trimmedPrompt);
@@ -667,7 +678,7 @@ export default function Woujamind() {
         console.log('Raw edited sheet data URL length:', rawEdited.length);
 
         // Post-process edited sheet too
-        setStatusText("Cleaning edited sheet...");
+        setStatusText("Running quality check and alignment cleanup on edited sheet...");
         console.log('Cleaning sprite sheet...');
         const { cleaned, hadIssues, issues } = await cleanSpriteSheet(rawEdited, gridRows, gridCols);
         console.log('Cleaning results:', { hadIssues, issues });
@@ -737,7 +748,7 @@ export default function Woujamind() {
     console.log('Current grid:', { rows: gridRows, cols: gridCols });
 
     setIsEditing(true);
-    setStatusText(`Generating new frame...`);
+    setStatusText(`Analyzing surrounding frames for transition...`);
 
     try {
       // Determine which frames to use as references
@@ -773,6 +784,8 @@ export default function Woujamind() {
         });
       }
 
+      setStatusText(`Generating smooth transition frame ${position} frame ${index + 1}...`);
+
       // Generate the in-between frame using AI
       console.log('Generating in-between frame with AI...');
       const modelId = 'gemini-3-pro-image-preview';
@@ -785,6 +798,8 @@ export default function Woujamind() {
         modelId
       );
       console.log('Generated frame data URL length:', newFrameDataUrl.length);
+
+      setStatusText(`Integrating new frame into sprite sheet grid...`);
 
       // Insert the frame into the sprite sheet
       console.log('Inserting frame into sprite sheet...');
