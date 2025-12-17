@@ -377,10 +377,12 @@ export default function Woujamind() {
         selectedExpression,
         selectedArtStyle,
         prompt,
+        selectedDirection,
         gridRows,
         finalCols,
         modelId,
-        customRules
+        customRules,
+        multiViewData
       );
 
       // Store generation metadata
@@ -1251,6 +1253,9 @@ export default function Woujamind() {
               setSelectedAction={setSelectedAction}
               selectedExpression={selectedExpression}
               setSelectedExpression={setSelectedExpression}
+              selectedDirection={selectedDirection}
+              setSelectedDirection={setSelectedDirection}
+              multiViewData={multiViewData}
               tokens={tokens}
               isGenerating={isGenerating}
               handleGenerate={handleGenerate}
