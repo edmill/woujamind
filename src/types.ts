@@ -8,7 +8,6 @@ export type ActionType = 'idle' | 'walk' | 'run' | 'jump' | 'attack' | 'cast';
 export type ExpressionType = 'neutral' | 'happy' | 'angry' | 'surprised' | 'pain';
 export type Theme = 'dark' | 'light';
 export type ArtStyle = 'pixel' | 'low-poly' | 'vector' | 'hand-drawn' | 'voxel' | 'watercolor' | 'inherited';
-export type AlignmentMode = 'auto' | 'bottom' | 'center';
 
 export interface ActionOption {
   id: ActionType;
@@ -28,11 +27,4 @@ export interface ArtStyleOption {
   label: string;
   description: string;
   previewColor: string;
-}
-
-export interface AlignmentModeOption {
-  id: AlignmentMode;
-  label: string;
-  description: string;
-  icon: string;
 }

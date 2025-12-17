@@ -179,14 +179,11 @@ export const cleanSpriteSheet = async (
 
 // --- ALIGNMENT LOGIC ---
 
-export type AlignmentMode = 'auto' | 'bottom' | 'center';
-
 export const alignFrameInSheet = async (
   sheetSrc: string,
   frameIndex: number,
   rows: number,
-  cols: number,
-  alignmentMode: AlignmentMode = 'auto'
+  cols: number
 ): Promise<string> => {
   const sheet = await loadImage(sheetSrc);
   const frameW = Math.floor(sheet.naturalWidth / cols);
@@ -352,8 +349,7 @@ const getCharacterAnchor = (
 export const alignWholeSheet = async (
   sheetSrc: string,
   rows: number,
-  cols: number,
-  alignmentMode: AlignmentMode = 'auto'
+  cols: number
 ): Promise<string> => {
   const sheet = await loadImage(sheetSrc);
   const frameW = Math.floor(sheet.naturalWidth / cols);
@@ -476,8 +472,7 @@ export const aiSmartAlignSpriteSheet = async (
   imageSrc: string,
   rows: number,
   cols: number,
-  onProgress?: (status: string) => void,
-  alignmentMode: AlignmentMode = 'auto'
+  onProgress?: (status: string) => void
 ): Promise<SmartAlignmentResult> => {
   const fixedIssues: string[] = [];
   let analysis: AlignmentAnalysis;
@@ -502,7 +497,7 @@ export const aiSmartAlignSpriteSheet = async (
 
     // Step 3: Perform alignment using detected grid structure
     onProgress?.('📐 Aligning frames to optimal grid positions for smooth animation...');
-    const aligned = await alignWholeSheet(cleaned, rows, cols, alignmentMode);
+    const aligned = await alignWholeSheet(cleaned, rows, cols);
     
     // Step 4: Quality check - verify alignment improved consistency
     onProgress?.('✅ Verifying alignment quality and animation smoothness...');
@@ -519,7 +514,7 @@ export const aiSmartAlignSpriteSheet = async (
     // Fallback to standard alignment if AI fails
     onProgress?.('Falling back to standard alignment...');
     const { cleaned } = await cleanSpriteSheet(imageSrc, rows, cols);
-    const aligned = await alignWholeSheet(cleaned, rows, cols, alignmentMode);
+    const aligned = await alignWholeSheet(cleaned, rows, cols);
     
     return {
       aligned,
