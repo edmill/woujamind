@@ -11,7 +11,8 @@ import {
   Zap,
   Grid,
   List,
-  Settings2
+  Settings2,
+  Sparkles
 } from 'lucide-react';
 
 import { BackgroundParticles } from './components/BackgroundParticles';
@@ -76,6 +77,7 @@ export default function Woujamind() {
   // Upload Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
   const [uploadSource, setUploadSource] = useState<'generated' | 'uploaded'>('generated');
+  const [showNewConfirm, setShowNewConfirm] = useState<boolean>(false);
 
   // New states for download options
   const [fps, setFps] = useState<number>(8);
@@ -942,6 +944,14 @@ export default function Woujamind() {
     setUploadSource('generated');
   };
 
+  const handleConfirmNew = () => {
+    setPrompt('');
+    setSelectedFile(null);
+    setFilePreview(null);
+    reset();
+    setShowNewConfirm(false);
+  };
+
   const handleSpriteSheetUpload = async (file: File, rows: number, cols: number) => {
     try {
       // Convert file to data URL
@@ -1059,6 +1069,80 @@ export default function Woujamind() {
           onUpload={handleSpriteSheetUpload}
         />
 
+        {/* New Animation Confirmation Dialog */}
+        <AnimatePresence>
+          {showNewConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowNewConfirm(false)}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              />
+
+              {/* Dialog */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                transition={{ type: "spring", duration: 0.5 }}
+                onClick={(e) => e.stopPropagation()}
+                className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-2 border-orange-500 dark:border-orange-500/50 max-w-md w-full overflow-hidden"
+              >
+                {/* Header */}
+                <div className="relative bg-gradient-to-r from-teal-500 via-orange-500 to-teal-500 p-6 pb-8">
+                  <div className="flex items-center gap-4">
+                    {/* Animated Icon */}
+                    <motion.div
+                      animate={{
+                        rotate: [0, -10, 10, -10, 0],
+                        scale: [1, 1.1, 1]
+                      }}
+                      transition={{
+                        duration: 0.5,
+                        repeat: Infinity,
+                        repeatDelay: 2
+                      }}
+                      className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm"
+                    >
+                      <Sparkles className="w-8 h-8 text-white" />
+                    </motion.div>
+
+                    <h2 className="text-2xl font-bold text-white">
+                      Start New Animation?
+                    </h2>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-6">
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                    This will clear your current sprite sheet. Make sure you've saved it first!
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="p-6 pt-0 flex gap-3">
+                  <button
+                    onClick={() => setShowNewConfirm(false)}
+                    className="flex-1 px-6 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmNew}
+                    className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-orange-500 text-white font-semibold hover:from-teal-600 hover:to-orange-600 transition-all shadow-lg hover:shadow-xl"
+                  >
+                    Start New
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
         <div className="w-full max-w-[96%] 2xl:max-w-[1800px] mx-auto relative z-10 flex-1 flex flex-col min-h-0">
           
           <Header
@@ -1069,13 +1153,14 @@ export default function Woujamind() {
             onSettingsClick={() => setIsSettingsOpen(true)}
             onNewClick={() => {
               if (hasResult) {
-                const confirmed = window.confirm('Starting new will clear your current sprite sheet. Continue?');
-                if (!confirmed) return;
+                setShowNewConfirm(true);
+              } else {
+                // No result, just reset immediately
+                setPrompt('');
+                setSelectedFile(null);
+                setFilePreview(null);
+                reset();
               }
-              setPrompt('');
-              setSelectedFile(null);
-              setFilePreview(null);
-              reset();
             }}
             onLoadSpriteSheet={() => setIsUploadModalOpen(true)}
             sphereState={sphereState}
