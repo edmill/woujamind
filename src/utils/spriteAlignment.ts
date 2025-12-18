@@ -122,7 +122,7 @@ export const cleanSpriteSheet = async (
   const canvas = document.createElement('canvas');
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
   if (!ctx) {
     return { cleaned: imageSrc, hadIssues: false, issues: [] };
@@ -183,7 +183,8 @@ export const alignFrameInSheet = async (
   sheetSrc: string,
   frameIndex: number,
   rows: number,
-  cols: number
+  cols: number,
+  alignmentMode: 'auto' | 'center' | 'bottom' = 'auto'
 ): Promise<string> => {
   const sheet = await loadImage(sheetSrc);
   const frameW = Math.floor(sheet.naturalWidth / cols);
@@ -205,7 +206,7 @@ export const alignFrameInSheet = async (
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = frameW;
   tempCanvas.height = frameH;
-  const tempCtx = tempCanvas.getContext('2d');
+  const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
   if(!tempCtx) return sheetSrc;
   tempCtx.imageSmoothingEnabled = false;
 
@@ -374,7 +375,7 @@ export const alignWholeSheet = async (
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = frameW;
     tempCanvas.height = frameH;
-    const tempCtx = tempCanvas.getContext('2d');
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
     if (!tempCtx) {
       frameCenters.push(null);
       continue;
@@ -415,7 +416,7 @@ export const alignWholeSheet = async (
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = frameW;
     tempCanvas.height = frameH;
-    const tempCtx = tempCanvas.getContext('2d');
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
     if (!tempCtx) continue;
     tempCtx.imageSmoothingEnabled = false;
 
