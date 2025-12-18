@@ -25,6 +25,7 @@ import { ResultView } from './components/ResultView';
 import SpriteSheetUploadModal from './components/SpriteSheetUploadModal';
 import { FileLibraryView, ViewMode } from './components/FileLibraryView';
 import { EmptyStateView } from './components/EmptyStateView';
+import { OpenFileIndicator } from './components/OpenFileIndicator';
 import { ACTIONS } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData } from './types';
 import { cn } from './utils';
@@ -50,6 +51,7 @@ export default function Woujamind() {
   const [hasResult, setHasResult] = useState<boolean>(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string>('');
+  const [displayStatusText, setDisplayStatusText] = useState<string>('');
   
   // Generation metadata
   const [generationPrompt, setGenerationPrompt] = useState<string>('');
@@ -167,6 +169,78 @@ export default function Woujamind() {
     };
     checkKey();
   }, []);
+
+  // Rotating fun status messages during generation
+  const statusTextRef = useRef<string>('');
+  const messageIndexRef = useRef<number>(0);
+  const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!isGenerating) {
+      setDisplayStatusText('');
+      statusTextRef.current = '';
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current);
+        statusTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    const funMessages = [
+      "Summoning pixel magic...",
+      "Brewing animation frames...",
+      "Polishing sprites to perfection...",
+      "Channeling creative energy...",
+      "Weaving animation sequences...",
+      "Crafting your sprite masterpiece...",
+      "Adding that extra sparkle...",
+      "Fine-tuning every pixel...",
+      "Bringing characters to life...",
+      "Optimizing frame transitions...",
+      "Applying artistic flair...",
+      "Ensuring pixel-perfect quality...",
+      "Creating smooth animations...",
+      "Working our magic...",
+      "Almost there, just a moment...",
+    ];
+
+    // When statusText changes, show it immediately
+    if (statusText && statusText !== statusTextRef.current) {
+      statusTextRef.current = statusText;
+      setDisplayStatusText(statusText);
+      
+      // Clear any existing timeout
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current);
+      }
+      
+      // After 2.5 seconds, go back to rotating fun messages
+      statusTimeoutRef.current = setTimeout(() => {
+        messageIndexRef.current = (messageIndexRef.current + 1) % funMessages.length;
+        setDisplayStatusText(funMessages[messageIndexRef.current]);
+      }, 2500);
+    }
+
+    // Rotate through fun messages every 2 seconds (only if no status override)
+    const interval = setInterval(() => {
+      if (!statusText || statusText === statusTextRef.current) {
+        messageIndexRef.current = (messageIndexRef.current + 1) % funMessages.length;
+        setDisplayStatusText(funMessages[messageIndexRef.current]);
+      }
+    }, 2000);
+
+    // Set initial message if no status text
+    if (!statusText) {
+      setDisplayStatusText(funMessages[0]);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current);
+      }
+    };
+  }, [isGenerating, statusText]);
 
   // Update API key state when stored key changes
   const handleApiKeyChange = (newApiKey: string | null) => {
@@ -1278,6 +1352,14 @@ export default function Woujamind() {
                      exit={{ opacity: 0, scale: 0.9, filter: "blur(10px)" }}
                      className="flex-1 flex flex-col gap-4 h-full"
                    >
+                     {/* Show indicator when uploaded file is open in editor */}
+                     {hasResult && generatedImage && uploadSource === 'uploaded' && (
+                       <OpenFileIndicator 
+                         onReturnToEditor={() => setResult(true)}
+                         theme={theme}
+                       />
+                     )}
+
                      {/* Only show view mode toggle when sprites exist */}
                      {!isLoadingSprites && Object.values(savedSprites).some(arr => arr.length > 0) && (
                        <div className="flex items-center justify-end mb-2 shrink-0">
@@ -1339,7 +1421,7 @@ export default function Woujamind() {
                         ) : (
                           <EmptyStateView
                             isGenerating={isGenerating}
-                            statusText={statusText}
+                            statusText={displayStatusText || statusText}
                           />
                         )}
                      </div>
@@ -1378,7 +1460,7 @@ export default function Woujamind() {
                       canRedo={historyIndex < history.length - 1}
                       isEditing={isEditing}
                       isGenerating={isGenerating}
-                      statusText={statusText}
+                      statusText={displayStatusText || statusText}
                       fps={fps}
                       setFps={setFps}
                       isTransparent={isTransparent}

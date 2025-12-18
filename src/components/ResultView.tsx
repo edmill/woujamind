@@ -33,7 +33,10 @@ import {
   Minus,
   Download,
   Upload,
-  LayoutList
+  LayoutList,
+  ImageIcon,
+  Save,
+  RotateCcw
 } from 'lucide-react';
 import { cn } from '../utils';
 import { extractFrames } from '../utils/imageUtils';
@@ -153,6 +156,7 @@ export function ResultView({
   const animationRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const spriteContainerRef = useRef<HTMLDivElement>(null);
   const [showEditBar, setShowEditBar] = useState(false);
   const [editPrompt, setEditPrompt] = useState("");
   const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
@@ -160,14 +164,71 @@ export function ResultView({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  
+  // Animation preview position (for single frame mode)
+  const [previewPosition, setPreviewPosition] = useState({ x: 0, y: 0 });
+  const [isDraggingPreview, setIsDraggingPreview] = useState(false);
+  const [previewDragStart, setPreviewDragStart] = useState({ x: 0, y: 0 });
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showInsertDropdown, setShowInsertDropdown] = useState(false);
   const insertDropdownRef = useRef<HTMLDivElement>(null);
   const replaceImageInputRef = useRef<HTMLInputElement>(null);
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(null);
+  const [backgroundColor, setBackgroundColor] = useState<string>('#6f7281');
+  const [showBackgroundSettings, setShowBackgroundSettings] = useState(false);
   const backgroundImageInputRef = useRef<HTMLInputElement>(null);
+  const backgroundSettingsRef = useRef<HTMLDivElement>(null);
   const totalFrames = rows * cols;
+
+  // Default background presets
+  const BACKGROUND_PRESETS = [
+    { name: 'Grey Blue', color: '#6f7281' },
+    { name: 'White', color: '#ffffff' },
+    { name: 'Black', color: '#000000' },
+    { name: 'Slate Dark', color: '#1e293b' },
+    { name: 'Slate Light', color: '#f1f5f9' },
+    { name: 'Orange', color: '#f97316' },
+    { name: 'Blue', color: '#3b82f6' },
+    { name: 'Green', color: '#22c55e' },
+  ];
+
+  // LocalStorage keys
+  const STORAGE_KEYS = {
+    DEFAULT_BACKGROUND_TYPE: 'sprite_magic_default_background_type', // 'color' | 'image'
+    DEFAULT_BACKGROUND_COLOR: 'sprite_magic_default_background_color',
+    DEFAULT_BACKGROUND_IMAGE: 'sprite_magic_default_background_image', // base64 or blob URL
+  };
+
+  // Load default background on mount
+  useEffect(() => {
+    const defaultType = localStorage.getItem(STORAGE_KEYS.DEFAULT_BACKGROUND_TYPE);
+    if (defaultType === 'color') {
+      const savedColor = localStorage.getItem(STORAGE_KEYS.DEFAULT_BACKGROUND_COLOR);
+      if (savedColor) {
+        setBackgroundColor(savedColor);
+      }
+    } else if (defaultType === 'image') {
+      const savedImage = localStorage.getItem(STORAGE_KEYS.DEFAULT_BACKGROUND_IMAGE);
+      if (savedImage) {
+        setBackgroundImageUrl(savedImage);
+      }
+    }
+  }, []);
+
+  // Close background settings when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (backgroundSettingsRef.current && !backgroundSettingsRef.current.contains(event.target as Node)) {
+        setShowBackgroundSettings(false);
+      }
+    };
+
+    if (showBackgroundSettings) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showBackgroundSettings]);
 
   // Generating overlay state
   const [isSwooshing, setIsSwooshing] = useState(false);
@@ -197,6 +258,11 @@ export function ResultView({
     setIsSwooshing(false);
     setShowOverlay(false);
   };
+
+  // Reset preview position when a new sprite sheet is loaded
+  useEffect(() => {
+    setPreviewPosition({ x: 0, y: 0 });
+  }, [imageSrc]);
 
   // Extract frames from sprite sheet
   useEffect(() => {
@@ -303,6 +369,7 @@ export function ResultView({
         e.preventDefault();
         if (selectedFrame !== null) {
           // If a frame is selected, deselect it to return to animation
+          // Don't reset preview position - preserve it
           setSelectedFrame(null);
           if (onToggleFrameSelect) {
             selectedFrameIndices.forEach(() => {
@@ -383,7 +450,10 @@ export function ResultView({
     if (onToggleFrameSelect) {
       onToggleFrameSelect(frameIndex, false);
     }
-    setSelectedFrame(selectedFrame === frameNumber ? null : frameNumber);
+    const newSelectedFrame = selectedFrame === frameNumber ? null : frameNumber;
+    setSelectedFrame(newSelectedFrame);
+    
+    // Don't reset preview position - preserve it across frame selections
   };
 
   const handleAutoAlignClick = () => {
@@ -402,8 +472,53 @@ export function ResultView({
     setPan({ x: 0, y: 0 });
   };
 
+  // Mouse wheel zoom handler - zooms toward cursor position
+  const handleWheel = (e: React.WheelEvent) => {
+    // Only zoom if not holding shift (shift is typically used for horizontal scrolling)
+    if (e.shiftKey) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const delta = e.deltaY;
+    const zoomSpeed = 0.15; // Adjust zoom sensitivity (higher = more sensitive)
+    const zoomFactor = delta > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
+    
+    const newZoom = Math.max(0.5, Math.min(3, zoom * zoomFactor));
+    
+    if (newZoom !== zoom && spriteContainerRef.current) {
+      // Get mouse position relative to the container
+      const container = spriteContainerRef.current;
+      const rect = container.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      
+      // Calculate the center of the container
+      const containerCenterX = rect.width / 2;
+      const containerCenterY = rect.height / 2;
+      
+      // Calculate mouse offset from center (in container coordinates)
+      const offsetX = mouseX - containerCenterX;
+      const offsetY = mouseY - containerCenterY;
+      
+      // Adjust pan to zoom toward mouse position
+      // The pan needs to be adjusted by the difference in zoom scaled by the offset
+      const zoomRatio = newZoom / zoom;
+      const newPanX = pan.x - (offsetX * (zoomRatio - 1));
+      const newPanY = pan.y - (offsetY * (zoomRatio - 1));
+      
+      setZoom(newZoom);
+      setPan({ x: newPanX, y: newPanY });
+    }
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 0 && (e.metaKey || e.ctrlKey || zoom !== 1)) {
+    // Pan with middle mouse button, spacebar + drag, or Cmd/Ctrl + drag, or when zoomed
+    const canPan = e.button === 1 || // Middle mouse button
+                   e.button === 0 && (e.metaKey || e.ctrlKey || e.shiftKey || zoom !== 1); // Left click with modifier or when zoomed
+    
+    if (canPan) {
+      e.preventDefault();
       setIsPanning(true);
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     }
@@ -417,6 +532,35 @@ export function ResultView({
 
   const handleMouseUp = () => {
     setIsPanning(false);
+  };
+
+  // Animation preview drag handlers (only when single frame is selected)
+  const handlePreviewMouseDown = (e: React.MouseEvent) => {
+    if (selectedFrame !== null && selectedFrame > 0) {
+      e.preventDefault();
+      setIsDraggingPreview(true);
+      setPreviewDragStart({ 
+        x: e.clientX - previewPosition.x, 
+        y: e.clientY - previewPosition.y 
+      });
+    }
+  };
+
+  const handlePreviewMouseMove = (e: React.MouseEvent) => {
+    if (isDraggingPreview && selectedFrame !== null) {
+      setPreviewPosition({ 
+        x: e.clientX - previewDragStart.x, 
+        y: e.clientY - previewDragStart.y 
+      });
+    }
+  };
+
+  const handlePreviewMouseUp = () => {
+    setIsDraggingPreview(false);
+  };
+
+  const handleResetPreviewPosition = () => {
+    setPreviewPosition({ x: 0, y: 0 });
   };
 
   const handleReplaceImageClick = () => {
@@ -443,25 +587,80 @@ export function ResultView({
   const handleBackgroundImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const url = URL.createObjectURL(file);
+      const reader = new FileReader();
+      
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        
+        // Revoke old URL if exists
+        if (backgroundImageUrl && backgroundImageUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(backgroundImageUrl);
+        }
 
-      // Revoke old URL if exists
-      if (backgroundImageUrl) {
-        URL.revokeObjectURL(backgroundImageUrl);
-      }
+        setBackgroundImageUrl(base64String);
+        toast.success('Background image loaded');
+        e.target.value = '';
+      };
 
-      setBackgroundImageUrl(url);
-      toast.success('Background image loaded for transparency testing');
-      e.target.value = '';
+      reader.onerror = () => {
+        toast.error('Failed to load background image');
+        e.target.value = '';
+      };
+
+      reader.readAsDataURL(file);
     }
   };
 
   const handleClearBackgroundImage = () => {
     if (backgroundImageUrl) {
-      URL.revokeObjectURL(backgroundImageUrl);
+      // Only revoke blob URLs, not base64
+      if (backgroundImageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(backgroundImageUrl);
+      }
+      setBackgroundImageUrl(null);
+      toast.success('Background image removed');
+    }
+  };
+
+  const handleClearBackground = () => {
+    // Clear both image and reset to default color
+    if (backgroundImageUrl) {
+      if (backgroundImageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(backgroundImageUrl);
+      }
       setBackgroundImageUrl(null);
     }
-    toast.success('Background image removed');
+    // Reset to default background color
+    setBackgroundColor('#6f7281');
+    toast.success('Background cleared');
+  };
+
+  const handleSetDefaultBackground = () => {
+    if (backgroundImageUrl) {
+      localStorage.setItem(STORAGE_KEYS.DEFAULT_BACKGROUND_TYPE, 'image');
+      localStorage.setItem(STORAGE_KEYS.DEFAULT_BACKGROUND_IMAGE, backgroundImageUrl);
+      toast.success('Default background set to current image');
+    } else {
+      localStorage.setItem(STORAGE_KEYS.DEFAULT_BACKGROUND_TYPE, 'color');
+      localStorage.setItem(STORAGE_KEYS.DEFAULT_BACKGROUND_COLOR, backgroundColor);
+      toast.success('Default background set to current color');
+    }
+    setShowBackgroundSettings(false);
+  };
+
+  const handleBackgroundColorChange = (color: string) => {
+    setBackgroundColor(color);
+    // Clear image when setting color
+    if (backgroundImageUrl) {
+      if (backgroundImageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(backgroundImageUrl);
+      }
+      setBackgroundImageUrl(null);
+    }
+  };
+
+  const handleTransparentToggle = () => {
+    setIsTransparent(!isTransparent);
   };
 
   return (
@@ -773,6 +972,7 @@ export function ResultView({
 
                {/* Sprite Sheet Container with Grid Overlay */}
                <div
+                 ref={spriteContainerRef}
                  className={cn(
                    "flex-1 overflow-auto p-8 flex items-center justify-center relative overflow-hidden rounded-b-2xl",
                    isPanning ? 'cursor-grabbing' : (zoom !== 1 ? 'cursor-grab' : 'cursor-default')
@@ -781,6 +981,7 @@ export function ResultView({
                  onMouseMove={handleMouseMove}
                  onMouseUp={handleMouseUp}
                  onMouseLeave={handleMouseUp}
+                 onWheel={handleWheel}
                >
                  {/* Checkerboard background */}
                  <div className="absolute inset-0 opacity-[0.05] pointer-events-none bg-[linear-gradient(45deg,#000000_25%,transparent_25%,transparent_75%,#000000_75%,#000000),linear-gradient(45deg,#000000_25%,transparent_25%,transparent_75%,#000000_75%,#000000)] bg-[length:20px_20px] bg-[position:0_0,10px_10px]" />
@@ -894,17 +1095,17 @@ export function ResultView({
                  
                  {/* Floating Zoom/Pan Toolbar */}
                  {imageSrc && (
-                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 bg-slate-900/90 backdrop-blur-md rounded-full px-2 py-1.5 shadow-2xl border border-slate-700">
+                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 bg-slate-900/95 backdrop-blur-md rounded-full px-2 py-1.5 shadow-2xl border border-slate-700 pointer-events-auto">
                      <button
                        onClick={handleZoomOut}
                        disabled={zoom <= 0.5}
                        className="p-1.5 hover:bg-slate-700 text-slate-300 hover:text-white rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                       title="Zoom Out"
+                       title="Zoom Out (or scroll wheel down)"
                      >
                        <ZoomOut className="w-3.5 h-3.5" />
                      </button>
                      
-                     <div className="px-2 text-[10px] font-mono font-bold text-slate-400 min-w-[3rem] text-center">
+                     <div className="px-2 text-[10px] font-mono font-bold text-slate-400 min-w-[3rem] text-center" title="Scroll to zoom, drag to pan">
                        {Math.round(zoom * 100)}%
                      </div>
                      
@@ -912,7 +1113,7 @@ export function ResultView({
                        onClick={handleZoomIn}
                        disabled={zoom >= 3}
                        className="p-1.5 hover:bg-slate-700 text-slate-300 hover:text-white rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                       title="Zoom In"
+                       title="Zoom In (or scroll wheel up)"
                      >
                        <ZoomIn className="w-3.5 h-3.5" />
                      </button>
@@ -923,7 +1124,7 @@ export function ResultView({
                        onClick={handleResetView}
                        disabled={zoom === 1 && pan.x === 0 && pan.y === 0}
                        className="p-1.5 hover:bg-slate-700 text-slate-300 hover:text-white rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                       title="Reset View"
+                       title="Reset View (zoom: 100%, center)"
                      >
                        <Maximize2 className="w-3.5 h-3.5" />
                      </button>
@@ -947,46 +1148,174 @@ export function ResultView({
                </div>
                
                {/* Controls */}
-               <div className="flex items-center gap-2">
+               <div className="flex items-center gap-2 relative">
                   <button
-                     onClick={() => setIsTransparent(!isTransparent)}
+                     onClick={handleTransparentToggle}
                      className={cn(
                        "p-1.5 rounded-lg border transition-all",
                        isTransparent
                          ? "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300"
                      )}
-                     title="Toggle Transparency"
+                     title={
+                       isTransparent
+                         ? "Disable sprite transparency (keep background)"
+                         : "Enable sprite transparency (show background through transparent areas)"
+                     }
                   >
                      <Grid className="w-4 h-4" />
                   </button>
 
-                  <button
-                     onClick={backgroundImageUrl ? handleClearBackgroundImage : handleBackgroundImageClick}
-                     className={cn(
-                       "p-1.5 rounded-lg border transition-all",
-                       backgroundImageUrl
-                         ? "bg-sky-100 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-900/50"
-                         : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300"
-                     )}
-                     title={backgroundImageUrl ? "Remove background" : "Upload background image"}
-                  >
-                     {backgroundImageUrl ? <XCircle className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
-                  </button>
+                  <div className="relative" ref={backgroundSettingsRef}>
+                    <button
+                       onClick={() => setShowBackgroundSettings(!showBackgroundSettings)}
+                       className={cn(
+                         "p-1.5 rounded-lg border transition-all",
+                         backgroundImageUrl || backgroundColor !== '#6f7281'
+                           ? "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50"
+                           : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300"
+                       )}
+                       title="Background settings"
+                    >
+                       <Palette className="w-4 h-4" />
+                    </button>
 
-                  <input
-                    ref={backgroundImageInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleBackgroundImageChange}
-                    className="hidden"
-                  />
+                    {/* Background Settings Dropdown */}
+                    {showBackgroundSettings && (
+                      <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl z-50 p-4 space-y-4">
+                        {/* Header */}
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <Palette className="w-4 h-4" />
+                            Background Settings
+                          </h3>
+                          <button
+                            onClick={() => setShowBackgroundSettings(false)}
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                          >
+                            <XCircle className="w-4 h-4 text-slate-400" />
+                          </button>
+                        </div>
+
+                        {/* Color Picker Section */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                            Background Color
+                          </label>
+                          
+                          {/* Preset Colors */}
+                          <div className="grid grid-cols-4 gap-2">
+                            {BACKGROUND_PRESETS.map((preset) => (
+                              <button
+                                key={preset.color}
+                                onClick={() => handleBackgroundColorChange(preset.color)}
+                                className={cn(
+                                  "h-8 rounded-lg border-2 transition-all hover:scale-105",
+                                  backgroundColor === preset.color
+                                    ? "border-orange-500 dark:border-orange-400 ring-2 ring-orange-500/20"
+                                    : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                                )}
+                                style={{ backgroundColor: preset.color }}
+                                title={preset.name}
+                              />
+                            ))}
+                          </div>
+
+                          {/* Custom Color Picker */}
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={backgroundColor}
+                              onChange={(e) => handleBackgroundColorChange(e.target.value)}
+                              className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer"
+                              title="Custom color"
+                            />
+                            <input
+                              type="text"
+                              value={backgroundColor}
+                              onChange={(e) => {
+                                if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                                  handleBackgroundColorChange(e.target.value);
+                                }
+                              }}
+                              className="w-24 px-2 py-1.5 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              placeholder="#6f7281"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Image Upload Section */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                            Background Image
+                          </label>
+                          
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={handleBackgroundImageClick}
+                              className={cn(
+                                "flex-1 px-3 py-2 rounded-lg border transition-all text-sm font-medium flex items-center justify-center gap-2",
+                                backgroundImageUrl
+                                  ? "bg-sky-100 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-900/50"
+                                  : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                              )}
+                            >
+                              <Upload className="w-4 h-4" />
+                              {backgroundImageUrl ? 'Change Image' : 'Upload Image'}
+                            </button>
+                            
+                            {backgroundImageUrl && (
+                              <button
+                                onClick={handleClearBackgroundImage}
+                                className="p-2 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Remove image"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+
+                          <input
+                            ref={backgroundImageInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleBackgroundImageChange}
+                            className="hidden"
+                          />
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="space-y-2">
+                          <button
+                            onClick={handleSetDefaultBackground}
+                            className="w-full px-4 py-2.5 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 text-white rounded-lg font-semibold text-sm transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
+                            title="Save current background as default"
+                          >
+                            <Save className="w-4 h-4" />
+                            Set as Default
+                          </button>
+                          
+                          {(backgroundImageUrl || backgroundColor !== '#6f7281') && (
+                            <button
+                              onClick={handleClearBackground}
+                              className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2"
+                              title="Clear background and reset to default"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Clear Background
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                </div>
             </div>
 
             <div className="flex-1 bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-orange-500/30 flex flex-col items-center justify-center relative overflow-hidden group shadow-lg min-h-0">
-               {/* Background Image */}
+               {/* Background - Always show if set, otherwise show checkerboard when transparent */}
                {backgroundImageUrl ? (
+                 /* Background Image */
                  <div
                    className="absolute inset-0"
                    style={{ 
@@ -997,9 +1326,24 @@ export function ResultView({
                      willChange: 'transform'
                    }}
                  />
-               ) : !isTransparent ? (
-                 <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+CjxwYXRoIGQ9Ik0wIDBoMTB2MTBIMHptMTAgMTBoMTB2MTBIMTB6IiBmaWxsPSIjMWUyOTNiIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-20" />
+               ) : backgroundColor !== '#6f7281' || !isTransparent ? (
+                 /* Solid Color Background with Pattern Overlay */
+                 <>
+                   <div 
+                     className="absolute inset-0"
+                     style={{ backgroundColor: backgroundColor }}
+                   />
+                   {/* Subtle dot pattern overlay for texture */}
+                   <div 
+                     className="absolute inset-0 opacity-30"
+                     style={{
+                       backgroundImage: 'radial-gradient(circle, rgba(0,0,0,0.1) 1px, transparent 1px)',
+                       backgroundSize: '20px 20px'
+                     }}
+                   />
+                 </>
                ) : (
+                 /* Checkerboard for transparency when no background is set */
                  <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#0ea5e9_0.5px,transparent_0.5px),radial-gradient(#0ea5e9_0.5px,#e5e5f7_0.5px)] bg-[length:20px_20px] bg-[position:0_0,10px_10px]" />
                )}
                
@@ -1009,23 +1353,72 @@ export function ResultView({
                  animate={{ scale: 1, opacity: 1 }}
                  transition={{ type: "spring", stiffness: 260, damping: 20 }}
                  className="relative z-10 w-full h-full flex items-end justify-center p-8 pb-16 [image-rendering:pixelated]"
+                 onMouseMove={handlePreviewMouseMove}
+                 onMouseUp={handlePreviewMouseUp}
+                 onMouseLeave={handlePreviewMouseUp}
                >
                  {selectedFrame !== null && selectedFrame > 0 && selectedFrame <= frames.length && frames[selectedFrame - 1] ? (
-                   <div className="flex flex-col items-center gap-4">
+                   <div 
+                     className={cn(
+                       "flex flex-col items-center gap-4 relative group",
+                       isDraggingPreview ? 'cursor-grabbing' : 'cursor-grab'
+                     )}
+                     style={{
+                       transform: `translate(${previewPosition.x}px, ${previewPosition.y}px)`,
+                       transition: isDraggingPreview ? 'none' : 'transform 0.2s ease-out'
+                     }}
+                     onMouseDown={handlePreviewMouseDown}
+                   >
                      {/* Frame Label Indicator - Moved Above */}
-                     <div className="bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-lg">
+                     <div className="bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-lg pointer-events-none">
                        <span>Frame {selectedFrame}</span>
                      </div>
                      <canvas
                        ref={canvasRef}
-                       className="max-w-full max-h-[300px] object-contain shadow-2xl [image-rendering:pixelated]"
+                       className="max-w-full max-h-[300px] object-contain shadow-2xl [image-rendering:pixelated] pointer-events-none"
                      />
+                     {/* Drag Hint - Show on hover when centered */}
+                     {(previewPosition.x === 0 && previewPosition.y === 0) && (
+                       <motion.div
+                         initial={{ opacity: 0 }}
+                         animate={{ opacity: 1 }}
+                         className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-full whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                       >
+                         Drag to reposition
+                       </motion.div>
+                     )}
+                     {/* Reset Position Button - Only show when position is not centered and not playing */}
+                     {(previewPosition.x !== 0 || previewPosition.y !== 0) && !isPlaying && (
+                       <motion.button
+                         initial={{ opacity: 0, scale: 0.8 }}
+                         animate={{ opacity: 1, scale: 1 }}
+                         exit={{ opacity: 0, scale: 0.8 }}
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           handleResetPreviewPosition();
+                         }}
+                         className="absolute -top-2 -right-2 p-1.5 bg-slate-900/90 hover:bg-slate-800 text-white rounded-full shadow-lg border border-slate-700 backdrop-blur-sm transition-all hover:scale-110 z-20"
+                         title="Reset Position"
+                       >
+                         <RotateCcw className="w-3.5 h-3.5" />
+                       </motion.button>
+                     )}
                    </div>
                  ) : frames.length > 0 ? (
-                   <div className="relative" style={{ marginBottom: '10%' }}>
+                   <div 
+                     className={cn(
+                       "relative group",
+                       isDraggingPreview ? 'cursor-grabbing' : 'cursor-grab'
+                     )}
+                     style={{
+                       transform: `translate(${previewPosition.x}px, ${previewPosition.y}px)`,
+                       transition: isDraggingPreview ? 'none' : 'transform 0.2s ease-out'
+                     }}
+                     onMouseDown={handlePreviewMouseDown}
+                   >
                      <canvas
                        ref={canvasRef}
-                       className="max-w-full max-h-[300px] object-contain [image-rendering:pixelated] drop-shadow-2xl"
+                       className="max-w-full max-h-[300px] object-contain [image-rendering:pixelated] drop-shadow-2xl pointer-events-none"
                        style={{ 
                          transform: backgroundImageUrl ? 'translateY(0)' : 'none'
                        }}
@@ -1033,10 +1426,36 @@ export function ResultView({
                      {!isPlaying && (
                        <button
                          onClick={() => setIsPlaying(true)}
-                         className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 rounded-lg transition-colors"
+                         className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 rounded-lg transition-colors pointer-events-auto"
                        >
                          <Play className="w-12 h-12 text-white opacity-80" />
                        </button>
+                     )}
+                     {/* Drag Hint - Show on hover when centered */}
+                     {(previewPosition.x === 0 && previewPosition.y === 0) && (
+                       <motion.div
+                         initial={{ opacity: 0 }}
+                         animate={{ opacity: 1 }}
+                         className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-full whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                       >
+                         Drag to reposition
+                       </motion.div>
+                     )}
+                     {/* Reset Position Button - Only show when position is not centered and not playing */}
+                     {(previewPosition.x !== 0 || previewPosition.y !== 0) && !isPlaying && (
+                       <motion.button
+                         initial={{ opacity: 0, scale: 0.8 }}
+                         animate={{ opacity: 1, scale: 1 }}
+                         exit={{ opacity: 0, scale: 0.8 }}
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           handleResetPreviewPosition();
+                         }}
+                         className="absolute -top-2 -right-2 p-1.5 bg-slate-900/90 hover:bg-slate-800 text-white rounded-full shadow-lg border border-slate-700 backdrop-blur-sm transition-all hover:scale-110 z-20 pointer-events-auto"
+                         title="Reset Position"
+                       >
+                         <RotateCcw className="w-3.5 h-3.5" />
+                       </motion.button>
                      )}
                    </div>
                  ) : (
@@ -1050,6 +1469,7 @@ export function ResultView({
                   <button
                     onClick={() => {
                       if (selectedFrame) {
+                        // Don't reset preview position when deselecting frame
                         setSelectedFrame(null);
                       } else {
                         setIsPlaying(!isPlaying);

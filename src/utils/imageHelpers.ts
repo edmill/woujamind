@@ -10,6 +10,8 @@ export const getVisualBoundingBox = (
   height: number,
   bgColor: {r: number, g: number, b: number, a: number} | null = null
 ) => {
+  // Note: If the canvas context was created with willReadFrequently: true, 
+  // multiple getImageData calls will be faster. This is handled at context creation.
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   let minX = width, minY = height, maxX = 0, maxY = 0;

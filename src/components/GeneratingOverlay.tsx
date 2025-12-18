@@ -36,7 +36,7 @@ export function GeneratingOverlay({
       </div>
 
       {/* Centered animated sphere */}
-      <div className="relative z-10 flex flex-col items-center gap-6">
+      <div className="relative z-10 flex flex-col items-center gap-12">
         <motion.div
           animate={
             isSwooshing
@@ -117,28 +117,6 @@ export function GeneratingOverlay({
             className="absolute -inset-10 bg-gradient-to-r from-violet-500/50 via-fuchsia-500/50 to-cyan-500/50 rounded-full blur-3xl"
           />
 
-          {/* Tiny sparkle particles that fade in/out */}
-          {[...Array(12)].map((_, i) => (
-            <motion.div
-              key={i}
-              animate={{
-                opacity: [0, 0.8, 0],
-                scale: [0.8, 1, 0.8]
-              }}
-              transition={{
-                duration: 2.5,
-                repeat: Infinity,
-                delay: i * 0.2,
-                ease: "easeInOut"
-              }}
-              className="absolute w-1 h-1 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.6)]"
-              style={{
-                left: `${50 + 45 * Math.cos((i * Math.PI * 2) / 12)}%`,
-                top: `${50 + 45 * Math.sin((i * Math.PI * 2) / 12)}%`
-              }}
-            />
-          ))}
-
           {/* Assistant Sphere */}
           <motion.div
             animate={{
@@ -199,7 +177,7 @@ export function GeneratingOverlay({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            className="font-medium text-base text-slate-800 dark:text-slate-100 px-4 py-2 drop-shadow-lg"
+            className="font-normal text-sm text-slate-600 dark:text-slate-400 px-4 py-2"
           >
             {statusText}
           </motion.div>

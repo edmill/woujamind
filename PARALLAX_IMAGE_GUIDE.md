@@ -150,3 +150,4 @@ Add these to your prompts to ensure larger dimensions:
 - Add `--quality 2` or `--v 6` for higher resolution
 - Specify: `"2400x1350, 8k, ultra detailed"`
 
+
