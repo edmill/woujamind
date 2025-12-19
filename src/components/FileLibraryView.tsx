@@ -21,9 +21,10 @@ interface FileLibraryViewProps {
   onOpenSprite: (sprite: StoredSpriteSheet) => void;
   onDeleteSprite: (id: string) => void;
   viewMode?: ViewMode;
+  activeImageData?: string | null;
 }
 
-export function FileLibraryView({ sprites, onOpenSprite, onDeleteSprite, viewMode = 'grid' }: FileLibraryViewProps) {
+export function FileLibraryView({ sprites, onOpenSprite, onDeleteSprite, viewMode = 'grid', activeImageData }: FileLibraryViewProps) {
   const sections = [
     { title: 'Today', data: sprites.today },
     { title: 'Yesterday', data: sprites.yesterday },
@@ -78,6 +79,7 @@ export function FileLibraryView({ sprites, onOpenSprite, onDeleteSprite, viewMod
                         sprite={sprite}
                         onOpen={onOpenSprite}
                         onDelete={onDeleteSprite}
+                        isActive={activeImageData === sprite.imageData}
                       />
                     </motion.div>
                   ))}
@@ -102,6 +104,7 @@ export function FileLibraryView({ sprites, onOpenSprite, onDeleteSprite, viewMod
                         sprite={sprite}
                         onOpen={onOpenSprite}
                         onDelete={onDeleteSprite}
+                        isActive={activeImageData === sprite.imageData}
                       />
                     </motion.div>
                   ))}

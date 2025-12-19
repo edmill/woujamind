@@ -685,7 +685,7 @@ export function ResultView({
       <div className="flex items-center justify-between shrink-0">
          <div className="flex items-center gap-4">
             <button 
-              onClick={reset}
+              onClick={onClearResult || reset}
               className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
               title="Back to Editor"
             >

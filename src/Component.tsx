@@ -1101,6 +1101,30 @@ export default function Woujamind() {
       setGenerationModel('');
       setGenerationCharacterDescription('');
 
+      // Auto-save uploaded sprite sheet to IndexedDB (creates project)
+      try {
+        await saveSpriteSheet({
+          imageData: dataUrl,
+          prompt: '', // No prompt for uploaded files
+          characterDescription: '', // No character description for uploaded files
+          selectedAction,
+          selectedExpression,
+          artStyle: selectedArtStyle,
+          gridRows: rows,
+          gridCols: cols,
+          fps,
+          isTransparent,
+          modelId: '', // No model ID for uploaded files
+          history: [dataUrl],
+          historyIndex: 0,
+        });
+        await reloadSprites();
+        console.log('Uploaded sprite sheet auto-saved to local storage');
+      } catch (error) {
+        console.error('Failed to auto-save uploaded sprite sheet:', error);
+        // Don't show error to user - non-critical failure
+      }
+
       // Navigate to ResultView
       setResult(true);
       setHasResult(true);
@@ -1352,8 +1376,8 @@ export default function Woujamind() {
                      exit={{ opacity: 0, scale: 0.9, filter: "blur(10px)" }}
                      className="flex-1 flex flex-col gap-4 h-full"
                    >
-                     {/* Show indicator when uploaded file is open in editor */}
-                     {hasResult && generatedImage && uploadSource === 'uploaded' && (
+                     {/* Show indicator when sprite sheet is open in edit mode but viewing home page */}
+                     {hasResult && generatedImage && !result && (
                        <OpenFileIndicator 
                          onReturnToEditor={() => setResult(true)}
                          theme={theme}
@@ -1417,6 +1441,7 @@ export default function Woujamind() {
                             onOpenSprite={handleOpenSprite}
                             onDeleteSprite={handleDeleteSprite}
                             viewMode={viewMode}
+                            activeImageData={hasResult ? generatedImage : null}
                           />
                         ) : (
                           <EmptyStateView
@@ -1468,7 +1493,7 @@ export default function Woujamind() {
                       onDownloadSheet={handleDownloadSheet}
                       onDownloadGif={handleDownloadGif}
                       onRegenerate={handleRegenerate}
-                      onClearResult={reset}
+                      onClearResult={backToEditor}
                       onAutoAlign={handleAutoAlignFrame}
                       onAlignAll={handleAutoAlignSheet}
                       onInsertFrame={handleInsertFrame}
