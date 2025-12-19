@@ -248,7 +248,7 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 rounded-lg">
+              <div className="p-2 bg-orange-500 rounded-lg">
                 <Upload className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -526,7 +526,7 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
               {step === 'detect' && (
                 <button
                   onClick={() => setStep('manual')}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors font-semibold"
                 >
                   <LayoutGrid className="w-4 h-4" />
                   Use Manual
@@ -536,7 +536,7 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
               {step === 'detect' && (
                 <button
                   onClick={handleUseDetected}
-                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 text-white rounded-lg hover:shadow-lg transition-all font-bold"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold transition-colors shadow-lg shadow-orange-500/20 active:scale-95"
                 >
                   Load
                   <ChevronRight className="w-4 h-4" />
@@ -546,7 +546,7 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
               {step === 'manual' && (
                 <button
                   onClick={handleUseManual}
-                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 text-white rounded-lg hover:shadow-lg transition-all font-bold"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold transition-colors shadow-lg shadow-orange-500/20 active:scale-95"
                 >
                   Load
                   <ChevronRight className="w-4 h-4" />

@@ -15,9 +15,10 @@ interface SpriteCardPreviewProps {
   sprite: StoredSpriteSheet;
   onOpen: (sprite: StoredSpriteSheet) => void;
   onDelete: (id: string) => void;
+  isActive?: boolean;
 }
 
-export function SpriteCardPreview({ sprite, onOpen, onDelete }: SpriteCardPreviewProps) {
+export function SpriteCardPreview({ sprite, onOpen, onDelete, isActive = false }: SpriteCardPreviewProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -117,6 +118,9 @@ export function SpriteCardPreview({ sprite, onOpen, onDelete }: SpriteCardPrevie
           : "border-slate-200 dark:border-slate-700",
         isDeleting && "opacity-50 pointer-events-none"
       )}
+      style={isActive ? {
+        boxShadow: '0 0 20px rgba(249, 115, 22, 0.4), 0 0 40px rgba(249, 115, 22, 0.2)'
+      } : undefined}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onOpen(sprite)}

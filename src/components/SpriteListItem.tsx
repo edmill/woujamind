@@ -15,9 +15,10 @@ interface SpriteListItemProps {
   sprite: StoredSpriteSheet;
   onOpen: (sprite: StoredSpriteSheet) => void;
   onDelete: (id: string) => void;
+  isActive?: boolean;
 }
 
-export function SpriteListItem({ sprite, onOpen, onDelete }: SpriteListItemProps) {
+export function SpriteListItem({ sprite, onOpen, onDelete, isActive = false }: SpriteListItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -119,6 +120,9 @@ export function SpriteListItem({ sprite, onOpen, onDelete }: SpriteListItemProps
             : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50",
           (isDeleting || isDownloading) && "opacity-50 pointer-events-none"
         )}
+        style={isActive ? {
+          boxShadow: '0 0 20px rgba(249, 115, 22, 0.4), 0 0 40px rgba(249, 115, 22, 0.2)'
+        } : undefined}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={() => !isDeleting && !isDownloading && onOpen(sprite)}
