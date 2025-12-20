@@ -2,7 +2,7 @@
  * InputSidebar Component
  * Handles user inputs including prompt, image upload, art style, and action/expression selection.
  */
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ImageIcon,
@@ -97,6 +97,45 @@ export function InputSidebar({
 }: InputSidebarProps) {
   const [showImagePreview, setShowImagePreview] = React.useState(false);
   const [showDiagonals, setShowDiagonals] = React.useState(false);
+  const [textareaHeight, setTextareaHeight] = useState(96); // Default h-24 = 96px
+  const [isResizing, setIsResizing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const resizeHandleRef = useRef<HTMLDivElement>(null);
+
+  // Handle resize drag
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing || !textareaRef.current) return;
+
+      const textareaRect = textareaRef.current.getBoundingClientRect();
+      const newHeight = e.clientY - textareaRect.top;
+      
+      // Min height: 96px (h-24), Max height: 400px
+      const minHeight = 96;
+      const maxHeight = 400;
+      const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+      
+      setTextareaHeight(clampedHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'ns-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
 
   return (
     <AnimatePresence mode="sync">
@@ -163,12 +202,33 @@ export function InputSidebar({
               <div className="relative group">
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 rounded-2xl opacity-10 dark:opacity-20 group-hover:opacity-30 dark:group-hover:opacity-40 transition duration-500 blur" />
                 <div className="relative bg-white dark:bg-slate-900 rounded-2xl p-2 border border-slate-200 dark:border-slate-800 shadow-sm">
-                  <textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Describe your character or changes to a referenced image."
-                    className="w-full h-24 bg-transparent text-sm p-4 rounded-xl focus:outline-none resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-200"
-                  />
+                  <div className="relative">
+                    <textarea
+                      ref={textareaRef}
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      placeholder="Describe your character or changes to a referenced image."
+                      style={{ height: `${textareaHeight}px` }}
+                      className="w-full bg-transparent text-sm p-4 rounded-xl focus:outline-none resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-200 transition-none"
+                    />
+                    
+                    {/* Resize Handle */}
+                    <div
+                      ref={resizeHandleRef}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setIsResizing(true);
+                      }}
+                      className={cn(
+                        "absolute bottom-0 left-0 right-0 h-4 cursor-ns-resize group/resize z-10",
+                        "flex items-center justify-center",
+                        "hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-colors",
+                        isResizing && "bg-slate-200/80 dark:bg-slate-700/80"
+                      )}
+                    >
+                      <div className="w-16 h-1 bg-slate-300 dark:bg-slate-600 rounded-full group-hover/resize:bg-slate-400 dark:group-hover/resize:bg-slate-500 transition-colors" />
+                    </div>
+                  </div>
                   
                   {/* Image Attachment & Enhancement Bar */}
                   <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 rounded-b-xl">
