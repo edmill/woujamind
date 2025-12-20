@@ -455,84 +455,238 @@ export function InputSidebar({
                 </div>
               )}
 
-              {/* Direction buttons */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* Cardinal Directions */}
-                {(['front', 'back', 'left', 'right'] as const).map((dir) => {
-                  const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
-                  const icons = {
-                    front: <ArrowUp className="w-4 h-4" />,
-                    back: <ArrowDown className="w-4 h-4" />,
-                    left: <ArrowLeft className="w-4 h-4" />,
-                    right: <ArrowRight className="w-4 h-4" />
-                  };
+              {/* Gamepad-style D-pad with integrated diagonals */}
+              <div className="flex flex-col items-center gap-4">
+                {/* Main D-pad */}
+                <div className="relative w-40 h-40 flex items-center justify-center">
+                  {/* Central circle */}
+                  <div className="absolute inset-0 flex items-center justify-center z-0">
+                    <div className={cn(
+                      "w-12 h-12 rounded-full border-2 transition-colors",
+                      "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50"
+                    )} />
+                  </div>
 
-                  return (
-                    <motion.button
-                      key={dir}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setSelectedDirection(dir)}
-                      className={cn(
-                        "relative p-3 rounded-xl border-2 text-left transition-all h-20",
-                        selectedDirection === dir
-                          ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
-                          : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-800 dark:bg-slate-900/50"
-                      )}
-                    >
-                      {hasReferenceView && (
-                        <div className="absolute top-1 right-1">
-                          <CheckCircle2 className="w-3 h-3 text-sky-500" title="Reference view available" />
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <div className={cn("transition-colors", selectedDirection === dir ? "text-orange-600" : "text-slate-400")}>
-                          {icons[dir]}
-                        </div>
-                        <div className={cn("font-bold text-sm capitalize", selectedDirection === dir ? "text-orange-900 dark:text-white" : "text-slate-600")}>
-                          {dir}
-                        </div>
-                      </div>
-                    </motion.button>
-                  );
-                })}
+                  {/* All Directions - D-pad style */}
+                  <div className="relative w-full h-full">
+                    {/* Up (Front) */}
+                    {(() => {
+                      const dir = 'front';
+                      const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
+                      const isSelected = selectedDirection === dir;
+                      return (
+                        <button
+                          onClick={() => setSelectedDirection(dir)}
+                          className={cn(
+                            "absolute top-0 left-1/2 -translate-x-1/2 w-10 h-12 rounded-t-xl border-2 transition-all",
+                            "flex items-center justify-center z-10",
+                            "border-b-0",
+                            isSelected
+                              ? "border-orange-500 bg-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.4)]"
+                              : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
+                          )}
+                        >
+                          {hasReferenceView && (
+                            <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
+                              <CheckCircle2 className="w-3 h-3 text-sky-500" />
+                            </div>
+                          )}
+                          <ArrowUp className={cn("w-4 h-4 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} />
+                        </button>
+                      );
+                    })()}
 
-                {/* Diagonal Directions (collapsible) */}
-                {showDiagonals && (['front-left', 'front-right', 'back-left', 'back-right'] as const).map((dir) => {
-                  const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
+                    {/* Down (Back) */}
+                    {(() => {
+                      const dir = 'back';
+                      const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
+                      const isSelected = selectedDirection === dir;
+                      return (
+                        <button
+                          onClick={() => setSelectedDirection(dir)}
+                          className={cn(
+                            "absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-12 rounded-b-xl border-2 transition-all",
+                            "flex items-center justify-center z-10",
+                            "border-t-0",
+                            isSelected
+                              ? "border-orange-500 bg-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.4)]"
+                              : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
+                          )}
+                        >
+                          {hasReferenceView && (
+                            <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
+                              <CheckCircle2 className="w-3 h-3 text-sky-500" />
+                            </div>
+                          )}
+                          <ArrowDown className={cn("w-4 h-4 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} />
+                        </button>
+                      );
+                    })()}
 
-                  return (
-                    <motion.button
-                      key={dir}
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setSelectedDirection(dir)}
-                      className={cn(
-                        "relative p-3 rounded-xl border-2 text-left transition-all h-20",
-                        selectedDirection === dir
-                          ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
-                          : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-800 dark:bg-slate-900/50"
-                      )}
-                    >
-                      {hasReferenceView && (
-                        <div className="absolute top-1 right-1">
-                          <CheckCircle2 className="w-3 h-3 text-sky-500" title="Reference view available" />
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <div className={cn("transition-colors", selectedDirection === dir ? "text-orange-600" : "text-slate-400")}>
-                          <ArrowUp className="w-4 h-4" style={{ transform: 'rotate(45deg)' }} />
-                        </div>
-                        <div className={cn("font-bold text-xs", selectedDirection === dir ? "text-orange-900 dark:text-white" : "text-slate-600")}>
-                          {dir.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-')}
-                        </div>
-                      </div>
-                    </motion.button>
-                  );
-                })}
+                    {/* Left */}
+                    {(() => {
+                      const dir = 'left';
+                      const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
+                      const isSelected = selectedDirection === dir;
+                      return (
+                        <button
+                          onClick={() => setSelectedDirection(dir)}
+                          className={cn(
+                            "absolute left-0 top-1/2 -translate-y-1/2 w-12 h-10 rounded-l-xl border-2 transition-all",
+                            "flex items-center justify-center z-10",
+                            "border-r-0",
+                            isSelected
+                              ? "border-orange-500 bg-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.4)]"
+                              : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
+                          )}
+                        >
+                          {hasReferenceView && (
+                            <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
+                              <CheckCircle2 className="w-3 h-3 text-sky-500" />
+                            </div>
+                          )}
+                          <ArrowLeft className={cn("w-4 h-4 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} />
+                        </button>
+                      );
+                    })()}
+
+                    {/* Right */}
+                    {(() => {
+                      const dir = 'right';
+                      const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
+                      const isSelected = selectedDirection === dir;
+                      return (
+                        <button
+                          onClick={() => setSelectedDirection(dir)}
+                          className={cn(
+                            "absolute right-0 top-1/2 -translate-y-1/2 w-12 h-10 rounded-r-xl border-2 transition-all",
+                            "flex items-center justify-center z-10",
+                            "border-l-0",
+                            isSelected
+                              ? "border-orange-500 bg-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.4)]"
+                              : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
+                          )}
+                        >
+                          {hasReferenceView && (
+                            <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
+                              <CheckCircle2 className="w-3 h-3 text-sky-500" />
+                            </div>
+                          )}
+                          <ArrowRight className={cn("w-4 h-4 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} />
+                        </button>
+                      );
+                    })()}
+
+                    {/* Diagonal Directions - integrated around center */}
+                    {showDiagonals && (
+                      <>
+                        {/* Front-Left */}
+                        {(() => {
+                          const dir = 'front-left';
+                          const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
+                          const isSelected = selectedDirection === dir;
+                          return (
+                            <button
+                              onClick={() => setSelectedDirection(dir)}
+                              className={cn(
+                                "absolute top-2 left-2 w-8 h-8 rounded-lg border-2 transition-all",
+                                "flex items-center justify-center z-10",
+                                isSelected
+                                  ? "border-orange-500 bg-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+                                  : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
+                              )}
+                            >
+                              {hasReferenceView && (
+                                <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
+                                  <CheckCircle2 className="w-2.5 h-2.5 text-sky-500" />
+                                </div>
+                              )}
+                              <ArrowUp className={cn("w-3 h-3 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} style={{ transform: 'rotate(-45deg)' }} />
+                            </button>
+                          );
+                        })()}
+
+                        {/* Front-Right */}
+                        {(() => {
+                          const dir = 'front-right';
+                          const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
+                          const isSelected = selectedDirection === dir;
+                          return (
+                            <button
+                              onClick={() => setSelectedDirection(dir)}
+                              className={cn(
+                                "absolute top-2 right-2 w-8 h-8 rounded-lg border-2 transition-all",
+                                "flex items-center justify-center z-10",
+                                isSelected
+                                  ? "border-orange-500 bg-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+                                  : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
+                              )}
+                            >
+                              {hasReferenceView && (
+                                <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
+                                  <CheckCircle2 className="w-2.5 h-2.5 text-sky-500" />
+                                </div>
+                              )}
+                              <ArrowUp className={cn("w-3 h-3 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} style={{ transform: 'rotate(45deg)' }} />
+                            </button>
+                          );
+                        })()}
+
+                        {/* Back-Left */}
+                        {(() => {
+                          const dir = 'back-left';
+                          const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
+                          const isSelected = selectedDirection === dir;
+                          return (
+                            <button
+                              onClick={() => setSelectedDirection(dir)}
+                              className={cn(
+                                "absolute bottom-2 left-2 w-8 h-8 rounded-lg border-2 transition-all",
+                                "flex items-center justify-center z-10",
+                                isSelected
+                                  ? "border-orange-500 bg-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+                                  : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
+                              )}
+                            >
+                              {hasReferenceView && (
+                                <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
+                                  <CheckCircle2 className="w-2.5 h-2.5 text-sky-500" />
+                                </div>
+                              )}
+                              <ArrowDown className={cn("w-3 h-3 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} style={{ transform: 'rotate(45deg)' }} />
+                            </button>
+                          );
+                        })()}
+
+                        {/* Back-Right */}
+                        {(() => {
+                          const dir = 'back-right';
+                          const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
+                          const isSelected = selectedDirection === dir;
+                          return (
+                            <button
+                              onClick={() => setSelectedDirection(dir)}
+                              className={cn(
+                                "absolute bottom-2 right-2 w-8 h-8 rounded-lg border-2 transition-all",
+                                "flex items-center justify-center z-10",
+                                isSelected
+                                  ? "border-orange-500 bg-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+                                  : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
+                              )}
+                            >
+                              {hasReferenceView && (
+                                <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
+                                  <CheckCircle2 className="w-2.5 h-2.5 text-sky-500" />
+                                </div>
+                              )}
+                              <ArrowDown className={cn("w-3 h-3 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} style={{ transform: 'rotate(-45deg)' }} />
+                            </button>
+                          );
+                        })()}
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <button
