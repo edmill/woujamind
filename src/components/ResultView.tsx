@@ -195,9 +195,9 @@ export function ResultView({
 
   // LocalStorage keys
   const STORAGE_KEYS = {
-    DEFAULT_BACKGROUND_TYPE: 'sprite_magic_default_background_type', // 'color' | 'image'
-    DEFAULT_BACKGROUND_COLOR: 'sprite_magic_default_background_color',
-    DEFAULT_BACKGROUND_IMAGE: 'sprite_magic_default_background_image', // base64 or blob URL
+    DEFAULT_BACKGROUND_TYPE: 'woujamind_default_background_type', // 'color' | 'image'
+    DEFAULT_BACKGROUND_COLOR: 'woujamind_default_background_color',
+    DEFAULT_BACKGROUND_IMAGE: 'woujamind_default_background_image', // base64 or blob URL
   };
 
   // Load default background on mount
