@@ -32,6 +32,7 @@ import { cn } from './utils';
 import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame, analyzeCharacter } from './services/geminiService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
 import { initDB, saveSpriteSheet, getSpriteSheetsByDate, deleteSpriteSheet, StoredSpriteSheet } from './utils/spriteStorage';
+import { migrateLocalStorage } from './utils/localStorageMigration';
 
 export default function Woujamind() {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -129,6 +130,11 @@ export default function Woujamind() {
     checkDesktop();
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
+  // Migrate localStorage from old keys to new keys (runs once on mount)
+  useEffect(() => {
+    migrateLocalStorage();
   }, []);
 
   // Check for API Key on mount

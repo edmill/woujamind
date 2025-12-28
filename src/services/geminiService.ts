@@ -5,7 +5,7 @@ import type { StyleParameters, MultiViewData, CharacterAnalysis, SpriteDirection
 const getApiKey = async (): Promise<string> => {
   // First check localStorage for stored API key
   if (typeof window !== 'undefined') {
-    const storedKey = localStorage.getItem('sprite_magic_api_key');
+    const storedKey = localStorage.getItem('woujamind_api_key');
     if (storedKey) return storedKey;
   }
   
@@ -490,7 +490,7 @@ export const generateSpriteSheet = async (
 ): Promise<SpriteSheetResult> => {
   // If no custom rules provided, load from localStorage based on model
   if (!customRules && typeof window !== 'undefined') {
-    const key = (modelId.includes('3') || modelId.includes('pro')) ? 'sprite_magic_gemini_30_rules' : 'sprite_magic_gemini_25_rules';
+    const key = (modelId.includes('3') || modelId.includes('pro')) ? 'woujamind_gemini_30_rules' : 'woujamind_gemini_25_rules';
     customRules = localStorage.getItem(key) || DEFAULT_SYSTEM_RULES;
   } else if (!customRules) {
     customRules = DEFAULT_SYSTEM_RULES;

@@ -39,9 +39,9 @@ QUALITY STANDARDS:
 
 // LocalStorage keys
 const STORAGE_KEYS = {
-  API_KEY: 'sprite_magic_api_key',
-  GEMINI_25_RULES: 'sprite_magic_gemini_25_rules',
-  GEMINI_30_RULES: 'sprite_magic_gemini_30_rules',
+  API_KEY: 'woujamind_api_key',
+  GEMINI_25_RULES: 'woujamind_gemini_25_rules',
+  GEMINI_30_RULES: 'woujamind_gemini_30_rules',
 };
 
 export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }: SettingsModalProps) {
