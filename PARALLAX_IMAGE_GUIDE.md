@@ -151,3 +151,8 @@ Add these to your prompts to ensure larger dimensions:
 - Specify: `"2400x1350, 8k, ultra detailed"`
 
 
+
+
+
+
+
