@@ -78,11 +78,11 @@ export function AnimatedLogo({ sphereState = 'idle', onSwooshComplete }: Animate
   return (
     <div className="relative group cursor-pointer flex items-center gap-3">
       {/* Colorful W Logo with Animated Sphere */}
-      <div ref={logoContainerRef} className="relative h-[84px] flex items-center">
+      <div ref={logoContainerRef} className="relative h-[67px] flex items-center">
         <img
           src="/logo.png"
           alt="W"
-          className="h-[84px] w-auto object-contain"
+          className="h-[67px] w-auto object-contain"
           style={{ imageRendering: '-webkit-optimize-contrast' }}
         />
 

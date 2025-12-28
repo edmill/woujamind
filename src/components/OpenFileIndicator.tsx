@@ -73,3 +73,8 @@ export function OpenFileIndicator({ onReturnToEditor, theme = 'dark' }: OpenFile
     </motion.div>
   );
 }
+
+
+
+
+

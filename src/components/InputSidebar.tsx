@@ -2,45 +2,38 @@
  * InputSidebar Component
  * Handles user inputs including prompt, image upload, art style, and action/expression selection.
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  ImageIcon,
-  XCircle,
-  Palette,
-  CheckCircle2,
-  Sword,
-  Smile,
-  RefreshCw,
-  Lock,
-  Wand2,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  Info
+import { 
+  ImageIcon, 
+  XCircle, 
+  Palette, 
+  CheckCircle2, 
+  Sword, 
+  Smile, 
+  RefreshCw, 
+  Lock, 
+  Wand2 
 } from 'lucide-react';
 import { cn } from '../utils';
 import { ART_STYLES, ACTIONS, EXPRESSIONS } from '../constants';
 import { ArtStyle, TabMode, ActionType, ExpressionType, SpriteDirection, MultiViewData } from '../types';
-import { PromptHelper } from './PromptHelper';
-import { PromptEnhancer } from './PromptEnhancer';
 
 interface InputSidebarProps {
   isDesktop: boolean;
   result: boolean;
-  
+
   // Prompt Input
   prompt: string;
   setPrompt: (prompt: string) => void;
-  
+
   // File Input
   selectedFile: File | null;
   filePreview: string | null;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   clearFile: () => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
-  
+
   // Art Style
   selectedArtStyle: ArtStyle;
   setSelectedArtStyle: (style: ArtStyle) => void;
@@ -53,15 +46,17 @@ interface InputSidebarProps {
   selectedExpression: ExpressionType;
   setSelectedExpression: (exp: ExpressionType) => void;
 
-  // Sprite Direction
-  selectedDirection: SpriteDirection;
-  setSelectedDirection: (dir: SpriteDirection) => void;
-  multiViewData: MultiViewData | null;
+  // Direction (Woujamind only)
+  selectedDirection?: SpriteDirection;
+  setSelectedDirection?: (direction: SpriteDirection) => void;
+  multiViewData?: MultiViewData | null;
 
   // Generation
   tokens: number;
   isGenerating: boolean;
   handleGenerate: () => void;
+
+  // API Key (Woujamind only)
   hasApiKey?: boolean;
   isCheckingApiKey?: boolean;
   onConnectApiKey?: () => void;
@@ -91,58 +86,17 @@ export function InputSidebar({
   tokens,
   isGenerating,
   handleGenerate,
-  hasApiKey = true,
-  isCheckingApiKey = false,
+  hasApiKey,
+  isCheckingApiKey,
   onConnectApiKey
 }: InputSidebarProps) {
   const [showImagePreview, setShowImagePreview] = React.useState(false);
-  const [showDiagonals, setShowDiagonals] = React.useState(false);
-  const [textareaHeight, setTextareaHeight] = useState(96); // Default h-24 = 96px
-  const [isResizing, setIsResizing] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const resizeHandleRef = useRef<HTMLDivElement>(null);
-
-  // Handle resize drag
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing || !textareaRef.current) return;
-
-      const textareaRect = textareaRef.current.getBoundingClientRect();
-      const newHeight = e.clientY - textareaRect.top;
-      
-      // Min height: 96px (h-24), Max height: 400px
-      const minHeight = 96;
-      const maxHeight = 400;
-      const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
-      
-      setTextareaHeight(clampedHeight);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = 'ns-resize';
-      document.body.style.userSelect = 'none';
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-  }, [isResizing]);
 
   return (
-    <AnimatePresence mode="sync">
+    <AnimatePresence initial={false} mode="wait">
       {/* Full Screen Image Preview Modal */}
       {showImagePreview && filePreview && (
         <motion.div
-          key="image-preview"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -167,7 +121,7 @@ export function InputSidebar({
             >
               <XCircle className="w-6 h-6" />
             </button>
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white rounded-b-2xl">
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white">
                 <p className="font-medium text-center">{selectedFile?.name}</p>
             </div>
           </motion.div>
@@ -175,62 +129,36 @@ export function InputSidebar({
       )}
 
       {!result && (
-        <motion.div
-          key="sidebar"
-          initial={false}
+        <motion.div 
+          initial={{ width: isDesktop ? 450 : '100%', opacity: 1 }}
           animate={{ width: isDesktop ? 450 : '100%', opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ duration: 0.5, ease: "easeInOut" }}
-          className="flex-shrink-0 flex flex-col h-full overflow-visible"
+          className="flex-shrink-0 flex flex-col h-full"
         >
-          <div className="flex flex-col h-full pr-4 lg:pr-8 overflow-visible">
+          <div className="flex flex-col h-full pr-4 lg:pr-8">
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto overflow-x-visible space-y-8 px-5 py-6 sprite-scroll -mr-4 pr-4">
+            <div className="flex-1 overflow-y-auto space-y-8 px-5 py-6 sprite-scroll -mr-4 pr-4">
             {/* 1. Prompt & Image Input */}
-            <section className="space-y-4 overflow-visible">
-              <div className="flex items-center justify-between relative">
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">1</span>
                   Character Concept
                 </h2>
-                <PromptHelper 
-                  onSelectPrompt={setPrompt}
-                  currentPrompt={prompt}
-                />
               </div>
 
               <div className="relative group">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 rounded-2xl opacity-10 dark:opacity-20 group-hover:opacity-30 dark:group-hover:opacity-40 transition duration-500 blur" />
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-sky-500 rounded-2xl opacity-10 dark:opacity-20 group-hover:opacity-30 dark:group-hover:opacity-40 transition duration-500 blur" />
                 <div className="relative bg-white dark:bg-slate-900 rounded-2xl p-2 border border-slate-200 dark:border-slate-800 shadow-sm">
-                  <div className="relative">
-                    <textarea
-                      ref={textareaRef}
-                      value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      placeholder="Describe your character or changes to a referenced image."
-                      style={{ height: `${textareaHeight}px` }}
-                      className="w-full bg-transparent text-sm p-4 rounded-xl focus:outline-none resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-200 transition-none"
-                    />
-                    
-                    {/* Resize Handle */}
-                    <div
-                      ref={resizeHandleRef}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setIsResizing(true);
-                      }}
-                      className={cn(
-                        "absolute bottom-0 left-0 right-0 h-4 cursor-ns-resize group/resize z-10",
-                        "flex items-center justify-center",
-                        "hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-colors",
-                        isResizing && "bg-slate-200/80 dark:bg-slate-700/80"
-                      )}
-                    >
-                      <div className="w-16 h-1 bg-slate-300 dark:bg-slate-600 rounded-full group-hover/resize:bg-slate-400 dark:group-hover/resize:bg-slate-500 transition-colors" />
-                    </div>
-                  </div>
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Describe your character or changes to a referenced image."
+                    className="w-full h-24 bg-transparent text-lg p-4 focus:outline-none resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-200"
+                  />
                   
-                  {/* Image Attachment & Enhancement Bar */}
+                  {/* Image Attachment Bar */}
                   <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 rounded-b-xl">
                     <div className="flex items-center gap-3">
                       <input 
@@ -278,12 +206,8 @@ export function InputSidebar({
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
-                      <PromptEnhancer 
-                        currentPrompt={prompt}
-                        onEnhance={setPrompt}
-                        disabled={!prompt.trim()}
-                      />
+                    <div className="text-xs text-slate-400 dark:text-slate-600 font-mono">
+                      {prompt.length} chars
                     </div>
                   </div>
                 </div>
@@ -306,7 +230,7 @@ export function InputSidebar({
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setSelectedArtStyle('inherited')}
                     className={cn(
-                      "relative p-3 rounded-xl border-2 text-left transition-all h-24 overflow-hidden group",
+                      "relative p-3 rounded-xl border text-left transition-all h-24 overflow-hidden group",
                       selectedArtStyle === 'inherited'
                         ? "border-sky-500 bg-sky-500/10 shadow-[0_0_15px_rgba(14,165,233,0.3)]"
                         : "border-slate-200 bg-white/50 hover:border-sky-400 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-600"
@@ -333,7 +257,7 @@ export function InputSidebar({
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setSelectedArtStyle(style.id)}
                     className={cn(
-                      "relative p-3 rounded-xl border-2 text-left transition-all h-24 overflow-hidden group",
+                      "relative p-3 rounded-xl border text-left transition-all h-24 overflow-hidden group",
                       selectedArtStyle === style.id
                         ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
                         : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-600"
@@ -364,13 +288,13 @@ export function InputSidebar({
                   </h2>
               </div>
 
-              <div className="bg-slate-100 dark:bg-slate-900/50 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 flex gap-1.5">
+              <div className="bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl border border-slate-200 dark:border-slate-800 flex gap-1">
                   <button
                     onClick={() => setTabMode('action')}
                     className={cn(
                       "flex-1 py-2.5 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all",
-                      tabMode === 'action'
-                        ? "bg-white dark:bg-orange-600 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0"
+                      tabMode === 'action' 
+                        ? "bg-white dark:bg-orange-600 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0" 
                         : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
                     )}
                   >
@@ -381,8 +305,8 @@ export function InputSidebar({
                     onClick={() => setTabMode('expression')}
                     className={cn(
                       "flex-1 py-2.5 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all",
-                      tabMode === 'expression'
-                        ? "bg-white dark:bg-orange-600 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0"
+                      tabMode === 'expression' 
+                        ? "bg-white dark:bg-orange-600 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0" 
                         : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
                     )}
                   >
@@ -418,7 +342,7 @@ export function InputSidebar({
                           whileTap={{ scale: 0.98 }}
                           onClick={() => setSelectedAction(action.id)}
                           className={cn(
-                            "relative p-3 rounded-xl border-2 text-left transition-all h-24 overflow-hidden group",
+                            "relative p-3 rounded-xl border text-left transition-all h-24 overflow-hidden group",
                             selectedAction === action.id
                               ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
                               : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-600"
@@ -463,7 +387,7 @@ export function InputSidebar({
                           whileTap={{ scale: 0.98 }}
                           onClick={() => setSelectedExpression(exp.id)}
                           className={cn(
-                            "relative p-3 rounded-xl border-2 text-left transition-all h-24 overflow-hidden group",
+                            "relative p-3 rounded-xl border text-left transition-all h-24 overflow-hidden group",
                             selectedExpression === exp.id
                               ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
                               : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-600"
@@ -496,301 +420,20 @@ export function InputSidebar({
               </div>
             </section>
 
-            {/* 4. Sprite Direction */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">4</span>
-                  Sprite Direction
-                </h2>
-              </div>
-
-              {/* Multi-view indicator if detected */}
-              {multiViewData && (
-                <div className="bg-sky-100 dark:bg-sky-900/30 border border-sky-300 dark:border-sky-700 rounded-xl p-3">
-                  <p className="text-xs text-sky-700 dark:text-sky-300 flex items-start gap-2">
-                    <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                    <span>Detected {multiViewData.viewCount} character views! Select direction to match reference angles.</span>
-                  </p>
-                </div>
-              )}
-
-              {/* Gamepad-style D-pad with integrated diagonals */}
-              <div className="flex flex-col items-center gap-4">
-                {/* Main D-pad */}
-                <div className="relative w-40 h-40 flex items-center justify-center">
-                  {/* Central circle */}
-                  <div className="absolute inset-0 flex items-center justify-center z-0">
-                    <div className={cn(
-                      "w-12 h-12 rounded-full border-2 transition-colors",
-                      "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50"
-                    )} />
-                  </div>
-
-                  {/* All Directions - D-pad style */}
-                  <div className="relative w-full h-full">
-                    {/* Up (Front) */}
-                    {(() => {
-                      const dir = 'front';
-                      const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
-                      const isSelected = selectedDirection === dir;
-                      return (
-                        <button
-                          onClick={() => setSelectedDirection(dir)}
-                          className={cn(
-                            "absolute top-0 left-1/2 -translate-x-1/2 w-10 h-12 rounded-t-xl border-2 transition-all",
-                            "flex items-center justify-center z-10",
-                            "border-b-0",
-                            isSelected
-                              ? "border-orange-500 bg-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.4)]"
-                              : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
-                          )}
-                        >
-                          {hasReferenceView && (
-                            <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
-                              <CheckCircle2 className="w-3 h-3 text-sky-500" />
-                            </div>
-                          )}
-                          <ArrowUp className={cn("w-4 h-4 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} />
-                        </button>
-                      );
-                    })()}
-
-                    {/* Down (Back) */}
-                    {(() => {
-                      const dir = 'back';
-                      const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
-                      const isSelected = selectedDirection === dir;
-                      return (
-                        <button
-                          onClick={() => setSelectedDirection(dir)}
-                          className={cn(
-                            "absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-12 rounded-b-xl border-2 transition-all",
-                            "flex items-center justify-center z-10",
-                            "border-t-0",
-                            isSelected
-                              ? "border-orange-500 bg-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.4)]"
-                              : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
-                          )}
-                        >
-                          {hasReferenceView && (
-                            <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
-                              <CheckCircle2 className="w-3 h-3 text-sky-500" />
-                            </div>
-                          )}
-                          <ArrowDown className={cn("w-4 h-4 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} />
-                        </button>
-                      );
-                    })()}
-
-                    {/* Left */}
-                    {(() => {
-                      const dir = 'left';
-                      const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
-                      const isSelected = selectedDirection === dir;
-                      return (
-                        <button
-                          onClick={() => setSelectedDirection(dir)}
-                          className={cn(
-                            "absolute left-0 top-1/2 -translate-y-1/2 w-12 h-10 rounded-l-xl border-2 transition-all",
-                            "flex items-center justify-center z-10",
-                            "border-r-0",
-                            isSelected
-                              ? "border-orange-500 bg-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.4)]"
-                              : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
-                          )}
-                        >
-                          {hasReferenceView && (
-                            <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
-                              <CheckCircle2 className="w-3 h-3 text-sky-500" />
-                            </div>
-                          )}
-                          <ArrowLeft className={cn("w-4 h-4 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} />
-                        </button>
-                      );
-                    })()}
-
-                    {/* Right */}
-                    {(() => {
-                      const dir = 'right';
-                      const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
-                      const isSelected = selectedDirection === dir;
-                      return (
-                        <button
-                          onClick={() => setSelectedDirection(dir)}
-                          className={cn(
-                            "absolute right-0 top-1/2 -translate-y-1/2 w-12 h-10 rounded-r-xl border-2 transition-all",
-                            "flex items-center justify-center z-10",
-                            "border-l-0",
-                            isSelected
-                              ? "border-orange-500 bg-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.4)]"
-                              : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
-                          )}
-                        >
-                          {hasReferenceView && (
-                            <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
-                              <CheckCircle2 className="w-3 h-3 text-sky-500" />
-                            </div>
-                          )}
-                          <ArrowRight className={cn("w-4 h-4 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} />
-                        </button>
-                      );
-                    })()}
-
-                    {/* Diagonal Directions - integrated around center */}
-                    {showDiagonals && (
-                      <>
-                        {/* Front-Left */}
-                        {(() => {
-                          const dir = 'front-left';
-                          const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
-                          const isSelected = selectedDirection === dir;
-                          return (
-                            <button
-                              onClick={() => setSelectedDirection(dir)}
-                              className={cn(
-                                "absolute top-2 left-2 w-8 h-8 rounded-lg border-2 transition-all",
-                                "flex items-center justify-center z-10",
-                                isSelected
-                                  ? "border-orange-500 bg-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
-                                  : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
-                              )}
-                            >
-                              {hasReferenceView && (
-                                <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
-                                  <CheckCircle2 className="w-2.5 h-2.5 text-sky-500" />
-                                </div>
-                              )}
-                              <ArrowUp className={cn("w-3 h-3 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} style={{ transform: 'rotate(-45deg)' }} />
-                            </button>
-                          );
-                        })()}
-
-                        {/* Front-Right */}
-                        {(() => {
-                          const dir = 'front-right';
-                          const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
-                          const isSelected = selectedDirection === dir;
-                          return (
-                            <button
-                              onClick={() => setSelectedDirection(dir)}
-                              className={cn(
-                                "absolute top-2 right-2 w-8 h-8 rounded-lg border-2 transition-all",
-                                "flex items-center justify-center z-10",
-                                isSelected
-                                  ? "border-orange-500 bg-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
-                                  : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
-                              )}
-                            >
-                              {hasReferenceView && (
-                                <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
-                                  <CheckCircle2 className="w-2.5 h-2.5 text-sky-500" />
-                                </div>
-                              )}
-                              <ArrowUp className={cn("w-3 h-3 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} style={{ transform: 'rotate(45deg)' }} />
-                            </button>
-                          );
-                        })()}
-
-                        {/* Back-Left */}
-                        {(() => {
-                          const dir = 'back-left';
-                          const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
-                          const isSelected = selectedDirection === dir;
-                          return (
-                            <button
-                              onClick={() => setSelectedDirection(dir)}
-                              className={cn(
-                                "absolute bottom-2 left-2 w-8 h-8 rounded-lg border-2 transition-all",
-                                "flex items-center justify-center z-10",
-                                isSelected
-                                  ? "border-orange-500 bg-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
-                                  : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
-                              )}
-                            >
-                              {hasReferenceView && (
-                                <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
-                                  <CheckCircle2 className="w-2.5 h-2.5 text-sky-500" />
-                                </div>
-                              )}
-                              <ArrowDown className={cn("w-3 h-3 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} style={{ transform: 'rotate(45deg)' }} />
-                            </button>
-                          );
-                        })()}
-
-                        {/* Back-Right */}
-                        {(() => {
-                          const dir = 'back-right';
-                          const hasReferenceView = multiViewData?.detectedViews.some(v => v.direction === dir);
-                          const isSelected = selectedDirection === dir;
-                          return (
-                            <button
-                              onClick={() => setSelectedDirection(dir)}
-                              className={cn(
-                                "absolute bottom-2 right-2 w-8 h-8 rounded-lg border-2 transition-all",
-                                "flex items-center justify-center z-10",
-                                isSelected
-                                  ? "border-orange-500 bg-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.3)]"
-                                  : "border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-orange-400 dark:hover:border-orange-600"
-                              )}
-                            >
-                              {hasReferenceView && (
-                                <div className="absolute -top-1 -right-1 z-20" title="Reference view available">
-                                  <CheckCircle2 className="w-2.5 h-2.5 text-sky-500" />
-                                </div>
-                              )}
-                              <ArrowDown className={cn("w-3 h-3 transition-colors", isSelected ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400")} style={{ transform: 'rotate(-45deg)' }} />
-                            </button>
-                          );
-                        })()}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowDiagonals(!showDiagonals)}
-                className="text-xs text-slate-500 hover:text-orange-600 transition-colors"
-              >
-                {showDiagonals ? 'Hide' : 'Show'} diagonal directions
-              </button>
-            </section>
-
-            {/* API Key Warning */}
-            {!hasApiKey && !isCheckingApiKey && onConnectApiKey && (
-              <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 space-y-3">
-                <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 font-bold">
-                  <Lock className="w-5 h-5" />
-                  <span>API Key Required</span>
-                </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Connect your Gemini API key to generate sprite sheets.
-                </p>
-                <button
-                  onClick={onConnectApiKey}
-                  className="w-full py-2 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-bold transition-colors"
-                >
-                  Connect API Key
-                </button>
-              </div>
-            )}
-
-
             </div>
 
             {/* Generate Button - Pinned to bottom */}
-            <div className="pt-4 pb-2 space-y-3 shrink-0 border-t border-slate-200 dark:border-slate-800 relative z-10 mt-auto">
+            <div className="pt-4 pb-2 space-y-3 shrink-0 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0a0a0e] relative z-10 mt-auto">
               <div className="flex gap-3">
                 <motion.button
-                  whileHover={{ scale: (tokens > 0 && hasApiKey) ? 1.02 : 1 }}
-                  whileTap={{ scale: (tokens > 0 && hasApiKey) ? 0.98 : 1 }}
+                  whileHover={{ scale: tokens > 0 ? 1.02 : 1 }}
+                  whileTap={{ scale: tokens > 0 ? 0.98 : 1 }}
                   onClick={handleGenerate}
-                  disabled={(!prompt && !selectedFile) || isGenerating || !hasApiKey}
+                  disabled={(!prompt && !selectedFile) || isGenerating}
                   className={cn(
                     "flex-1 relative overflow-hidden rounded-xl px-8 py-5 font-bold text-xl text-white shadow-2xl transition-all",
-                    (tokens > 0 && hasApiKey)
-                      ? "bg-orange-500 hover:bg-orange-600"
+                    tokens > 0 
+                      ? "bg-gradient-to-r from-orange-500 via-sky-500 to-orange-600 bg-[size:200%_auto] hover:bg-right" 
                       : "bg-slate-200 dark:bg-slate-800 cursor-not-allowed",
                     "disabled:opacity-50 disabled:grayscale"
                   )}
@@ -800,11 +443,6 @@ export function InputSidebar({
                       <>
                         <RefreshCw className="w-6 h-6 animate-spin" />
                         <span>Weaving Magic...</span>
-                      </>
-                    ) : !hasApiKey ? (
-                      <>
-                        <Lock className="w-6 h-6 text-slate-400" />
-                        <span className="text-slate-400">Connect API Key</span>
                       </>
                     ) : tokens <= 0 ? (
                       <>
@@ -820,7 +458,7 @@ export function InputSidebar({
                   </div>
                 </motion.button>
               </div>
-              {tokens > 0 && hasApiKey && (
+              {tokens > 0 && (
                 <div className="text-center mt-3 text-xs text-slate-400 dark:text-slate-500">
                   Includes commercial license & high-res download
                 </div>
@@ -832,4 +470,3 @@ export function InputSidebar({
     </AnimatePresence>
   );
 }
-
