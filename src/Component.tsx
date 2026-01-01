@@ -87,6 +87,7 @@ export default function Woujamind() {
   // New states for download options
   const [fps, setFps] = useState<number>(8);
   const [isTransparent, setIsTransparent] = useState<boolean>(false);
+  const [hasDropShadow, setHasDropShadow] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   // Sphere state management
@@ -331,6 +332,7 @@ export default function Woujamind() {
     _setGridCols(sprite.gridCols);
     setFps(sprite.fps);
     setIsTransparent(sprite.isTransparent);
+    setHasDropShadow(sprite.hasDropShadow || false);
     setGenerationPrompt(sprite.prompt);
     setGenerationCharacterDescription(sprite.characterDescription || '');
     setGenerationModel(sprite.modelId);
@@ -503,6 +505,7 @@ export default function Woujamind() {
           gridCols: finalCols,
           fps,
           isTransparent,
+          hasDropShadow,
           modelId: result.modelId,
           history: [alignmentResult.aligned],
           historyIndex: 0,
@@ -1120,6 +1123,7 @@ export default function Woujamind() {
           gridCols: cols,
           fps,
           isTransparent,
+          hasDropShadow,
           modelId: '', // No model ID for uploaded files
           history: [dataUrl],
           historyIndex: 0,
@@ -1169,7 +1173,7 @@ export default function Woujamind() {
         img.onload = resolve;
       });
 
-      const frames = extractFrames(img, gridRows, gridCols, gridRows * gridCols, isTransparent);
+      const frames = extractFrames(img, gridRows, gridCols, gridRows * gridCols, isTransparent, hasDropShadow);
       const gifBlob = await createGifBlob(frames, 1000 / fps);
       
       const url = URL.createObjectURL(gifBlob);
@@ -1238,7 +1242,7 @@ export default function Woujamind() {
                 className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-2 border-orange-500 dark:border-orange-500/50 max-w-md w-full overflow-hidden"
               >
                 {/* Header */}
-                <div className="relative bg-gradient-to-r from-teal-500 via-orange-500 to-teal-500 p-6 pb-8">
+                <div className="relative bg-orange-500 dark:bg-orange-600 p-6 pb-8">
                   <div className="flex items-center gap-4">
                     {/* Animated Icon */}
                     <motion.div
@@ -1251,7 +1255,7 @@ export default function Woujamind() {
                         repeat: Infinity,
                         repeatDelay: 2
                       }}
-                      className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm"
+                      className="w-16 h-16 bg-white/30 dark:bg-white/20 rounded-full flex items-center justify-center"
                     >
                       <Sparkles className="w-8 h-8 text-white" />
                     </motion.div>
@@ -1279,7 +1283,7 @@ export default function Woujamind() {
                   </button>
                   <button
                     onClick={handleConfirmNew}
-                    className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-orange-500 text-white font-semibold hover:from-teal-600 hover:to-orange-600 transition-all shadow-lg hover:shadow-xl"
+                    className="flex-1 px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700 text-white font-semibold transition-all shadow-lg hover:shadow-xl"
                   >
                     Start New
                   </button>
@@ -1496,6 +1500,8 @@ export default function Woujamind() {
                       setFps={setFps}
                       isTransparent={isTransparent}
                       setIsTransparent={setIsTransparent}
+                      hasDropShadow={hasDropShadow}
+                      setHasDropShadow={setHasDropShadow}
                       onDownloadSheet={handleDownloadSheet}
                       onDownloadGif={handleDownloadGif}
                       onRegenerate={handleRegenerate}
