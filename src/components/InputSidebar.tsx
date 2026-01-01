@@ -91,6 +91,49 @@ export function InputSidebar({
   onConnectApiKey
 }: InputSidebarProps) {
   const [showImagePreview, setShowImagePreview] = React.useState(false);
+  const [textareaHeight, setTextareaHeight] = React.useState(96); // Default h-24 = 96px
+  const [isResizing, setIsResizing] = React.useState(false);
+  const resizeStartRef = React.useRef<{ startY: number; startHeight: number } | null>(null);
+
+  const MIN_HEIGHT = 64; // h-16
+  const MAX_HEIGHT = 400; // ~h-100
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartRef.current = {
+      startY: e.clientY,
+      startHeight: textareaHeight
+    };
+  };
+
+  React.useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizeStartRef.current) return;
+
+      const deltaY = e.clientY - resizeStartRef.current.startY;
+      const newHeight = Math.min(
+        Math.max(resizeStartRef.current.startHeight + deltaY, MIN_HEIGHT),
+        MAX_HEIGHT
+      );
+      setTextareaHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      resizeStartRef.current = null;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, MIN_HEIGHT, MAX_HEIGHT]);
 
   return (
     <AnimatePresence initial={false} mode="wait">
@@ -155,9 +198,26 @@ export function InputSidebar({
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     placeholder="Describe your character or changes to a referenced image."
-                    className="w-full h-24 bg-transparent text-lg p-4 focus:outline-none resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-200"
+                    style={{ height: `${textareaHeight}px` }}
+                    className="w-full bg-transparent text-lg p-4 focus:outline-none resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-200"
                   />
-                  
+
+                  {/* Resize Grabber */}
+                  <div
+                    onMouseDown={handleResizeStart}
+                    className={cn(
+                      "group/grabber cursor-ns-resize flex items-center justify-center py-1 transition-colors",
+                      isResizing ? "bg-orange-500/20" : "hover:bg-slate-100 dark:hover:bg-slate-800"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-12 h-1 rounded-full transition-all",
+                      isResizing
+                        ? "bg-orange-500 scale-110"
+                        : "bg-slate-300 dark:bg-slate-700 group-hover/grabber:bg-slate-400 dark:group-hover/grabber:bg-slate-600 group-hover/grabber:scale-110"
+                    )} />
+                  </div>
+
                   {/* Image Attachment Bar */}
                   <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 rounded-b-xl">
                     <div className="flex items-center gap-3">
