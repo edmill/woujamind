@@ -274,32 +274,19 @@ export async function validateSpriteSheetFile(file: File): Promise<{ valid: bool
     return { valid: false, error: 'Please upload a PNG, JPG, GIF, or WebP image.' };
   }
 
-  // Check file size (max 10MB)
-  const maxSize = 10 * 1024 * 1024;
+  // Check file size (max 50MB)
+  const maxSize = 50 * 1024 * 1024;
   if (file.size > maxSize) {
-    return { valid: false, error: 'File size must be less than 10MB.' };
+    return { valid: false, error: 'File size must be less than 50MB.' };
   }
 
-  // Check image dimensions
+  // Verify it's a valid image
   return new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
 
     img.onload = () => {
       URL.revokeObjectURL(url);
-
-      // Min dimensions
-      if (img.naturalWidth < 64 || img.naturalHeight < 64) {
-        resolve({ valid: false, error: 'Image too small. Minimum 64×64 pixels.' });
-        return;
-      }
-
-      // Max dimensions
-      if (img.naturalWidth > 4096 || img.naturalHeight > 4096) {
-        resolve({ valid: false, error: 'Image too large. Maximum 4096×4096 pixels.' });
-        return;
-      }
-
       resolve({ valid: true });
     };
 

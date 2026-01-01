@@ -199,7 +199,7 @@ export function InputSidebar({
                     onChange={(e) => setPrompt(e.target.value)}
                     placeholder="Describe your character or changes to a referenced image."
                     style={{ height: `${textareaHeight}px` }}
-                    className="w-full bg-transparent text-lg p-4 focus:outline-none resize-none placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-200"
+                    className="w-full bg-transparent text-lg p-4 focus:outline-none resize-none overflow-hidden placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-900 dark:text-slate-200"
                   />
 
                   {/* Resize Grabber */}
