@@ -291,7 +291,7 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                     {isDragging ? 'Drop your sprite sheet here' : 'Drag & drop or click to browse'}
                   </h3>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Supported: PNG, JPG, GIF, WebP (max 10MB)
+                    Supported: PNG, JPG, GIF, WebP (max 50MB)
                   </p>
                 </div>
 
