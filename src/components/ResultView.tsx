@@ -28,6 +28,7 @@ import {
   FileText,
   Copy,
   Loader2,
+  Layers,
   Palette,
   Plus,
   Minus,
@@ -81,7 +82,9 @@ interface ResultViewProps {
   setFps: (fps: number) => void;
   isTransparent: boolean;
   setIsTransparent: (isTransparent: boolean) => void;
-  
+  hasDropShadow: boolean;
+  setHasDropShadow: (hasDropShadow: boolean) => void;
+
   // Download handlers
   onDownloadSheet?: () => void;
   onDownloadGif?: () => void;
@@ -136,6 +139,8 @@ export function ResultView({
   setFps,
   isTransparent,
   setIsTransparent,
+  hasDropShadow,
+  setHasDropShadow,
   onDownloadSheet,
   onDownloadGif,
   onRegenerate,
@@ -276,13 +281,13 @@ export function ResultView({
     img.src = imageSrc;
     
     img.onload = () => {
-      const extractedFrames = extractFrames(img, rows, cols, totalFrames, isTransparent);
+      const extractedFrames = extractFrames(img, rows, cols, totalFrames, isTransparent, hasDropShadow);
       setFrames(extractedFrames);
       if (extractedFrames.length > 0) {
         setCurrentFrameIndex(0);
       }
     };
-  }, [imageSrc, rows, cols, totalFrames, isTransparent]);
+  }, [imageSrc, rows, cols, totalFrames, isTransparent, hasDropShadow]);
 
   // Animation loop
   useEffect(() => {
@@ -1166,6 +1171,23 @@ export function ResultView({
                      <Grid className="w-4 h-4" />
                   </button>
 
+                  <button
+                     onClick={() => setHasDropShadow(!hasDropShadow)}
+                     className={cn(
+                       "p-1.5 rounded-lg border transition-all",
+                       hasDropShadow
+                         ? "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                         : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300"
+                     )}
+                     title={
+                       hasDropShadow
+                         ? "Disable drop shadow"
+                         : "Enable drop shadow beneath sprite"
+                     }
+                  >
+                     <Layers className="w-4 h-4" />
+                  </button>
+
                   <div className="relative" ref={backgroundSettingsRef}>
                     <button
                        onClick={() => setShowBackgroundSettings(!showBackgroundSettings)}
@@ -1490,7 +1512,7 @@ export function ResultView({
                       <input
                         type="range"
                         min="1"
-                        max="24"
+                        max="60"
                         value={fps}
                         onChange={(e) => setFps(parseInt(e.target.value))}
                         className="w-20 opacity-40 group-hover/fps-control:opacity-100 group-hover/fps-control:w-24 transition-all duration-200 h-1 bg-white/30 rounded-full appearance-none cursor-pointer accent-orange-500"

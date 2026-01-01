@@ -11,7 +11,8 @@ export const extractFrames = (
   rows: number,
   cols: number,
   count: number,
-  removeBackground: boolean = false
+  removeBackground: boolean = false,
+  dropShadow: boolean = false
 ): HTMLCanvasElement[] => {
   const frames: HTMLCanvasElement[] = [];
   const frameWidth = Math.floor(img.naturalWidth / cols);
@@ -56,7 +57,23 @@ export const extractFrames = (
         processRemoveBackground(tempCtx, frameWidth, frameHeight);
       }
 
+      // Apply drop shadow if enabled
+      if (dropShadow) {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 8;
+      }
+
       ctx.drawImage(tempCanvas, 0, 0);
+
+      // Reset shadow
+      if (dropShadow) {
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+      }
 
       frames.push(canvas);
     }

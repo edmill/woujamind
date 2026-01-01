@@ -24,6 +24,7 @@ export interface StoredSpriteSheet {
   // Animation settings
   fps: number;
   isTransparent: boolean;
+  hasDropShadow?: boolean;
 
   // AI model info
   modelId: string;
