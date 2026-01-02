@@ -124,9 +124,11 @@ Focus on:
 4. Art style and rendering quality
 5. The specific action and direction
 
+CRITICAL: The prompt MUST include "bright green chroma key background" or "solid green screen background #00FF00" to ensure clean background removal.
+
 Create a concise, detailed prompt (2-3 sentences) that captures the character's visual essence and the desired animation.
 Include action verbs and movement descriptors.
-Do NOT include camera angles, backgrounds, or environmental details - just the character and their motion.
+ALWAYS end with: "bright green chroma key background"
 
 Output ONLY the optimized prompt text, nothing else.`;
 
@@ -140,18 +142,23 @@ Output ONLY the optimized prompt text, nothing else.`;
       }
     });
 
-    const optimizedPrompt = response.text?.trim();
+    let optimizedPrompt = response.text?.trim();
 
     if (optimizedPrompt && optimizedPrompt.length > 10) {
+      // Ensure green screen background is included
+      if (!optimizedPrompt.toLowerCase().includes('green') &&
+          !optimizedPrompt.toLowerCase().includes('chroma')) {
+        optimizedPrompt += ', bright green chroma key background';
+      }
       console.log('[optimizePromptForSeedance] Optimized prompt:', optimizedPrompt);
       return optimizedPrompt;
     } else {
       console.warn('[optimizePromptForSeedance] Optimization failed, using original prompt');
-      return userPrompt;
+      return userPrompt + ', bright green chroma key background';
     }
   } catch (error) {
     console.warn('[optimizePromptForSeedance] Error optimizing prompt, using original:', error);
-    return userPrompt;
+    return userPrompt + ', bright green chroma key background';
   }
 };
 
