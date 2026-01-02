@@ -30,6 +30,7 @@ import { ACTIONS } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData } from './types';
 import { cn } from './utils';
 import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame, analyzeCharacter } from './services/geminiService';
+import { generateSpriteSheetFromImage, calculateGridDimensions } from './services/replicateService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
 import { initDB, saveSpriteSheet, getSpriteSheetsByDate, deleteSpriteSheet, StoredSpriteSheet } from './utils/spriteStorage';
 import { migrateLocalStorage } from './utils/localStorageMigration';
@@ -102,6 +103,9 @@ export default function Woujamind() {
   // Grid configuration
   const [gridRows, _setGridRows] = useState<number>(2);
   const [gridCols, _setGridCols] = useState<number>(4);
+
+  // Frame count for video-based generation
+  const [frameCount, setFrameCount] = useState<number>(16);
 
   // Saved sprites state
   const [savedSprites, setSavedSprites] = useState<{
@@ -432,54 +436,61 @@ export default function Woujamind() {
       }
 
       setStatusText("Analyzing character design and action requirements...");
-      
+
       // Reset history for new generation
       setHistory([]);
       setHistoryIndex(-1);
       setSelectedFrameIndices([]);
       setActiveFrameIndex(null);
       setSelectedFrame(null);
-      
-      // Determine grid size based on selected action
-      const action = ACTIONS.find(a => a.id === selectedAction);
-      const frameCount = action?.frames || 8;
-      const calculatedCols = Math.ceil(frameCount / gridRows);
-      const finalCols = Math.max(calculatedCols, gridCols);
-      
-      // Get model-specific rules (using gemini-3-pro-image-preview for best quality and animation support)
-      const modelId = 'gemini-3-pro-image-preview';
-      const customRules = getStoredRules(modelId);
 
-      setStatusText(`Generating ${finalCols * gridRows} frame sprite sheet with ${selectedAction} animation...`);
+      // STEP 1: Analyze character (optional - provides better context)
+      let characterDescription = prompt;
+      let styleParams = undefined;
+      if (imageBase64) {
+        try {
+          const analysis = await analyzeCharacter(imageBase64, prompt);
+          characterDescription = analysis.characterDescription;
+          styleParams = analysis.styleParameters;
+          setStatusText("Character analyzed successfully!");
+        } catch (error) {
+          console.warn('[handleGenerate] Character analysis failed, continuing with user prompt', error);
+        }
+      }
 
-      // Generate the sprite sheet
-      const result = await generateSpriteSheet(
-        imageBase64,
+      // Calculate grid dimensions based on desired frame count
+      const { rows, cols } = calculateGridDimensions(frameCount);
+
+      setStatusText(`Generating ${frameCount} frame sprite sheet with ${selectedAction} animation...`);
+
+      // STEP 2-5: Generate sprite sheet using Replicate Seedance pipeline
+      const result = await generateSpriteSheetFromImage(
+        imageBase64 || '',
+        characterDescription,
         selectedAction,
-        selectedExpression,
-        selectedArtStyle,
-        prompt,
         selectedDirection,
-        gridRows,
-        finalCols,
-        modelId,
-        customRules,
-        multiViewData
+        frameCount,
+        styleParams,
+        (status) => setStatusText(status), // Progress callback
+        undefined // Frame progress callback (optional)
       );
 
+      // Convert canvas to base64 for storage and further processing
+      const spriteSheetBase64 = result.spriteSheet.toDataURL('image/png');
+
       // Store generation metadata
-      setGenerationPrompt(result.prompt);
-      setGenerationModel(result.modelId);
-      setGenerationCharacterDescription(result.characterDescription);
+      setGenerationPrompt(characterDescription);
+      setGenerationModel('replicate-seedance-1-pro-fast');
+      setGenerationCharacterDescription(characterDescription);
 
       setStatusText("Sprite sheet generated! Running intelligent alignment analysis...");
 
       // Post-process: AI-powered alignment and cleaning
       // This ensures smooth animations by detecting and fixing alignment issues
       const alignmentResult = await aiSmartAlignSpriteSheet(
-        result.imageData,
-        gridRows,
-        finalCols,
+        spriteSheetBase64,
+        result.rows,
+        result.cols,
         (status) => setStatusText(status) // Progress callback
       );
       
@@ -496,17 +507,17 @@ export default function Woujamind() {
       try {
         await saveSpriteSheet({
           imageData: alignmentResult.aligned,
-          prompt: result.prompt,
-          characterDescription: result.characterDescription,
+          prompt: characterDescription,
+          characterDescription: characterDescription,
           selectedAction,
           selectedExpression,
           artStyle: selectedArtStyle,
-          gridRows,
-          gridCols: finalCols,
+          gridRows: result.rows,
+          gridCols: result.cols,
           fps,
           isTransparent,
           hasDropShadow,
-          modelId: result.modelId,
+          modelId: 'replicate-seedance-1-pro-fast',
           history: [alignmentResult.aligned],
           historyIndex: 0,
         });
@@ -728,7 +739,7 @@ export default function Woujamind() {
         setStatusText(`Applying AI edits to frame ${targetIndex + 1}: "${trimmedPrompt}"...`);
 
         // 2. Edit
-        const modelId = 'gemini-3-pro-image-preview';
+        const modelId = 'gemini-2.5-pro-image';
         console.log('Step 2: Editing with AI...');
         console.log('Model:', modelId);
         console.log('Edit prompt being sent:', trimmedPrompt);
@@ -752,7 +763,7 @@ export default function Woujamind() {
         console.log('Number of frames to edit:', selectedFrameIndices.length);
         console.log('Frame indices:', selectedFrameIndices);
         setStatusText(`Preparing batch edit of ${selectedFrameIndices.length} frames...`);
-        const modelId = 'gemini-3-pro-image-preview';
+        const modelId = 'gemini-2.5-pro-image';
         let currentSheet = generatedImage;
 
         // Edit each selected frame sequentially
@@ -778,7 +789,7 @@ export default function Woujamind() {
         console.log('--- FULL SHEET EDIT MODE ---');
         console.log('Editing entire sprite sheet');
         setStatusText(`Applying AI edits to entire ${gridRows}×${gridCols} sprite sheet...`);
-        const modelId = 'gemini-3-pro-image-preview';
+        const modelId = 'gemini-2.5-pro-image';
         console.log('Model:', modelId);
         console.log('Edit prompt being sent:', trimmedPrompt);
         const rawEdited = await editSpriteSheet(generatedImage, trimmedPrompt, modelId);
@@ -809,6 +820,150 @@ export default function Woujamind() {
       setIsEditing(false);
       setStatusText("");
       console.log('Edit process finished, isEditing set to false');
+    }
+  };
+
+  const handleCleanBackground = async () => {
+    if (!generatedImage) return;
+
+    console.log('=== CLEAN BACKGROUND STARTED ===');
+    console.log('Selected frame indices:', selectedFrameIndices);
+    console.log('Grid configuration:', { rows: gridRows, cols: gridCols });
+
+    setIsEditing(true);
+    try {
+      if (selectedFrameIndices.length === 1) {
+        // SINGLE FRAME CLEAN MODE
+        const targetIndex = selectedFrameIndices[0];
+        console.log('--- SINGLE FRAME CLEAN MODE ---');
+        console.log('Cleaning frame index:', targetIndex);
+        setStatusText(`Removing background from frame ${targetIndex + 1}...`);
+
+        // 1. Crop frame
+        const croppedFrame = await cropFrame(generatedImage, targetIndex, gridRows, gridCols);
+
+        // 2. Apply background removal
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = croppedFrame;
+        });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
+
+        if (!ctx) {
+          throw new Error('Failed to create canvas context');
+        }
+
+        ctx.drawImage(img, 0, 0);
+
+        // Import processRemoveBackground from imageHelpers
+        const { processRemoveBackground } = await import('./utils/imageHelpers');
+        processRemoveBackground(ctx, canvas.width, canvas.height);
+
+        const cleanedFrame = canvas.toDataURL('image/png');
+
+        // 3. Paste back
+        setStatusText(`Updating sprite sheet with cleaned frame ${targetIndex + 1}...`);
+        const updatedSheet = await pasteFrame(generatedImage, cleanedFrame, targetIndex, gridRows, gridCols);
+
+        pushToHistory(updatedSheet);
+        console.log('=== SINGLE FRAME CLEAN COMPLETED ===');
+        toast.success(`Frame ${targetIndex + 1} background cleaned!`);
+
+      } else if (selectedFrameIndices.length > 1) {
+        // MULTI-FRAME BATCH CLEAN MODE
+        console.log('--- MULTI-FRAME BATCH CLEAN MODE ---');
+        console.log('Number of frames to clean:', selectedFrameIndices.length);
+        setStatusText(`Cleaning background from ${selectedFrameIndices.length} frames...`);
+        let currentSheet = generatedImage;
+
+        // Import processRemoveBackground once
+        const { processRemoveBackground } = await import('./utils/imageHelpers');
+
+        // Clean each selected frame sequentially
+        for (let i = 0; i < selectedFrameIndices.length; i++) {
+          const frameIndex = selectedFrameIndices[i];
+          console.log(`Processing frame ${i + 1}/${selectedFrameIndices.length}:`, frameIndex);
+          setStatusText(`Cleaning frame ${frameIndex + 1} of ${selectedFrameIndices.length}...`);
+
+          // Crop frame
+          const croppedFrame = await cropFrame(currentSheet, frameIndex, gridRows, gridCols);
+
+          // Load to canvas
+          const img = new Image();
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = croppedFrame;
+          });
+
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
+
+          if (!ctx) continue;
+
+          ctx.drawImage(img, 0, 0);
+          processRemoveBackground(ctx, canvas.width, canvas.height);
+
+          const cleanedFrame = canvas.toDataURL('image/png');
+
+          // Paste back
+          currentSheet = await pasteFrame(currentSheet, cleanedFrame, frameIndex, gridRows, gridCols);
+        }
+
+        pushToHistory(currentSheet);
+        console.log('=== MULTI-FRAME CLEAN COMPLETED ===');
+        toast.success(`${selectedFrameIndices.length} frames cleaned!`);
+
+      } else {
+        // FULL SHEET CLEAN MODE
+        console.log('--- FULL SHEET CLEAN MODE ---');
+        setStatusText('Removing background from entire sprite sheet...');
+
+        // Load entire sheet to canvas
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = generatedImage;
+        });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
+
+        if (!ctx) {
+          throw new Error('Failed to create canvas context');
+        }
+
+        ctx.drawImage(img, 0, 0);
+
+        // Import and apply background removal to entire sheet
+        const { processRemoveBackground } = await import('./utils/imageHelpers');
+        processRemoveBackground(ctx, canvas.width, canvas.height);
+
+        const cleanedSheet = canvas.toDataURL('image/png');
+
+        pushToHistory(cleanedSheet);
+        console.log('=== FULL SHEET CLEAN COMPLETED ===');
+        toast.success('Sprite sheet background cleaned!');
+      }
+    } catch (error: any) {
+      console.error('=== CLEAN BACKGROUND FAILED ===');
+      console.error("Error details:", error);
+      toast.error(error.message || "Failed to clean background. Please try again.");
+    } finally {
+      setIsEditing(false);
+      setStatusText("");
+      console.log('Clean background process finished');
     }
   };
 
@@ -895,7 +1050,7 @@ export default function Woujamind() {
 
       // Generate the in-between frame using AI
       console.log('Generating in-between frame with AI...');
-      const modelId = 'gemini-3-pro-image-preview';
+      const modelId = 'gemini-2.5-pro-image';
       const newFrameDataUrl = await generateInBetweenFrame(
         frameBefore,
         frameAfter,
@@ -1364,6 +1519,8 @@ export default function Woujamind() {
               selectedDirection={selectedDirection}
               setSelectedDirection={setSelectedDirection}
               multiViewData={multiViewData}
+              frameCount={frameCount}
+              setFrameCount={setFrameCount}
               tokens={tokens}
               isGenerating={isGenerating}
               handleGenerate={handleGenerate}
@@ -1489,6 +1646,7 @@ export default function Woujamind() {
                       selectedFrameIndices={selectedFrameIndices}
                       onToggleFrameSelect={handleToggleFrameSelect}
                       onEdit={handleEditSpriteSheet}
+                      onCleanBackground={handleCleanBackground}
                       onUndo={handleUndo}
                       onRedo={handleRedo}
                       canUndo={historyIndex > 0}

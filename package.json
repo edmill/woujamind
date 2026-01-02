@@ -14,6 +14,7 @@
     "lucide-react": "^0.263.1",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
+    "replicate": "^1.4.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^1.14.0"
   },

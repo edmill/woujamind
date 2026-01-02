@@ -51,6 +51,10 @@ interface InputSidebarProps {
   setSelectedDirection?: (direction: SpriteDirection) => void;
   multiViewData?: MultiViewData | null;
 
+  // Frame Count
+  frameCount: number;
+  setFrameCount: (count: number) => void;
+
   // Generation
   tokens: number;
   isGenerating: boolean;
@@ -83,6 +87,8 @@ export function InputSidebar({
   selectedDirection,
   setSelectedDirection,
   multiViewData,
+  frameCount,
+  setFrameCount,
   tokens,
   isGenerating,
   handleGenerate,
@@ -481,6 +487,55 @@ export function InputSidebar({
             </section>
 
             </div>
+
+            {/* Frame Count Selector */}
+            <section className="space-y-3 pt-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                  Frame Count
+                </h3>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  { count: 8, grid: '2×4' },
+                  { count: 16, grid: '4×4' },
+                  { count: 24, grid: '4×6' },
+                  { count: 32, grid: '4×8' },
+                  { count: 48, grid: '6×8' },
+                ].map((option) => (
+                  <button
+                    key={option.count}
+                    onClick={() => setFrameCount(option.count)}
+                    className={cn(
+                      "relative flex flex-col items-center justify-center p-2 rounded-lg border-2 transition-all text-center",
+                      frameCount === option.count
+                        ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
+                        : "border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-700 bg-white dark:bg-slate-800"
+                    )}
+                  >
+                    <div className={cn(
+                      "text-lg font-bold",
+                      frameCount === option.count
+                        ? "text-orange-600 dark:text-orange-400"
+                        : "text-slate-700 dark:text-slate-300"
+                    )}>
+                      {option.count}
+                    </div>
+                    <div className={cn(
+                      "text-[10px]",
+                      frameCount === option.count
+                        ? "text-orange-500 dark:text-orange-400"
+                        : "text-slate-500 dark:text-slate-400"
+                    )}>
+                      {option.grid}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                Video will be generated and {frameCount} frames will be extracted for the sprite sheet
+              </p>
+            </section>
 
             {/* Generate Button - Pinned to bottom */}
             <div className="pt-4 pb-2 space-y-3 shrink-0 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0a0a0e] relative z-10 mt-auto">

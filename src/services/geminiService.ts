@@ -484,13 +484,15 @@ export const generateSpriteSheet = async (
   direction: SpriteDirection = 'right',
   rows: number = 2,
   cols: number = 4,
-  modelId: string = 'gemini-3-pro-image-preview',
+  modelId: string = 'gemini-2.5-pro-image',
   customRules?: string,
   multiViewData?: MultiViewData | null
 ): Promise<SpriteSheetResult> => {
   // If no custom rules provided, load from localStorage based on model
   if (!customRules && typeof window !== 'undefined') {
-    const key = (modelId.includes('3') || modelId.includes('pro')) ? 'woujamind_gemini_30_rules' : 'woujamind_gemini_25_rules';
+    // Check if model is 3.0 variant (not 2.5)
+    const is30Model = modelId.includes('gemini-3') || modelId.includes('3.0');
+    const key = is30Model ? 'woujamind_gemini_30_rules' : 'woujamind_gemini_25_rules';
     customRules = localStorage.getItem(key) || DEFAULT_SYSTEM_RULES;
   } else if (!customRules) {
     customRules = DEFAULT_SYSTEM_RULES;
@@ -703,7 +705,7 @@ OUTPUT: Return ONLY the enhanced description text, no introduction or explanatio
 export const editSpriteSheet = async (
   imageBase64: string,
   editPrompt: string,
-  modelId: string = 'gemini-3-pro-image-preview'
+  modelId: string = 'gemini-2.5-pro-image'
 ): Promise<string> => {
   console.log('[Edit] ===== STARTING EDIT =====');
   console.log('[Edit] Edit prompt:', editPrompt);
@@ -814,7 +816,7 @@ export const generateInBetweenFrame = async (
   action: string,
   characterDescription: string,
   artStyle: string,
-  modelId: string = 'gemini-3-pro-image-preview'
+  modelId: string = 'gemini-2.5-pro-image'
 ): Promise<string> => {
   console.log('[InBetween] ===== STARTING IN-BETWEEN FRAME GENERATION =====');
   console.log('[InBetween] Action:', action);

@@ -69,6 +69,7 @@ interface ResultViewProps {
   
   // Editing & History
   onEdit?: (prompt: string) => void;
+  onCleanBackground?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
   canUndo?: boolean;
@@ -128,6 +129,7 @@ export function ResultView({
   selectedFrameIndices,
   onToggleFrameSelect,
   onEdit,
+  onCleanBackground,
   onUndo,
   onRedo,
   canUndo = false,
@@ -884,8 +886,39 @@ export function ResultView({
                      )}
                   </div>
 
-                  {/* Right: Magic Edit Button */}
+                  {/* Right: Clean Background & Magic Edit Buttons */}
                   <div className="flex items-center gap-3">
+                     {/* Clean Background Button */}
+                     {onCleanBackground && selectedFrameIndices.length > 0 && (
+                       <button
+                         onClick={onCleanBackground}
+                         disabled={isEditing}
+                         className={cn(
+                           "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold",
+                           'bg-white/90 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700',
+                           isEditing && 'opacity-50 cursor-not-allowed'
+                         )}
+                         title={
+                           selectedFrameIndices.length === 1
+                             ? `Clean background from Frame ${selectedFrameIndices[0] + 1}`
+                             : selectedFrameIndices.length > 1
+                             ? `Clean background from ${selectedFrameIndices.length} selected frames`
+                             : "Clean background from entire sheet"
+                         }
+                       >
+                         <Sparkles className="w-3.5 h-3.5" />
+                         <span>
+                           {isEditing
+                             ? 'Cleaning...'
+                             : selectedFrameIndices.length === 1
+                             ? `Clean Frame ${selectedFrameIndices[0] + 1}`
+                             : selectedFrameIndices.length > 1
+                             ? `Clean ${selectedFrameIndices.length} Frames`
+                             : 'Clean All'}
+                         </span>
+                       </button>
+                     )}
+
                      {onEdit && (
                        <button
                          onClick={() => setShowEditBar(!showEditBar)}
