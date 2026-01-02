@@ -67,37 +67,67 @@ export const getBackgroundColor = (ctx: CanvasRenderingContext2D, width: number,
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
 
-  // Sample corners to determine background color
-  const corners = [
-    { x: 0, y: 0 },
-    { x: width - 1, y: 0 },
-    { x: 0, y: height - 1 },
-    { x: width - 1, y: height - 1 },
-    // Also sample edges for better accuracy
-    { x: Math.floor(width / 2), y: 0 },
-    { x: Math.floor(width / 2), y: height - 1 },
-    { x: 0, y: Math.floor(height / 2) },
-    { x: width - 1, y: Math.floor(height / 2) }
-  ];
+  // Sample all edge pixels to build a histogram
+  const colorMap = new Map<string, { r: number, g: number, b: number, a: number, count: number }>();
 
-  let totalR = 0, totalG = 0, totalB = 0, totalA = 0;
-  let count = 0;
-
-  for (const { x, y } of corners) {
+  // Sample all pixels from the outer border (1 pixel wide)
+  const samplePixel = (x: number, y: number) => {
     const idx = (y * width + x) * 4;
-    totalR += data[idx];
-    totalG += data[idx + 1];
-    totalB += data[idx + 2];
-    totalA += data[idx + 3];
-    count++;
+    const r = data[idx];
+    const g = data[idx + 1];
+    const b = data[idx + 2];
+    const a = data[idx + 3];
+
+    // Quantize colors to reduce noise (group similar colors)
+    const qr = Math.round(r / 10) * 10;
+    const qg = Math.round(g / 10) * 10;
+    const qb = Math.round(b / 10) * 10;
+    const key = `${qr},${qg},${qb}`;
+
+    const existing = colorMap.get(key);
+    if (existing) {
+      existing.count++;
+    } else {
+      colorMap.set(key, { r: qr, g: qg, b: qb, a, count: 1 });
+    }
+  };
+
+  // Sample top and bottom edges
+  for (let x = 0; x < width; x++) {
+    samplePixel(x, 0);
+    samplePixel(x, height - 1);
   }
 
-  return {
-    r: Math.round(totalR / count),
-    g: Math.round(totalG / count),
-    b: Math.round(totalB / count),
-    a: Math.round(totalA / count)
-  };
+  // Sample left and right edges (excluding corners already sampled)
+  for (let y = 1; y < height - 1; y++) {
+    samplePixel(0, y);
+    samplePixel(width - 1, y);
+  }
+
+  // Find the most common LIGHT color (backgrounds are usually lighter than characters)
+  // Calculate brightness for each color and prefer lighter ones
+  let bestColor = { r: 255, g: 255, b: 255, a: 255 };
+  let bestScore = 0;
+
+  for (const color of colorMap.values()) {
+    // Calculate brightness (0-255)
+    const brightness = (color.r + color.g + color.b) / 3;
+
+    // Score = count * brightness_weight
+    // Prefer lighter colors, but still weight by frequency
+    // If brightness > 128 (light), give bonus. If dark, penalize.
+    const brightnessWeight = brightness > 128 ? 2.0 : 0.5;
+    const score = color.count * brightnessWeight;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestColor = color;
+    }
+  }
+
+  const brightness = (bestColor.r + bestColor.g + bestColor.b) / 3;
+  console.log('[getBackgroundColor] Found', colorMap.size, 'unique colors,', 'selected:', bestColor, 'brightness:', brightness.toFixed(0));
+  return bestColor;
 };
 
 export const loadImage = (src: string): Promise<HTMLImageElement> => {
@@ -116,10 +146,12 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
 
   // Get background color from corners
   const bgColor = getBackgroundColor(ctx, width, height);
+  console.log('[processRemoveBackground] Detected background color:', bgColor);
 
   // Use flood fill from edges for more accurate background detection
   const visited = new Uint8Array(width * height);
   const threshold = 40;
+  let pixelsRemoved = 0;
 
   // Flood fill helper
   const floodFill = (startX: number, startY: number) => {
@@ -154,6 +186,7 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
       if (colorDistance < threshold) {
         visited[pixelIndex] = 1;
         data[dataIndex + 3] = 0; // Make transparent
+        pixelsRemoved++;
 
         // Add neighbors to queue
         queue.push({x: x + 1, y});
@@ -257,5 +290,9 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
     data[i] = smoothed[i];
   }
 
+  const totalPixels = width * height;
+  console.log('[processRemoveBackground] Removed', pixelsRemoved, 'of', totalPixels, 'pixels (', (pixelsRemoved / totalPixels * 100).toFixed(1), '%)');
+
   ctx.putImageData(imageData, 0, 0);
+  console.log('[processRemoveBackground] putImageData complete');
 };

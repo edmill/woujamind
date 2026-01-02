@@ -18,6 +18,9 @@ export const extractFrames = (
   const frameWidth = Math.floor(img.naturalWidth / cols);
   const frameHeight = Math.floor(img.naturalHeight / rows);
 
+  // Calculate padding needed for shadow
+  const shadowPadding = dropShadow ? 30 : 0; // Extra space for shadow blur + offset
+
   for (let i = 0; i < count; i++) {
     const row = Math.floor(i / cols);
     const col = i % cols;
@@ -25,18 +28,21 @@ export const extractFrames = (
     if (row >= rows) break;
 
     const canvas = document.createElement('canvas');
-    canvas.width = frameWidth;
-    canvas.height = frameHeight;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    canvas.width = frameWidth + shadowPadding * 2;
+    canvas.height = frameHeight + shadowPadding * 2;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
 
     if (ctx) {
       ctx.imageSmoothingEnabled = false;
+
+      // Clear canvas with transparency
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // 1. Draw raw frame to temp canvas
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = frameWidth;
       tempCanvas.height = frameHeight;
-      const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+      const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true, alpha: true });
 
       if (!tempCtx) continue;
       tempCtx.imageSmoothingEnabled = false;
@@ -54,7 +60,9 @@ export const extractFrames = (
       );
 
       if (removeBackground) {
+        console.log('[extractFrames] Removing background from frame', i);
         processRemoveBackground(tempCtx, frameWidth, frameHeight);
+        console.log('[extractFrames] Background removed');
       }
 
       // Apply drop shadow if enabled
@@ -65,7 +73,8 @@ export const extractFrames = (
         ctx.shadowOffsetY = 8;
       }
 
-      ctx.drawImage(tempCanvas, 0, 0);
+      // Draw with padding to accommodate shadow
+      ctx.drawImage(tempCanvas, shadowPadding, shadowPadding);
 
       // Reset shadow
       if (dropShadow) {
