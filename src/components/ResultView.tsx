@@ -281,7 +281,9 @@ export function ResultView({
     img.src = imageSrc;
     
     img.onload = () => {
+      console.log('[ResultView] Extracting frames with:', { isTransparent, hasDropShadow, rows, cols, totalFrames });
       const extractedFrames = extractFrames(img, rows, cols, totalFrames, isTransparent, hasDropShadow);
+      console.log('[ResultView] Extracted', extractedFrames.length, 'frames');
       setFrames(extractedFrames);
       if (extractedFrames.length > 0) {
         setCurrentFrameIndex(0);
@@ -325,12 +327,12 @@ export function ResultView({
     if (!canvas || frames.length === 0) return;
 
     const frameToShow = selectedFrame !== null && selectedFrame > 0 && selectedFrame <= frames.length
-      ? frames[selectedFrame - 1] 
+      ? frames[selectedFrame - 1]
       : frames[currentFrameIndex];
-    
+
     if (!frameToShow) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
     canvas.width = frameToShow.width;
@@ -665,6 +667,7 @@ export function ResultView({
   };
 
   const handleTransparentToggle = () => {
+    console.log('[ResultView] Toggling transparency from', isTransparent, 'to', !isTransparent);
     setIsTransparent(!isTransparent);
   };
 
