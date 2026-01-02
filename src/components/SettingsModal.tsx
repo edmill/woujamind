@@ -40,12 +40,14 @@ QUALITY STANDARDS:
 // LocalStorage keys
 const STORAGE_KEYS = {
   API_KEY: 'woujamind_api_key',
+  REPLICATE_API_KEY: 'woujamind_replicate_api_key',
   GEMINI_25_RULES: 'woujamind_gemini_25_rules',
   GEMINI_30_RULES: 'woujamind_gemini_30_rules',
 };
 
 export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }: SettingsModalProps) {
   const [apiKey, setApiKey] = useState<string>('');
+  const [replicateApiKey, setReplicateApiKey] = useState<string>('');
   const [gemini25Rules, setGemini25Rules] = useState<string>(DEFAULT_GEMINI_25_RULES);
   const [gemini30Rules, setGemini30Rules] = useState<string>(DEFAULT_GEMINI_30_RULES);
   const [isValidating, setIsValidating] = useState<boolean>(false);
@@ -62,10 +64,12 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
   useEffect(() => {
     if (isOpen) {
       const storedApiKey = localStorage.getItem(STORAGE_KEYS.API_KEY);
+      const storedReplicateApiKey = localStorage.getItem(STORAGE_KEYS.REPLICATE_API_KEY);
       const stored25Rules = localStorage.getItem(STORAGE_KEYS.GEMINI_25_RULES);
       const stored30Rules = localStorage.getItem(STORAGE_KEYS.GEMINI_30_RULES);
 
       setApiKey(storedApiKey || currentApiKey || '');
+      setReplicateApiKey(storedReplicateApiKey || '');
       setGemini25Rules(stored25Rules || DEFAULT_GEMINI_25_RULES);
       setGemini30Rules(stored30Rules || DEFAULT_GEMINI_30_RULES);
       setValidationStatus('idle');
@@ -183,7 +187,12 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
   const handleSave = () => {
     // Save API key
     handleSaveApiKey();
-    
+
+    // Save Replicate API key
+    if (replicateApiKey) {
+      localStorage.setItem(STORAGE_KEYS.REPLICATE_API_KEY, replicateApiKey);
+    }
+
     // Save both rule sets
     localStorage.setItem(STORAGE_KEYS.GEMINI_25_RULES, gemini25Rules);
     localStorage.setItem(STORAGE_KEYS.GEMINI_30_RULES, gemini30Rules);
@@ -407,6 +416,46 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
                         <span>{validationMessage}</span>
                       </div>
                     )}
+                  </div>
+                </div>
+              </section>
+
+              {/* Divider */}
+              <div className="h-px bg-slate-200 dark:bg-slate-800"></div>
+
+              {/* Replicate API Key Section */}
+              <section className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Key className="w-5 h-5 text-orange-500 dark:text-orange-400" />
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Replicate API Key</h3>
+                </div>
+
+                <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/50 rounded-lg p-4">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                    Get your API key from{' '}
+                    <a
+                      href="https://replicate.com/account/api-tokens"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-orange-600 dark:text-orange-400 hover:underline font-medium"
+                    >
+                      Replicate
+                    </a>
+                    . Required for video-based sprite generation using Seedance. Your key is stored locally in your browser.
+                  </p>
+
+                  <div className="space-y-3">
+                    <input
+                      type="password"
+                      value={replicateApiKey}
+                      onChange={(e) => setReplicateApiKey(e.target.value)}
+                      placeholder="Enter your Replicate API key"
+                      className={cn(
+                        "w-full px-4 py-3 bg-white dark:bg-slate-900 border rounded-lg border-slate-300 dark:border-slate-700",
+                        "text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600",
+                        "focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      )}
+                    />
                   </div>
                 </div>
               </section>
@@ -654,12 +703,14 @@ export const getStoredApiKey = (): string | null => {
 };
 
 export const getStoredRules = (model: string): string => {
-  const key = (model.includes('3') || model.includes('pro')) ? STORAGE_KEYS.GEMINI_30_RULES : STORAGE_KEYS.GEMINI_25_RULES;
+  // Check if model is 3.0 variant (not 2.5)
+  const is30Model = model.includes('gemini-3') || model.includes('3.0');
+  const key = is30Model ? STORAGE_KEYS.GEMINI_30_RULES : STORAGE_KEYS.GEMINI_25_RULES;
   const stored = localStorage.getItem(key);
 
   if (stored) return stored;
 
   // Return defaults if not stored
-  return (model.includes('3') || model.includes('pro')) ? DEFAULT_GEMINI_30_RULES : DEFAULT_GEMINI_25_RULES;
+  return is30Model ? DEFAULT_GEMINI_30_RULES : DEFAULT_GEMINI_25_RULES;
 };
 
