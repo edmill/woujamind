@@ -158,6 +158,7 @@ export function ResultView({
   onArtStyleChange
 }: ResultViewProps) {
   const [frames, setFrames] = useState<HTMLCanvasElement[]>([]);
+  const [isLoadingFrames, setIsLoadingFrames] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const animationRef = useRef<number | null>(null);
@@ -275,13 +276,15 @@ export function ResultView({
   useEffect(() => {
     if (!imageSrc) {
       setFrames([]);
+      setIsLoadingFrames(false);
       return;
     }
 
+    setIsLoadingFrames(true);
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = imageSrc;
-    
+
     img.onload = () => {
       console.log('[ResultView] Extracting frames with:', { isTransparent, hasDropShadow, rows, cols, totalFrames });
       const extractedFrames = extractFrames(img, rows, cols, totalFrames, isTransparent, hasDropShadow);
@@ -290,6 +293,12 @@ export function ResultView({
       if (extractedFrames.length > 0) {
         setCurrentFrameIndex(0);
       }
+      setIsLoadingFrames(false);
+    };
+
+    img.onerror = () => {
+      console.error('[ResultView] Failed to load sprite sheet image');
+      setIsLoadingFrames(false);
     };
   }, [imageSrc, rows, cols, totalFrames, isTransparent, hasDropShadow]);
 
@@ -1405,11 +1414,16 @@ export function ResultView({
                  <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#0ea5e9_0.5px,transparent_0.5px),radial-gradient(#0ea5e9_0.5px,#e5e5f7_0.5px)] bg-[length:20px_20px] bg-[position:0_0,10px_10px]" />
                )}
                
-               <motion.div 
-                 key={selectedFrame || 'anim'}
-                 initial={{ scale: 0.9, opacity: 0 }}
+               <motion.div
+                 key={`${selectedFrame || 'anim'}-${isLoadingFrames ? 'loading' : 'loaded'}`}
+                 initial={{ scale: 0.95, opacity: 0 }}
                  animate={{ scale: 1, opacity: 1 }}
-                 transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                 transition={{
+                   type: "spring",
+                   stiffness: 260,
+                   damping: 20,
+                   opacity: { duration: 0.4, ease: "easeOut" }
+                 }}
                  className="relative z-10 w-full h-full flex items-end justify-center p-8 pb-16 [image-rendering:pixelated]"
                  onMouseMove={handlePreviewMouseMove}
                  onMouseUp={handlePreviewMouseUp}
@@ -1515,6 +1529,34 @@ export function ResultView({
                          <RotateCcw className="w-3.5 h-3.5" />
                        </motion.button>
                      )}
+                   </div>
+                 ) : isLoadingFrames ? (
+                   // Loading skeleton
+                   <div className="flex flex-col items-center justify-center gap-4">
+                     <div className="relative">
+                       {/* Animated sprite placeholder */}
+                       <div className="w-32 h-32 bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-800 dark:to-slate-900 rounded-lg relative overflow-hidden">
+                         {/* Shimmer effect */}
+                         <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                         {/* Grid pattern */}
+                         <div className="absolute inset-0 opacity-20">
+                           <div className="grid grid-cols-4 grid-rows-4 h-full w-full gap-0.5 p-1">
+                             {Array.from({ length: 16 }).map((_, i) => (
+                               <div key={i} className="bg-slate-600 dark:bg-slate-700 rounded-sm" />
+                             ))}
+                           </div>
+                         </div>
+                         {/* Pulse icon */}
+                         <div className="absolute inset-0 flex items-center justify-center">
+                           <Film className="w-12 h-12 text-slate-500 dark:text-slate-600 animate-pulse" />
+                         </div>
+                       </div>
+                       {/* Loading spinner ring */}
+                       <div className="absolute -inset-2 border-4 border-orange-500/30 border-t-orange-500 rounded-lg animate-spin" />
+                     </div>
+                     <div className="text-sm font-semibold text-slate-600 dark:text-slate-400 animate-pulse">
+                       Loading animation...
+                     </div>
                    </div>
                  ) : (
                    <div className="w-32 h-32 bg-gradient-to-br from-orange-500 via-orange-400 to-blue-500 rounded-lg shadow-[0_0_50px_rgba(249,115,22,0.6)] flex items-center justify-center text-white font-bold border-4 border-white dark:border-orange-400 text-center text-sm p-2 animate-bounce-slow">

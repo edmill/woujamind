@@ -104,7 +104,25 @@ export const getBackgroundColor = (ctx: CanvasRenderingContext2D, width: number,
     samplePixel(width - 1, y);
   }
 
-  // Find the most common LIGHT color (backgrounds are usually lighter than characters)
+  // PRIORITY 1: Check for green chroma key (bright green background)
+  // Chroma key green is typically RGB(0, 255, 0) or close to it
+  let chromaKeyGreen = null;
+  for (const color of colorMap.values()) {
+    // Check if this is a bright green (chroma key)
+    // Green channel high (>200), Red and Blue channels low (<100)
+    if (color.g > 200 && color.r < 100 && color.b < 100) {
+      if (!chromaKeyGreen || color.count > chromaKeyGreen.count) {
+        chromaKeyGreen = color;
+      }
+    }
+  }
+
+  if (chromaKeyGreen) {
+    console.log('[getBackgroundColor] Detected chroma key green background:', chromaKeyGreen);
+    return chromaKeyGreen;
+  }
+
+  // PRIORITY 2: Find the most common LIGHT color (backgrounds are usually lighter than characters)
   // Calculate brightness for each color and prefer lighter ones
   let bestColor = { r: 255, g: 255, b: 255, a: 255 };
   let bestScore = 0;
@@ -148,9 +166,29 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
   const bgColor = getBackgroundColor(ctx, width, height);
   console.log('[processRemoveBackground] Detected background color:', bgColor);
 
+  // Detect if this is a green chroma key background
+  const isChromaKey = bgColor.g > 200 && bgColor.r < 100 && bgColor.b < 100;
+
+  // Detect if this is a white/light background (brightness > 240)
+  const brightness = (bgColor.r + bgColor.g + bgColor.b) / 3;
+  const isWhiteBackground = brightness > 240;
+
+  console.log('[processRemoveBackground] Background type:', {
+    isChromaKey,
+    isWhiteBackground,
+    brightness: brightness.toFixed(0)
+  });
+
   // Use flood fill from edges for more accurate background detection
   const visited = new Uint8Array(width * height);
-  const threshold = 40;
+
+  // Adjust threshold based on background type:
+  // - Chroma key (green): aggressive threshold (50) - safe to remove anything green
+  // - White background: very conservative threshold (15) - avoid removing white character parts
+  // - Other backgrounds: moderate threshold (40)
+  const threshold = isChromaKey ? 50 : isWhiteBackground ? 15 : 40;
+  console.log('[processRemoveBackground] Using threshold:', threshold);
+
   let pixelsRemoved = 0;
 
   // Flood fill helper
@@ -209,10 +247,80 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
     floodFill(width - 1, y);
   }
 
-  // Second pass: ONLY remove pure white pixels that are near already-transparent areas
-  // This is more conservative and won't remove white parts of the sprite (like gloves or teeth)
-  const pureWhiteThreshold = 5; // Very tight - only removes nearly pure white
-  for (let y = 1; y < height - 1; y++) {
+  // Second pass: Remove isolated blocks of background color trapped inside sprite
+  // This catches background pixels that weren't connected to edges
+  // For white backgrounds, use very tight threshold to avoid removing white character parts
+  const internalThreshold = isChromaKey ? 45 : isWhiteBackground ? 10 : 35;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const pixelIndex = y * width + x;
+
+      // Skip if already processed or transparent
+      if (visited[pixelIndex] || data[pixelIndex * 4 + 3] < 10) continue;
+
+      const idx = pixelIndex * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+
+      // Check if this pixel matches background color
+      const rDiff = r - bgColor.r;
+      const gDiff = g - bgColor.g;
+      const bDiff = b - bgColor.b;
+      const colorDistance = Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
+
+      // If it matches background, flood fill from here too (removes isolated background blocks)
+      if (colorDistance < internalThreshold) {
+        const internalQueue: Array<{x: number, y: number}> = [{x, y}];
+
+        while (internalQueue.length > 0) {
+          const {x: ix, y: iy} = internalQueue.shift()!;
+
+          if (ix < 0 || ix >= width || iy < 0 || iy >= height) continue;
+
+          const iPixelIndex = iy * width + ix;
+          if (visited[iPixelIndex]) continue;
+
+          const iIdx = iPixelIndex * 4;
+          const ir = data[iIdx];
+          const ig = data[iIdx + 1];
+          const ib = data[iIdx + 2];
+          const ia = data[iIdx + 3];
+
+          if (ia < 10) {
+            visited[iPixelIndex] = 1;
+            continue;
+          }
+
+          const iRDiff = ir - bgColor.r;
+          const iGDiff = ig - bgColor.g;
+          const iBDiff = ib - bgColor.b;
+          const iColorDistance = Math.sqrt(iRDiff * iRDiff + iGDiff * iGDiff + iBDiff * iBDiff);
+
+          if (iColorDistance < internalThreshold) {
+            visited[iPixelIndex] = 1;
+            data[iIdx + 3] = 0;
+            pixelsRemoved++;
+
+            // Add neighbors
+            internalQueue.push({x: ix + 1, y: iy});
+            internalQueue.push({x: ix - 1, y: iy});
+            internalQueue.push({x: ix, y: iy + 1});
+            internalQueue.push({x: ix, y: iy - 1});
+          }
+        }
+      }
+    }
+  }
+
+  // Third pass: Clean up remaining background pixels near transparent areas
+  // This catches edge cases and smooths boundaries
+  // For white backgrounds, skip this pass entirely to protect white character parts
+  const edgeThreshold = isChromaKey ? 40 : isWhiteBackground ? 0 : 30;
+
+  if (edgeThreshold > 0) {
+    for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
       const idx = (y * width + x) * 4;
       const r = data[idx];
@@ -223,14 +331,13 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
       // Skip already transparent pixels
       if (a < 10) continue;
 
-      // Only process nearly pure white pixels (very close to 255, 255, 255)
-      const isNearlyPureWhite = (
-        Math.abs(r - 255) <= pureWhiteThreshold &&
-        Math.abs(g - 255) <= pureWhiteThreshold &&
-        Math.abs(b - 255) <= pureWhiteThreshold
-      );
+      // Check if pixel is similar to background
+      const rDiff = r - bgColor.r;
+      const gDiff = g - bgColor.g;
+      const bDiff = b - bgColor.b;
+      const colorDistance = Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
 
-      if (!isNearlyPureWhite) continue;
+      if (colorDistance > edgeThreshold) continue;
 
       // Check if any neighbor is already transparent
       let hasTransparentNeighbor = false;
@@ -249,11 +356,12 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
         }
       }
 
-      // Only remove if it's pure white AND next to transparent area
-      // This avoids removing white gloves, teeth, etc. that are interior to the sprite
+      // Remove if it's background-colored AND next to transparent area
       if (hasTransparentNeighbor) {
         data[idx + 3] = 0;
+        pixelsRemoved++;
       }
+    }
     }
   }
 
