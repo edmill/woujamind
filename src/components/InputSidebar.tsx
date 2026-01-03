@@ -17,7 +17,9 @@ import {
 } from 'lucide-react';
 import { cn } from '../utils';
 import { ART_STYLES, ACTIONS, EXPRESSIONS } from '../constants';
-import { ArtStyle, TabMode, ActionType, ExpressionType, SpriteDirection, MultiViewData } from '../types';
+import { ArtStyle, TabMode, ActionType, ExpressionType, SpriteDirection, MultiViewData, DirectionSelection } from '../types';
+import { DirectionSelector } from './DirectionSelector';
+import { calculateGenerationCost } from '../services/creditService';
 
 interface InputSidebarProps {
   isDesktop: boolean;
@@ -51,9 +53,9 @@ interface InputSidebarProps {
   setSelectedDirection?: (direction: SpriteDirection) => void;
   multiViewData?: MultiViewData | null;
 
-  // Frame Count
-  frameCount: number;
-  setFrameCount: (count: number) => void;
+  // Direction Selection (NEW)
+  selectedDirectionCount: DirectionSelection;
+  setSelectedDirectionCount: (count: DirectionSelection) => void;
 
   // Generation
   tokens: number;
@@ -87,8 +89,8 @@ export function InputSidebar({
   selectedDirection,
   setSelectedDirection,
   multiViewData,
-  frameCount,
-  setFrameCount,
+  selectedDirectionCount,
+  setSelectedDirectionCount,
   tokens,
   isGenerating,
   handleGenerate,
@@ -488,53 +490,20 @@ export function InputSidebar({
 
             </div>
 
-            {/* Frame Count Selector */}
-            <section className="space-y-3 pt-4">
+            {/* Direction Selection */}
+            <section className="space-y-4 pt-4 px-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  Frame Count
-                </h3>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">4</span>
+                  Directions
+                </h2>
               </div>
-              <div className="grid grid-cols-5 gap-2">
-                {[
-                  { count: 8, grid: '2×4' },
-                  { count: 16, grid: '4×4' },
-                  { count: 24, grid: '4×6' },
-                  { count: 32, grid: '4×8' },
-                  { count: 48, grid: '6×8' },
-                ].map((option) => (
-                  <button
-                    key={option.count}
-                    onClick={() => setFrameCount(option.count)}
-                    className={cn(
-                      "relative flex flex-col items-center justify-center p-2 rounded-lg border-2 transition-all text-center",
-                      frameCount === option.count
-                        ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
-                        : "border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-700 bg-white dark:bg-slate-800"
-                    )}
-                  >
-                    <div className={cn(
-                      "text-lg font-bold",
-                      frameCount === option.count
-                        ? "text-orange-600 dark:text-orange-400"
-                        : "text-slate-700 dark:text-slate-300"
-                    )}>
-                      {option.count}
-                    </div>
-                    <div className={cn(
-                      "text-[10px]",
-                      frameCount === option.count
-                        ? "text-orange-500 dark:text-orange-400"
-                        : "text-slate-500 dark:text-slate-400"
-                    )}>
-                      {option.grid}
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-                Video will be generated and {frameCount} frames will be extracted for the sprite sheet
-              </p>
+              
+              <DirectionSelector
+                selectedDirectionCount={selectedDirectionCount}
+                onDirectionCountChange={setSelectedDirectionCount}
+                disabled={isGenerating}
+              />
             </section>
 
             {/* Generate Button - Pinned to bottom */}
@@ -567,7 +536,7 @@ export function InputSidebar({
                     ) : (
                       <>
                         <Wand2 className="w-6 h-6" />
-                        <span>Generate (1 Token)</span>
+                        <span>Generate ({calculateGenerationCost(selectedDirectionCount).creditsRequired} credits)</span>
                       </>
                     )}
                   </div>

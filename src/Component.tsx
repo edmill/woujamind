@@ -28,12 +28,14 @@ import { EmptyStateView } from './components/EmptyStateView';
 import { OpenFileIndicator } from './components/OpenFileIndicator';
 import { CreditDisplay } from './components/CreditDisplay';
 import { CreditStore } from './components/CreditStore';
+import { FrameGallery } from './components/FrameGallery';
 import { ACTIONS } from './constants';
-import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData, DirectionCount, UserCredits } from './types';
+import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData, DirectionCount, DirectionSelection, UserCredits } from './types';
 import { cn } from './utils';
 import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame, analyzeCharacter } from './services/geminiService';
 import { generateSpriteSheetFromImage, calculateGridDimensions } from './services/replicateService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
+import { framesToDataUrls, dataUrlsToFrames } from './utils/frameSelection';
 import { initDB, saveSpriteSheet, getSpriteSheetsByDate, deleteSpriteSheet, StoredSpriteSheet } from './utils/spriteStorage';
 import { migrateLocalStorage } from './utils/localStorageMigration';
 import { getUserCredits, deductCredits, refundCredits, calculateGenerationCost, hasSufficientCredits } from './services/creditService';
@@ -50,6 +52,7 @@ export default function Woujamind() {
   const [selectedArtStyle, setSelectedArtStyle] = useState<ArtStyle>('pixel');
   const [selectedDirection, setSelectedDirection] = useState<SpriteDirection>('right');
   const [multiViewData, setMultiViewData] = useState<MultiViewData | null>(null);
+  const [selectedDirectionCount, setSelectedDirectionCount] = useState<DirectionSelection>(1); // Default to 1 direction
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<boolean>(false);
@@ -88,6 +91,94 @@ export default function Woujamind() {
   const [uploadSource, setUploadSource] = useState<'generated' | 'uploaded'>('generated');
   const [showNewConfirm, setShowNewConfirm] = useState<boolean>(false);
 
+  // Frame Gallery State (for advanced frame selection)
+  const [allExtractedFrames, setAllExtractedFrames] = useState<HTMLCanvasElement[]>([]);
+  const [autoSelectedFrameIndices, setAutoSelectedFrameIndices] = useState<number[]>([]);
+  const [isFrameGalleryOpen, setIsFrameGalleryOpen] = useState<boolean>(false);
+
+  // Handler for frame gallery selection changes
+  const handleFrameGallerySelectionChange = (newIndices: number[]) => {
+    setAutoSelectedFrameIndices(newIndices);
+  };
+
+  // Handler to apply frame gallery selection and regenerate sprite sheet
+  const handleApplyFrameSelection = async () => {
+    if (allExtractedFrames.length === 0 || autoSelectedFrameIndices.length === 0) {
+      toast.error('No frames selected');
+      return;
+    }
+
+    setIsGenerating(true);
+    setStatusText('Regenerating sprite sheet with selected frames...');
+    setIsFrameGalleryOpen(false);
+
+    try {
+      // Import required utilities
+      const { FrameCenteringService } = await import('./utils/frameCentering');
+      const { createSpriteSheetFromFrames, calculateGridDimensions } = await import('./services/replicateService');
+
+      // Extract selected frames
+      const selectedFrames = autoSelectedFrameIndices.map(idx => allExtractedFrames[idx]);
+
+      // Center the selected frames
+      const centeringService = new FrameCenteringService({
+        targetWidth: 256,
+        targetHeight: 256,
+        paddingPercent: 0.1,
+        debug: true
+      });
+
+      const centeredFrames = await centeringService.centerFramesBatch(selectedFrames);
+
+      // Calculate new grid dimensions
+      const { rows, cols } = calculateGridDimensions(selectedFrames.length);
+
+      // Create new sprite sheet
+      const spriteSheet = createSpriteSheetFromFrames(centeredFrames, rows, cols);
+      const spriteSheetBase64 = spriteSheet.toDataURL('image/png');
+
+      // Update state with new sprite sheet
+      pushToHistory(spriteSheetBase64);
+      setResult(true);
+      setHasResult(true);
+      
+      // Serialize all extracted frames for persistent storage
+      const allFramesData = framesToDataUrls(allExtractedFrames);
+
+      // Save the manually selected sprite sheet
+      await saveSpriteSheet({
+        imageData: spriteSheetBase64,
+        prompt: generationPrompt,
+        characterDescription: generationCharacterDescription,
+        selectedAction,
+        selectedExpression,
+        artStyle: selectedArtStyle,
+        directionCount: selectedDirectionCount,
+        gridRows: rows,
+        gridCols: cols,
+        fps,
+        isTransparent,
+        hasDropShadow,
+        modelId: generationModel,
+        history: [spriteSheetBase64],
+        historyIndex: 0,
+        // Frame selection metadata - marked as manual
+        totalExtractedFrames: allExtractedFrames.length,
+        selectedFrameIndices: autoSelectedFrameIndices,
+        frameSelectionMethod: 'manual',
+        allExtractedFramesData: allFramesData, // Store all frames for Frame Gallery
+      });
+      await reloadSprites();
+      
+      toast.success(`Sprite sheet regenerated with ${selectedFrames.length} frames!`);
+    } catch (error) {
+      console.error('[handleApplyFrameSelection] Error:', error);
+      toast.error('Failed to regenerate sprite sheet');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // New states for download options
   const [fps, setFps] = useState<number>(8);
   const [isTransparent, setIsTransparent] = useState<boolean>(false);
@@ -112,8 +203,21 @@ export default function Woujamind() {
   const [gridRows, _setGridRows] = useState<number>(2);
   const [gridCols, _setGridCols] = useState<number>(4);
 
-  // Frame count for video-based generation
-  const [frameCount, setFrameCount] = useState<number>(16);
+  // Calculate optimal frame count based on action and direction count
+  const calculateOptimalFrameCount = (action: ActionType, directionCount: DirectionSelection): number => {
+    // Base frames per action (for single direction) - Increased for smooth animation
+    const baseFrames: Record<ActionType, number> = {
+      idle: 30,   // Increased from 4 to 30 for smooth breathing/idle motion
+      walk: 40,   // Increased from 8 to 40 for smooth walk cycle
+      run: 40,    // Increased from 8 to 40 for smooth run cycle
+      jump: 35,   // Increased from 6 to 35 for smooth jump arc
+      attack: 35, // Increased from 6 to 35 for smooth attack motion
+      cast: 40    // Increased from 8 to 40 for smooth casting animation
+    };
+    
+    const framesPerDirection = baseFrames[action];
+    return framesPerDirection * directionCount;
+  };
 
   // Saved sprites state
   const [savedSprites, setSavedSprites] = useState<{
@@ -332,8 +436,9 @@ export default function Woujamind() {
   };
 
   // Handler to open saved sprite in ResultView
-  const handleOpenSprite = (sprite: StoredSpriteSheet) => {
+  const handleOpenSprite = async (sprite: StoredSpriteSheet) => {
     console.log('[Open Sprite] Loading sprite:', sprite.id);
+    
     // Load sprite data into current state
     setGeneratedImage(sprite.imageData);
     setHistory(sprite.history);
@@ -353,7 +458,31 @@ export default function Woujamind() {
       setSelectedExpression(sprite.selectedExpression as ExpressionType);
     }
     setSelectedArtStyle(sprite.artStyle as ArtStyle);
-    toast.success(`Opened ${sprite.name}`);
+
+    // Restore extracted frames if available (for Frame Gallery)
+    if (sprite.allExtractedFramesData && sprite.allExtractedFramesData.length > 0) {
+      console.log('[Open Sprite] Restoring', sprite.allExtractedFramesData.length, 'extracted frames');
+      try {
+        const restoredFrames = await dataUrlsToFrames(sprite.allExtractedFramesData);
+        setAllExtractedFrames(restoredFrames);
+        
+        // Restore selected frame indices
+        if (sprite.selectedFrameIndices && sprite.selectedFrameIndices.length > 0) {
+          setAutoSelectedFrameIndices(sprite.selectedFrameIndices);
+          console.log('[Open Sprite] Restored frame selection:', sprite.selectedFrameIndices.length, 'frames');
+        }
+        
+        toast.success(`Opened ${sprite.name} with ${restoredFrames.length} frames in Frame Gallery`);
+      } catch (error) {
+        console.error('[Open Sprite] Failed to restore frames:', error);
+        toast.error('Failed to restore frame data');
+      }
+    } else {
+      // No frame data - clear frame state
+      setAllExtractedFrames([]);
+      setAutoSelectedFrameIndices([]);
+      toast.success(`Opened ${sprite.name}`);
+    }
   };
 
   // Handler to delete saved sprite
@@ -427,9 +556,11 @@ export default function Woujamind() {
       return;
     }
 
-    // Calculate cost for 1 direction (for now - will be updated for multi-directional)
-    const directionCount: DirectionCount = 1;
-    const estimate = calculateGenerationCost(directionCount);
+    // Calculate optimal frame count based on action and direction
+    const optimalFrameCount = calculateOptimalFrameCount(selectedAction, selectedDirectionCount);
+
+    // Calculate cost based on direction count
+    const estimate = calculateGenerationCost(selectedDirectionCount);
 
     // Check if user has sufficient credits
     if (!hasSufficientCredits(estimate.creditsRequired)) {
@@ -445,7 +576,7 @@ export default function Woujamind() {
     // Deduct credits immediately
     const deductionSuccess = deductCredits(
       estimate.creditsRequired,
-      `Sprite generation (${directionCount} direction, ${selectedAction} animation)`,
+      `Sprite generation (${selectedDirectionCount} ${selectedDirectionCount === 1 ? 'direction' : 'directions'}, ${selectedAction} animation)`,
       jobId
     );
 
@@ -502,13 +633,16 @@ export default function Woujamind() {
         }
       }
 
-      // Calculate grid dimensions based on desired frame count
-      const { rows, cols } = calculateGridDimensions(frameCount);
+      // Calculate grid dimensions based on optimal frame count
+      const { rows, cols } = calculateGridDimensions(optimalFrameCount);
 
-      setStatusText(`Generating ${frameCount} frame sprite sheet with ${selectedAction} animation...`);
+      setStatusText(`Generating ${optimalFrameCount} frame sprite sheet with ${selectedAction} animation (${selectedDirectionCount} ${selectedDirectionCount === 1 ? 'direction' : 'directions'})...`);
 
-      // Check if using Replicate (which requires backend)
-      const useReplicate = false; // Temporarily disabled - requires backend proxy for CORS
+      // Check if using Replicate for video-based generation
+      // When true: Generates video → extracts 150 frames → perfect alignment + Frame Gallery
+      // When false: Uses Gemini image generation → may have alignment issues
+      // Now uses Replicate HTTP API directly (no backend proxy needed!)
+      const useReplicate = true; // ✅ Enabled - uses HTTP API directly
 
       let spriteSheetBase64: string;
       let generatedPrompt: string;
@@ -516,17 +650,22 @@ export default function Woujamind() {
       let generatedCharacterDesc: string;
 
       if (useReplicate) {
-        // STEP 2-5: Generate sprite sheet using Replicate Seedance pipeline
+        // STEP 2-7: Generate sprite sheet using Replicate Seedance pipeline
         const replicateResult = await generateSpriteSheetFromImage(
           imageBase64 || '',
           characterDescription,
           selectedAction,
-          selectedDirection,
-          frameCount,
+          `${selectedDirectionCount} ${selectedDirectionCount === 1 ? 'direction' : 'directions'}`, // Pass direction count
+          optimalFrameCount, // Use calculated frame count
           styleParams,
           (status) => setStatusText(status), // Progress callback
           undefined // Frame progress callback (optional)
         );
+        
+        // Store all extracted frames for user selection
+        setAllExtractedFrames(replicateResult.allFrames);
+        setAutoSelectedFrameIndices(replicateResult.selectedIndices);
+        
         spriteSheetBase64 = replicateResult.spriteSheet.toDataURL('image/png');
         generatedPrompt = characterDescription;
         generatedModel = 'replicate-seedance-1-pro-fast';
@@ -577,6 +716,11 @@ export default function Woujamind() {
 
       // Auto-save to IndexedDB
       try {
+        // Serialize all extracted frames for persistent storage
+        const allFramesData = allExtractedFrames.length > 0 
+          ? framesToDataUrls(allExtractedFrames) 
+          : undefined;
+
         await saveSpriteSheet({
           imageData: alignmentResult.aligned,
           prompt: generatedPrompt,
@@ -584,6 +728,7 @@ export default function Woujamind() {
           selectedAction,
           selectedExpression,
           artStyle: selectedArtStyle,
+          directionCount: selectedDirectionCount, // Track direction count
           gridRows: rows,
           gridCols: cols,
           fps,
@@ -592,6 +737,11 @@ export default function Woujamind() {
           modelId: generatedModel,
           history: [alignmentResult.aligned],
           historyIndex: 0,
+          // Frame selection metadata (for Replicate/video-based generation)
+          totalExtractedFrames: allExtractedFrames.length > 0 ? allExtractedFrames.length : undefined,
+          selectedFrameIndices: autoSelectedFrameIndices.length > 0 ? autoSelectedFrameIndices : undefined,
+          frameSelectionMethod: allExtractedFrames.length > 0 ? 'auto' : undefined,
+          allExtractedFramesData: allFramesData, // Store all 150 frames for Frame Gallery
         });
         await reloadSprites();
         console.log('Sprite sheet auto-saved to local storage');
@@ -1370,6 +1520,7 @@ export default function Woujamind() {
           selectedAction,
           selectedExpression,
           artStyle: selectedArtStyle,
+          directionCount: selectedDirectionCount, // Track direction count for uploaded files too
           gridRows: rows,
           gridCols: cols,
           fps,
@@ -1615,8 +1766,8 @@ export default function Woujamind() {
               selectedDirection={selectedDirection}
               setSelectedDirection={setSelectedDirection}
               multiViewData={multiViewData}
-              frameCount={frameCount}
-              setFrameCount={setFrameCount}
+              selectedDirectionCount={selectedDirectionCount}
+              setSelectedDirectionCount={setSelectedDirectionCount}
               tokens={tokens}
               isGenerating={isGenerating}
               handleGenerate={handleGenerate}
@@ -1726,51 +1877,54 @@ export default function Woujamind() {
                      </div>
                    </motion.div>
                  ) : (
-                   <ResultView 
-                      tokens={tokens}
-                      reset={backToEditor}
-                      setPrompt={setPrompt}
-                      setSelectedFile={setSelectedFile}
-                      setFilePreview={setFilePreview}
-                      setHasResult={setHasResult}
-                      imageSrc={generatedImage}
-                      rows={gridRows}
-                      cols={gridCols}
-                      selectedFrame={selectedFrame}
-                      setSelectedFrame={setSelectedFrame}
-                      activeFrameIndex={activeFrameIndex}
-                      selectedFrameIndices={selectedFrameIndices}
-                      onToggleFrameSelect={handleToggleFrameSelect}
-                      onEdit={handleEditSpriteSheet}
-                      onCleanBackground={handleCleanBackground}
-                      onUndo={handleUndo}
-                      onRedo={handleRedo}
-                      canUndo={historyIndex > 0}
-                      canRedo={historyIndex < history.length - 1}
-                      isEditing={isEditing}
-                      isGenerating={isGenerating}
-                      statusText={displayStatusText || statusText}
-                      fps={fps}
-                      setFps={setFps}
-                      isTransparent={isTransparent}
-                      setIsTransparent={setIsTransparent}
-                      hasDropShadow={hasDropShadow}
-                      setHasDropShadow={setHasDropShadow}
-                      onDownloadSheet={handleDownloadSheet}
-                      onDownloadGif={handleDownloadGif}
-                      onRegenerate={handleRegenerate}
-                      onClearResult={backToEditor}
-                      onAutoAlign={handleAutoAlignFrame}
-                      onAlignAll={handleAutoAlignSheet}
-                      onInsertFrame={handleInsertFrame}
-                      onRemoveFrame={handleRemoveFrame}
-                      onReplaceFrameWithImage={handleReplaceFrameWithImage}
-                      generationPrompt={generationPrompt}
-                      generationModel={generationModel}
-                      generationCharacterDescription={generationCharacterDescription}
-                      selectedArtStyle={selectedArtStyle}
-                      onArtStyleChange={setSelectedArtStyle}
-                   />
+                  <ResultView 
+                     tokens={tokens}
+                     reset={backToEditor}
+                     setPrompt={setPrompt}
+                     setSelectedFile={setSelectedFile}
+                     setFilePreview={setFilePreview}
+                     setHasResult={setHasResult}
+                     imageSrc={generatedImage}
+                     rows={gridRows}
+                     cols={gridCols}
+                     selectedFrame={selectedFrame}
+                     setSelectedFrame={setSelectedFrame}
+                     activeFrameIndex={activeFrameIndex}
+                     selectedFrameIndices={selectedFrameIndices}
+                     onToggleFrameSelect={handleToggleFrameSelect}
+                     onEdit={handleEditSpriteSheet}
+                     onCleanBackground={handleCleanBackground}
+                     onUndo={handleUndo}
+                     onRedo={handleRedo}
+                     canUndo={historyIndex > 0}
+                     canRedo={historyIndex < history.length - 1}
+                     isEditing={isEditing}
+                     isGenerating={isGenerating}
+                     statusText={displayStatusText || statusText}
+                     fps={fps}
+                     setFps={setFps}
+                     isTransparent={isTransparent}
+                     setIsTransparent={setIsTransparent}
+                     hasDropShadow={hasDropShadow}
+                     setHasDropShadow={setHasDropShadow}
+                     onDownloadSheet={handleDownloadSheet}
+                     onDownloadGif={handleDownloadGif}
+                     onRegenerate={handleRegenerate}
+                     onClearResult={backToEditor}
+                     onAutoAlign={handleAutoAlignFrame}
+                     onAlignAll={handleAutoAlignSheet}
+                     onInsertFrame={handleInsertFrame}
+                     onRemoveFrame={handleRemoveFrame}
+                     onReplaceFrameWithImage={handleReplaceFrameWithImage}
+                     generationPrompt={generationPrompt}
+                     generationModel={generationModel}
+                     generationCharacterDescription={generationCharacterDescription}
+                     selectedArtStyle={selectedArtStyle}
+                     onArtStyleChange={setSelectedArtStyle}
+                     hasExtractedFrames={allExtractedFrames.length > 0}
+                     extractedFrameCount={allExtractedFrames.length}
+                     onOpenFrameGallery={() => setIsFrameGalleryOpen(true)}
+                  />
                  )}
               </AnimatePresence>
               </div>
@@ -1784,6 +1938,16 @@ export default function Woujamind() {
           isOpen={isCreditStoreOpen}
           onClose={() => setIsCreditStoreOpen(false)}
           onPurchaseComplete={handleCreditPurchaseComplete}
+        />
+
+        {/* Frame Gallery Modal - Advanced frame selection */}
+        <FrameGallery
+          allFrames={allExtractedFrames}
+          selectedIndices={autoSelectedFrameIndices}
+          onSelectionChange={handleFrameGallerySelectionChange}
+          onClose={() => setIsFrameGalleryOpen(false)}
+          onApply={handleApplyFrameSelection}
+          isOpen={isFrameGalleryOpen}
         />
 
         {/* Fixed Credit Display (bottom-right corner) */}

@@ -96,6 +96,18 @@ Image utilities are organized into focused modules (all re-exported from `imageU
 **videoProcessing.ts**
 - `extractFrames()` - Extracts frames from video blob (for Replicate video output)
 
+**frameCentering.ts** (NEW - CRITICAL for animation quality)
+- `FrameCenteringService` - Auto-centers character frames to fix animation jumping/drifting
+- `detectCharacterBounds()` - HSV-based character detection (separates character from background)
+- `centerFrame()` - Centers single frame with intelligent padding and aspect-ratio preservation
+- `centerFramesBatch()` - Batch processing with error handling and fallbacks
+- `visualizeBounds()` - Debug visualization for testing character detection
+- **Purpose:** Fixes animation issues when Replicate generates multi-directional videos where characters shift position across frames
+- **Integration:** Runs automatically in Replicate pipeline (Step 3.5) after frame extraction, before sprite sheet creation
+- **Algorithm:** HSV segmentation → morphological operations → padding → crop → resize → center on canvas
+- **Performance:** ~20-35ms per frame, ~0.6-1.1s for 32 frames
+- **Debug Tool:** `debug_centering.html` - Interactive browser tool for testing and visualization
+
 **gridDetection.ts**
 - Auto-detects grid layout from uploaded sprite sheets
 - Used by SpriteSheetUploadModal
@@ -196,8 +208,18 @@ All credit components use the Woujamind Design System (design-system.css)
 1. User uploads reference image
 2. `analyzeCharacter()` extracts character description + style parameters + multi-view detection
 3. `generateSpriteSheet()` or `generateSpriteSheetFromImage()` (Replicate) creates animation using analyzed data
-4. For Replicate: video → frames extracted → assembled into sprite sheet grid
+4. For Replicate: video → frames extracted → **frames centered (CRITICAL)** → assembled into sprite sheet grid
 5. Result displayed in ResultView with editing capabilities
+
+**Frame Centering Pipeline (Replicate Only):**
+1. Extract frames from generated video (Step 3)
+2. **Center frames using FrameCenteringService (Step 3.5 - NEW)**
+   - Detect character bounds using HSV segmentation
+   - Apply morphological operations to clean noise
+   - Add intelligent padding around character
+   - Crop, resize, and center on white canvas
+   - Ensures consistent character position across all frames
+3. Create sprite sheet grid from centered frames (Step 5)
 
 **Key Design Patterns:**
 - All image processing uses HTML Canvas API

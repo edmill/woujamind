@@ -40,3 +40,11 @@ export {
   aiSmartAlignSpriteSheet,
   type SmartAlignmentResult
 } from './spriteAlignment';
+
+// Frame centering for smooth animations
+export {
+  FrameCenteringService,
+  centerFrames,
+  type FrameCenteringOptions,
+  type CharacterBounds
+} from './frameCentering';

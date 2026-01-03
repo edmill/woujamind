@@ -84,6 +84,21 @@ export interface CharacterAnalysis {
   viewData?: MultiViewData;
 }
 
+// Frame selection data for sprite generation
+export interface ExtractedFrameData {
+  allFrames: HTMLCanvasElement[];        // All 150 frames from video
+  selectedIndices: number[];              // Indices of frames selected for sprite sheet
+  frameMetadata: FrameMetadata[];         // Metadata for each frame
+}
+
+export interface FrameMetadata {
+  index: number;                          // Frame index (0-149)
+  timestamp: number;                      // Time in video (seconds)
+  qualityScore?: number;                  // Optional quality/sharpness score
+  motionScore?: number;                   // Optional motion detection score
+  isSelected: boolean;                    // Whether frame is currently selected
+}
+
 // ===== CREDIT SYSTEM TYPES =====
 
 /**
@@ -129,6 +144,11 @@ export interface CreditPackage {
  * Sprite generation direction count
  */
 export type DirectionCount = 1 | 4 | 8;
+
+/**
+ * Direction selection for user input (alias for DirectionCount)
+ */
+export type DirectionSelection = 1 | 4 | 8;
 
 /**
  * Cost estimate for sprite generation

@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frame Centering Debug Tool - Woujamind</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 2rem;
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 0.5rem;
+      font-size: 2rem;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 2rem;
+      font-size: 0.95rem;
+    }
+
+    .upload-section {
+      margin-bottom: 2rem;
+      padding: 2rem;
+      border: 2px dashed #667eea;
+      border-radius: 12px;
+      text-align: center;
+      background: #f8f9ff;
+    }
+
+    .upload-section input[type="file"] {
+      display: none;
+    }
+
+    .upload-btn {
+      background: #667eea;
+      color: white;
+      padding: 1rem 2rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .upload-btn:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      background: #f8f9ff;
+      border-radius: 12px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .control-group label {
+      font-weight: 600;
+      color: #333;
+      font-size: 0.9rem;
+    }
+
+    .control-group input,
+    .control-group select {
+      padding: 0.5rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+
+    .control-group input:focus,
+    .control-group select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 600;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #48bb78;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #38a169;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 2rem;
+    }
+
+    .result-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 1.5rem;
+      background: white;
+    }
+
+    .result-card h3 {
+      color: #667eea;
+      margin-bottom: 1rem;
+      font-size: 1.2rem;
+    }
+
+    .canvas-container {
+      background: #f5f5f5;
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 300px;
+    }
+
+    .canvas-container canvas {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #ddd;
+      image-rendering: pixelated;
+    }
+
+    .stats {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #f8f9ff;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.25rem 0;
+    }
+
+    .stats-label {
+      font-weight: 600;
+      color: #666;
+    }
+
+    .stats-value {
+      color: #333;
+      font-family: 'Courier New', monospace;
+    }
+
+    .log {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: #1a1a1a;
+      border-radius: 12px;
+      color: #00ff00;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .log-entry {
+      margin-bottom: 0.5rem;
+    }
+
+    .log-timestamp {
+      color: #888;
+      margin-right: 0.5rem;
+    }
+
+    .log-info { color: #00ff00; }
+    .log-warn { color: #ffaa00; }
+    .log-error { color: #ff4444; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 Frame Centering Debug Tool</h1>
+    <p class="subtitle">Test character detection and frame centering for Woujamind sprite animations</p>
+
+    <div class="upload-section">
+      <input type="file" id="fileInput" accept="image/*" />
+      <label for="fileInput" class="upload-btn">📁 Upload Test Frame</label>
+      <p style="margin-top: 1rem; color: #666;">Upload a single frame from a sprite sheet to test centering</p>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <label for="targetWidth">Target Width (px)</label>
+        <input type="number" id="targetWidth" value="256" min="64" max="1024" />
+      </div>
+      <div class="control-group">
+        <label for="targetHeight">Target Height (px)</label>
+        <input type="number" id="targetHeight" value="256" min="64" max="1024" />
+      </div>
+      <div class="control-group">
+        <label for="padding">Padding (%)</label>
+        <input type="number" id="padding" value="10" min="0" max="50" step="1" />
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <button class="btn btn-primary" id="processBtn" disabled>🎯 Process Frame</button>
+      <button class="btn btn-secondary" id="visualizeBtn" disabled>👁️ Visualize Bounds</button>
+    </div>
+
+    <div class="results" id="results"></div>
+
+    <div class="log" id="log"></div>
+  </div>
+
+  <script type="module">
+    import { FrameCenteringService } from './src/utils/frameCentering.ts';
+
+    let currentCanvas = null;
+    const log = document.getElementById('log');
+    const results = document.getElementById('results');
+    const processBtn = document.getElementById('processBtn');
+    const visualizeBtn = document.getElementById('visualizeBtn');
+
+    // Logging utility
+    function addLog(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span>${message}`;
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+      console.log(`[${type.toUpperCase()}]`, message);
+    }
+
+    // File upload handler
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      addLog(`Loading file: ${file.name}`, 'info');
+
+      const img = new Image();
+      img.onload = () => {
+        // Create canvas from image
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        currentCanvas = canvas;
+        processBtn.disabled = false;
+        visualizeBtn.disabled = false;
+
+        addLog(`Image loaded: ${img.width}x${img.height}`, 'info');
+
+        // Show original
+        showResult('Original Frame', canvas, {
+          width: img.width,
+          height: img.height
+        });
+      };
+
+      img.onerror = () => {
+        addLog('Failed to load image', 'error');
+      };
+
+      img.src = URL.createObjectURL(file);
+    });
+
+    // Process button handler
+    processBtn.addEventListener('click', async () => {
+      if (!currentCanvas) return;
+
+      addLog('Starting frame centering process...', 'info');
+
+      const targetWidth = parseInt(document.getElementById('targetWidth').value);
+      const targetHeight = parseInt(document.getElementById('targetHeight').value);
+      const paddingPercent = parseFloat(document.getElementById('padding').value) / 100;
+
+      try {
+        const service = new FrameCenteringService({
+          targetWidth,
+          targetHeight,
+          paddingPercent,
+          debug: true
+        });
+
+        // Detect bounds
+        addLog('Detecting character bounds...', 'info');
+        const bounds = service.detectCharacterBounds(currentCanvas);
+        addLog(`Bounds detected: x=${bounds.x}, y=${bounds.y}, w=${bounds.width}, h=${bounds.height}`, 'info');
+
+        // Center frame
+        addLog('Centering frame...', 'info');
+        const centered = service.centerFrame(currentCanvas);
+        addLog(`Frame centered: ${centered.width}x${centered.height}`, 'info');
+
+        // Show result
+        showResult('Centered Frame', centered, {
+          width: centered.width,
+          height: centered.height,
+          bounds: bounds
+        });
+
+        addLog('✅ Frame centering complete!', 'info');
+
+      } catch (error) {
+        addLog(`Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Visualize button handler
+    visualizeBtn.addEventListener('click', async () => {
+      if (!currentCanvas) return;
+
+      addLog('Visualizing character bounds...', 'info');
+
+      const targetWidth = parseInt(document.getElementById('targetWidth').value);
+      const targetHeight = parseInt(document.getElementById('targetHeight').value);
+      const paddingPercent = parseFloat(document.getElementById('padding').value) / 100;
+
+      try {
+        const service = new FrameCenteringService({
+          targetWidth,
+          targetHeight,
+          paddingPercent,
+          debug: true
+        });
+
+        const visualized = service.visualizeBounds(currentCanvas);
+        
+        showResult('Bounds Visualization', visualized, {
+          width: visualized.width,
+          height: visualized.height,
+          note: 'Green box = detected bounds, Red dot = center'
+        });
+
+        addLog('✅ Bounds visualization complete!', 'info');
+
+      } catch (error) {
+        addLog(`Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Show result in UI
+    function showResult(title, canvas, stats) {
+      const card = document.createElement('div');
+      card.className = 'result-card';
+
+      const heading = document.createElement('h3');
+      heading.textContent = title;
+      card.appendChild(heading);
+
+      const canvasContainer = document.createElement('div');
+      canvasContainer.className = 'canvas-container';
+      canvasContainer.appendChild(canvas);
+      card.appendChild(canvasContainer);
+
+      const statsDiv = document.createElement('div');
+      statsDiv.className = 'stats';
+      
+      for (const [key, value] of Object.entries(stats)) {
+        const row = document.createElement('div');
+        row.className = 'stats-row';
+        row.innerHTML = `
+          <span class="stats-label">${key}:</span>
+          <span class="stats-value">${typeof value === 'object' ? JSON.stringify(value) : value}</span>
+        `;
+        statsDiv.appendChild(row);
+      }
+      
+      card.appendChild(statsDiv);
+      results.appendChild(card);
+    }
+
+    addLog('Frame Centering Debug Tool initialized', 'info');
+    addLog('Upload a test frame to begin', 'info');
+  </script>
+</body>
+</html>
+
