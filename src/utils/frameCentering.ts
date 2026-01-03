@@ -86,8 +86,9 @@ export class FrameCenteringService {
       const saturation = max === 0 ? 0 : ((max - min) / max) * 255;
 
       // Background detection:
-      // 1. White/light gray: High brightness (>200) AND low saturation (<50)
-      const isWhiteBackground = brightness > 200 && saturation < 50;
+      // 1. PURE white background only (not character white features like gloves/eyes)
+      //    Very bright (>240) AND very low saturation (<20)
+      const isPureWhiteBackground = brightness > 240 && saturation < 20;
       
       // 2. Bright green chroma key: Green dominant (multiple thresholds for robustness)
       //    - Bright green: g > 150 && g > r*1.3 && g > b*1.3
@@ -98,7 +99,7 @@ export class FrameCenteringService {
       const isAnyGreen = g > r && g > b && g > 80;
       const isGreenScreen = isBrightGreen || isMediumGreen || isAnyGreen;
       
-      const isBackground = isWhiteBackground || isGreenScreen;
+      const isBackground = isPureWhiteBackground || isGreenScreen;
       
       // Character pixels are non-background
       characterMask[i / 4] = isBackground ? 0 : 255;
@@ -241,10 +242,12 @@ export class FrameCenteringService {
    * 5. Center on white canvas
    */
   centerFrame(canvas: HTMLCanvasElement): HTMLCanvasElement {
-    console.log('[FrameCentering] centerFrame called - input:', canvas.width, 'x', canvas.height);
+    console.log('[FrameCentering] ===== START centerFrame =====');
+    console.log('[FrameCentering] Input canvas:', canvas.width, 'x', canvas.height);
     try {
       const bounds = this.detectCharacterBounds(canvas);
-      console.log('[FrameCentering] Detected bounds:', bounds);
+      console.log('[FrameCentering] Detected bounds:', JSON.stringify(bounds));
+      console.log('[FrameCentering] Bounds coverage:', ((bounds.width * bounds.height) / (canvas.width * canvas.height) * 100).toFixed(1) + '%');
       
       const originalWidth = canvas.width;
       const originalHeight = canvas.height;
@@ -280,6 +283,40 @@ export class FrameCenteringService {
       croppedCtx.imageSmoothingEnabled = true;
       croppedCtx.imageSmoothingQuality = 'high';
       croppedCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+      // Remove green screen background - make it transparent
+      // IMPORTANT: Only remove PURE white/green, not character features (gloves, eyes)
+      const croppedImageData = croppedCtx.getImageData(0, 0, cropW, cropH);
+      const croppedData = croppedImageData.data;
+      
+      for (let i = 0; i < croppedData.length; i += 4) {
+        const r = croppedData[i];
+        const g = croppedData[i + 1];
+        const b = croppedData[i + 2];
+        
+        // Detect green screen (same logic as character detection)
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const brightness = max;
+        const saturation = max === 0 ? 0 : ((max - min) / max) * 255;
+        
+        // Only remove VERY bright white (background), not character white features
+        // Pure white background: brightness > 240 (very bright) AND saturation < 20 (very low)
+        const isPureWhiteBackground = brightness > 240 && saturation < 20;
+        
+        // Green screen detection (more aggressive since green is not part of character)
+        const isBrightGreen = g > 150 && g > r * 1.3 && g > b * 1.3;
+        const isMediumGreen = g > 100 && g > r * 1.2 && g > b * 1.2;
+        const isAnyGreen = g > r && g > b && g > 80;
+        const isGreenScreen = isBrightGreen || isMediumGreen || isAnyGreen;
+        
+        // Make background pixels transparent (only pure white or green)
+        if (isPureWhiteBackground || isGreenScreen) {
+          croppedData[i + 3] = 0; // Set alpha to 0 (transparent)
+        }
+      }
+      
+      croppedCtx.putImageData(croppedImageData, 0, 0);
 
       // Calculate aspect ratio of cropped region
       const aspectRatio = cropW / cropH;
