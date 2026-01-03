@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { cn } from '../utils';
 import { getStorageStats, clearAllSprites } from '../utils/spriteStorage';
 import { downloadSpriteArchive } from '../utils/archiveUtils';
+import { ApiKeyInput } from './ApiKeyInput';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -50,15 +51,26 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
   const [replicateApiKey, setReplicateApiKey] = useState<string>('');
   const [gemini25Rules, setGemini25Rules] = useState<string>(DEFAULT_GEMINI_25_RULES);
   const [gemini30Rules, setGemini30Rules] = useState<string>(DEFAULT_GEMINI_30_RULES);
-  const [isValidating, setIsValidating] = useState<boolean>(false);
-  const [validationStatus, setValidationStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [validationMessage, setValidationMessage] = useState<string>('');
+
+  // Gemini validation state
+  const [geminiValidationStatus, setGeminiValidationStatus] = useState<'idle' | 'success' | 'error' | 'validating'>('idle');
+  const [geminiValidationMessage, setGeminiValidationMessage] = useState<string>('');
+
+  // Replicate validation state
+  const [replicateValidationStatus, setReplicateValidationStatus] = useState<'idle' | 'success' | 'error' | 'validating'>('idle');
+  const [replicateValidationMessage, setReplicateValidationMessage] = useState<string>('');
+
   const [activeRulesTab, setActiveRulesTab] = useState<'25' | '30'>('25');
   const [showSaveSuccess, setShowSaveSuccess] = useState<{ type: 'rules25' | 'rules30' | 'all' | null }>({ type: null });
   const [storageStats, setStorageStats] = useState<{ count: number; estimatedSize: number } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // Backwards compatibility
+  const [isValidating, setIsValidating] = useState<boolean>(false);
+  const [validationStatus, setValidationStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [validationMessage, setValidationMessage] = useState<string>('');
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -72,6 +84,14 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
       setReplicateApiKey(storedReplicateApiKey || '');
       setGemini25Rules(stored25Rules || DEFAULT_GEMINI_25_RULES);
       setGemini30Rules(stored30Rules || DEFAULT_GEMINI_30_RULES);
+
+      // Reset validation states
+      setGeminiValidationStatus('idle');
+      setGeminiValidationMessage('');
+      setReplicateValidationStatus('idle');
+      setReplicateValidationMessage('');
+
+      // Backwards compatibility
       setValidationStatus('idle');
       setValidationMessage('');
 
@@ -115,47 +135,86 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
     }
   };
 
-  const validateApiKey = async () => {
+  const validateGeminiApiKey = async () => {
     if (!apiKey.trim()) {
-      setValidationStatus('error');
-      setValidationMessage('Please enter an API key');
+      setGeminiValidationStatus('error');
+      setGeminiValidationMessage('Please enter an API key');
       return;
     }
 
-    setIsValidating(true);
-    setValidationStatus('idle');
-    setValidationMessage('Validating...');
+    setGeminiValidationStatus('validating');
+    setGeminiValidationMessage('Validating...');
 
     try {
       // Test the API key by making a simple request to list models
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
-      
+
       if (response.ok) {
         const data = await response.json();
         // Check if we got a valid response with models
         if (data.models && Array.isArray(data.models)) {
-          setValidationStatus('success');
-          setValidationMessage('API key is valid!');
+          setGeminiValidationStatus('success');
+          setGeminiValidationMessage('API key is valid!');
           // Save to localStorage
           localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
           onApiKeyChange(apiKey);
         } else {
-          setValidationStatus('error');
-          setValidationMessage('Invalid API key response. Please check and try again.');
+          setGeminiValidationStatus('error');
+          setGeminiValidationMessage('Invalid API key response. Please check and try again.');
         }
       } else {
         const errorData = await response.json().catch(() => ({}));
-        setValidationStatus('error');
+        setGeminiValidationStatus('error');
         const errorMsg = errorData.error?.message || `Invalid API key (${response.status}). Please check and try again.`;
-        setValidationMessage(errorMsg);
+        setGeminiValidationMessage(errorMsg);
       }
     } catch (error: any) {
-      setValidationStatus('error');
-      setValidationMessage(error.message || 'Failed to validate API key. Please check your connection.');
-    } finally {
-      setIsValidating(false);
+      setGeminiValidationStatus('error');
+      setGeminiValidationMessage(error.message || 'Failed to validate API key. Please check your connection.');
     }
   };
+
+  const validateReplicateApiKey = async () => {
+    if (!replicateApiKey.trim()) {
+      setReplicateValidationStatus('error');
+      setReplicateValidationMessage('Please enter an API key');
+      return;
+    }
+
+    // Basic format check for Replicate API keys
+    // Replicate keys start with "r8_" followed by alphanumeric characters (typically 30-50 chars)
+    const replicateKeyPattern = /^r8_[A-Za-z0-9]{30,50}$/;
+
+    setReplicateValidationStatus('validating');
+    setReplicateValidationMessage('Checking API key format...');
+
+    try {
+      // First, check if the key matches the expected format
+      if (!replicateKeyPattern.test(replicateApiKey)) {
+        setReplicateValidationStatus('error');
+        setReplicateValidationMessage('Invalid key format. Replicate keys start with "r8_" followed by alphanumeric characters.');
+        return;
+      }
+
+      // Format is correct - save it
+      // Note: We can't validate via API due to CORS restrictions in the browser
+      // The key will be validated when actually used during generation
+      setReplicateValidationStatus('success');
+      setReplicateValidationMessage('API key format is valid! Key will be verified during first use.');
+
+      // Save to localStorage
+      localStorage.setItem(STORAGE_KEYS.REPLICATE_API_KEY, replicateApiKey);
+
+      toast.success('Replicate API key saved! It will be validated during sprite generation.');
+
+    } catch (error: any) {
+      setReplicateValidationStatus('error');
+      setReplicateValidationMessage('Failed to validate API key format.');
+    }
+  };
+
+  // Backwards compatibility
+  const validateApiKey = validateGeminiApiKey;
 
   const handleSaveApiKey = () => {
     // Save API key if validated
@@ -356,67 +415,18 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
                     . Your key is stored locally in your browser.
                   </p>
 
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <input
-                        type="password"
-                        value={apiKey}
-                        onChange={(e) => {
-                          setApiKey(e.target.value);
-                          setValidationStatus('idle');
-                          setValidationMessage('');
-                        }}
-                        placeholder="Enter your Gemini API key"
-                        className={cn(
-                          "flex-1 px-4 py-3 bg-white dark:bg-slate-900 border rounded-lg",
-                          "text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600",
-                          "focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent",
-                          validationStatus === 'error' && "border-red-500",
-                          validationStatus === 'success' && "border-green-500"
-                        )}
-                      />
-                      <button
-                        onClick={validateApiKey}
-                        disabled={isValidating || !apiKey.trim()}
-                        className={cn(
-                          "px-6 py-3 rounded-lg font-bold transition-all",
-                          "bg-orange-600 hover:bg-orange-700 text-white",
-                          "disabled:opacity-50 disabled:cursor-not-allowed",
-                          "flex items-center gap-2"
-                        )}
-                      >
-                        {isValidating ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Validating...</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>Validate Key</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {validationMessage && (
-                      <div className={cn(
-                        "flex items-center gap-2 p-3 rounded-lg text-sm",
-                        validationStatus === 'success' 
-                          ? "bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/50 text-green-700 dark:text-green-400"
-                          : validationStatus === 'error'
-                          ? "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400"
-                          : "bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400"
-                      )}>
-                        {validationStatus === 'success' ? (
-                          <CheckCircle2 className="w-4 h-4" />
-                        ) : validationStatus === 'error' ? (
-                          <AlertCircle className="w-4 h-4" />
-                        ) : null}
-                        <span>{validationMessage}</span>
-                      </div>
-                    )}
-                  </div>
+                  <ApiKeyInput
+                    value={apiKey}
+                    onChange={(value) => {
+                      setApiKey(value);
+                      setGeminiValidationStatus('idle');
+                      setGeminiValidationMessage('');
+                    }}
+                    onValidate={validateGeminiApiKey}
+                    placeholder="Enter your Gemini API key"
+                    validationStatus={geminiValidationStatus}
+                    validationMessage={geminiValidationMessage}
+                  />
                 </div>
               </section>
 
@@ -443,20 +453,23 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
                     </a>
                     . Required for video-based sprite generation using Seedance. Your key is stored locally in your browser.
                   </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-500 mb-4 flex items-start gap-2">
+                    <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    <span>Note: Format validation only. Full validation occurs during sprite generation due to browser security restrictions.</span>
+                  </p>
 
-                  <div className="space-y-3">
-                    <input
-                      type="password"
-                      value={replicateApiKey}
-                      onChange={(e) => setReplicateApiKey(e.target.value)}
-                      placeholder="Enter your Replicate API key"
-                      className={cn(
-                        "w-full px-4 py-3 bg-white dark:bg-slate-900 border rounded-lg border-slate-300 dark:border-slate-700",
-                        "text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600",
-                        "focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      )}
-                    />
-                  </div>
+                  <ApiKeyInput
+                    value={replicateApiKey}
+                    onChange={(value) => {
+                      setReplicateApiKey(value);
+                      setReplicateValidationStatus('idle');
+                      setReplicateValidationMessage('');
+                    }}
+                    onValidate={validateReplicateApiKey}
+                    placeholder="Enter your Replicate API key"
+                    validationStatus={replicateValidationStatus}
+                    validationMessage={replicateValidationMessage}
+                  />
                 </div>
               </section>
 

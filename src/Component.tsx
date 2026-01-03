@@ -26,14 +26,17 @@ import SpriteSheetUploadModal from './components/SpriteSheetUploadModal';
 import { FileLibraryView, ViewMode } from './components/FileLibraryView';
 import { EmptyStateView } from './components/EmptyStateView';
 import { OpenFileIndicator } from './components/OpenFileIndicator';
+import { CreditDisplay } from './components/CreditDisplay';
+import { CreditStore } from './components/CreditStore';
 import { ACTIONS } from './constants';
-import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData } from './types';
+import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData, DirectionCount, UserCredits } from './types';
 import { cn } from './utils';
 import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame, analyzeCharacter } from './services/geminiService';
 import { generateSpriteSheetFromImage, calculateGridDimensions } from './services/replicateService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
 import { initDB, saveSpriteSheet, getSpriteSheetsByDate, deleteSpriteSheet, StoredSpriteSheet } from './utils/spriteStorage';
 import { migrateLocalStorage } from './utils/localStorageMigration';
+import { getUserCredits, deductCredits, refundCredits, calculateGenerationCost, hasSufficientCredits } from './services/creditService';
 
 export default function Woujamind() {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -95,9 +98,14 @@ export default function Woujamind() {
   type SphereState = 'hidden' | 'idle' | 'working' | 'swoosh';
   const [sphereState, setSphereState] = useState<SphereState>('idle');
 
-  // Paywall & Token State
-  const [tokens, setTokens] = useState<number>(1); // Start with 1 free token
-  const [showPricing, setShowPricing] = useState(false);
+  // Credit System State
+  const [userCredits, setUserCredits] = useState<UserCredits>(getUserCredits());
+  const [isCreditStoreOpen, setIsCreditStoreOpen] = useState(false);
+  const [currentGenerationJobId, setCurrentGenerationJobId] = useState<string | null>(null);
+
+  // Legacy: Keep for backward compatibility (can be removed later)
+  const [tokens, setTokens] = useState<number>(1); // Deprecated - use credits instead
+  const [showPricing, setShowPricing] = useState(false); // Deprecated
   const [_hasAccount, _setHasAccount] = useState(false); // Mock user account state (reserved for future)
 
   // Grid configuration
@@ -400,6 +408,18 @@ export default function Woujamind() {
     }
   };
 
+  // Helper: Refresh user credits from storage
+  const refreshCredits = () => {
+    const credits = getUserCredits();
+    setUserCredits(credits);
+  };
+
+  // Helper: Handle credit purchase completion
+  const handleCreditPurchaseComplete = () => {
+    refreshCredits();
+    toast.success('Credits added to your account!');
+  };
+
   const handleGenerate = async () => {
     if (!prompt && !selectedFile) return;
     if (!hasApiKey) {
@@ -407,11 +427,35 @@ export default function Woujamind() {
       return;
     }
 
-    // Check tokens
-    if (tokens <= 0) {
-      setShowPricing(true);
+    // Calculate cost for 1 direction (for now - will be updated for multi-directional)
+    const directionCount: DirectionCount = 1;
+    const estimate = calculateGenerationCost(directionCount);
+
+    // Check if user has sufficient credits
+    if (!hasSufficientCredits(estimate.creditsRequired)) {
+      toast.error(`Insufficient credits. You need ${estimate.creditsRequired} credits to generate this sprite.`);
+      setIsCreditStoreOpen(true);
       return;
     }
+
+    // Generate job ID for tracking
+    const jobId = crypto.randomUUID();
+    setCurrentGenerationJobId(jobId);
+
+    // Deduct credits immediately
+    const deductionSuccess = deductCredits(
+      estimate.creditsRequired,
+      `Sprite generation (${directionCount} direction, ${selectedAction} animation)`,
+      jobId
+    );
+
+    if (!deductionSuccess) {
+      toast.error('Failed to deduct credits. Please try again.');
+      return;
+    }
+
+    // Refresh credit display
+    refreshCredits();
 
     setIsGenerating(true);
     setStatusText("Preparing your request...");
@@ -463,25 +507,53 @@ export default function Woujamind() {
 
       setStatusText(`Generating ${frameCount} frame sprite sheet with ${selectedAction} animation...`);
 
-      // STEP 2-5: Generate sprite sheet using Replicate Seedance pipeline
-      const result = await generateSpriteSheetFromImage(
-        imageBase64 || '',
-        characterDescription,
-        selectedAction,
-        selectedDirection,
-        frameCount,
-        styleParams,
-        (status) => setStatusText(status), // Progress callback
-        undefined // Frame progress callback (optional)
-      );
+      // Check if using Replicate (which requires backend)
+      const useReplicate = false; // Temporarily disabled - requires backend proxy for CORS
 
-      // Convert canvas to base64 for storage and further processing
-      const spriteSheetBase64 = result.spriteSheet.toDataURL('image/png');
+      let spriteSheetBase64: string;
+      let generatedPrompt: string;
+      let generatedModel: string;
+      let generatedCharacterDesc: string;
+
+      if (useReplicate) {
+        // STEP 2-5: Generate sprite sheet using Replicate Seedance pipeline
+        const replicateResult = await generateSpriteSheetFromImage(
+          imageBase64 || '',
+          characterDescription,
+          selectedAction,
+          selectedDirection,
+          frameCount,
+          styleParams,
+          (status) => setStatusText(status), // Progress callback
+          undefined // Frame progress callback (optional)
+        );
+        spriteSheetBase64 = replicateResult.spriteSheet.toDataURL('image/png');
+        generatedPrompt = characterDescription;
+        generatedModel = 'replicate-seedance-1-pro-fast';
+        generatedCharacterDesc = characterDescription;
+      } else {
+        // Use Gemini-based generation (works in browser)
+        setStatusText('Generating sprite sheet with Gemini AI...');
+        const geminiResult = await generateSpriteSheet(
+          imageBase64,           // imageBase64
+          selectedAction,        // actionId
+          selectedExpression,    // expressionId
+          selectedArtStyle,      // artStyleId
+          characterDescription,  // userPrompt (character description)
+          selectedDirection,     // direction
+          rows,                  // rows
+          cols                   // cols
+        );
+        spriteSheetBase64 = geminiResult.imageData;
+        generatedPrompt = geminiResult.prompt;
+        generatedModel = geminiResult.modelId;
+        generatedCharacterDesc = geminiResult.characterDescription;
+      }
 
       // Store generation metadata
-      setGenerationPrompt(characterDescription);
-      setGenerationModel('replicate-seedance-1-pro-fast');
-      setGenerationCharacterDescription(characterDescription);
+      setGenerationPrompt(generatedPrompt);
+      setGenerationModel(generatedModel);
+      setGenerationCharacterDescription(generatedCharacterDesc);
 
       setStatusText("Sprite sheet generated! Running intelligent alignment analysis...");
 
@@ -489,8 +561,8 @@ export default function Woujamind() {
       // This ensures smooth animations by detecting and fixing alignment issues
       const alignmentResult = await aiSmartAlignSpriteSheet(
         spriteSheetBase64,
-        result.rows,
-        result.cols,
+        rows,
+        cols,
         (status) => setStatusText(status) // Progress callback
       );
       
@@ -507,17 +579,17 @@ export default function Woujamind() {
       try {
         await saveSpriteSheet({
           imageData: alignmentResult.aligned,
-          prompt: characterDescription,
-          characterDescription: characterDescription,
+          prompt: generatedPrompt,
+          characterDescription: generatedCharacterDesc,
           selectedAction,
           selectedExpression,
           artStyle: selectedArtStyle,
-          gridRows: result.rows,
-          gridCols: result.cols,
+          gridRows: rows,
+          gridCols: cols,
           fps,
           isTransparent,
           hasDropShadow,
-          modelId: 'replicate-seedance-1-pro-fast',
+          modelId: generatedModel,
           history: [alignmentResult.aligned],
           historyIndex: 0,
         });
@@ -546,13 +618,37 @@ export default function Woujamind() {
     } catch (error: any) {
       console.error("Generation failed:", error);
       const errorMessage = error.message || JSON.stringify(error);
-      
+
+      // Refund credits on failure
+      if (currentGenerationJobId) {
+        const directionCount: DirectionCount = 1;
+        const estimate = calculateGenerationCost(directionCount);
+        refundCredits(
+          estimate.creditsRequired,
+          `Generation failed: ${errorMessage.substring(0, 100)}`,
+          currentGenerationJobId
+        );
+        refreshCredits();
+        toast.success(`No charge - ${estimate.creditsRequired} credits refunded automatically`, {
+          description: "You're only charged for successful generations"
+        });
+        setCurrentGenerationJobId(null);
+      }
+
       if (errorMessage.match(/(Requested entity was not found|PERMISSION_DENIED|UNAUTHENTICATED|API keys are not supported|API_KEY_MISSING|401|403)/)) {
         setHasApiKey(false);
-        toast.error("Authentication failed. Please connect a valid API Key.");
+        toast.error("Authentication failed. Please connect a valid API Key.", {
+          description: "No credits were charged"
+        });
       } else {
-        toast.error(errorMessage || "Generation failed. Please try again.");
+        toast.error(errorMessage || "Generation failed. Please try again.", {
+          description: "No credits were charged"
+        });
       }
+
+      // Return to editor view on error
+      setResult(false);
+      setHasResult(false);
     } finally {
       setIsGenerating(false);
       setStatusText("");
@@ -1681,6 +1777,25 @@ export default function Woujamind() {
             </motion.div>
 
           </div>
+        </div>
+
+        {/* Credit Store Modal */}
+        <CreditStore
+          isOpen={isCreditStoreOpen}
+          onClose={() => setIsCreditStoreOpen(false)}
+          onPurchaseComplete={handleCreditPurchaseComplete}
+        />
+
+        {/* Fixed Credit Display (bottom-right corner) */}
+        <div className="fixed bottom-6 right-6 z-50">
+          <CreditDisplay
+            credits={userCredits}
+            onBuyClick={() => setIsCreditStoreOpen(true)}
+            onHistoryClick={() => {
+              toast.info('Transaction history feature coming soon!');
+            }}
+            compact={true}
+          />
         </div>
       </div>
     </div>

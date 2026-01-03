@@ -83,3 +83,68 @@ export interface CharacterAnalysis {
   isMultiView: boolean;
   viewData?: MultiViewData;
 }
+
+// ===== CREDIT SYSTEM TYPES =====
+
+/**
+ * User credit balance and statistics
+ */
+export interface UserCredits {
+  userId: string;
+  balance: number;              // Current credit balance
+  balanceUSD: number;           // Balance in USD (balance / 100)
+  totalPurchased: number;       // Total credits ever purchased
+  totalSpent: number;           // Total credits ever spent
+  lastUpdated: Date;
+}
+
+/**
+ * Credit transaction record
+ */
+export interface CreditTransaction {
+  id: string;
+  userId: string;
+  amount: number;               // Positive = purchase/refund, negative = spend
+  transactionType: 'purchase' | 'spend' | 'refund' | 'admin_adjustment';
+  referenceId?: string;         // sprite_job_id or stripe_charge_id
+  description: string;
+  createdAt: Date;
+}
+
+/**
+ * Credit package for purchase
+ */
+export interface CreditPackage {
+  id: string;
+  credits: number;
+  priceCents: number;           // Price in cents (e.g., 5000 = $50.00)
+  bonusCredits: number;         // Bonus credits included
+  displayName: string;          // "Starter Bundle", "Pro Bundle", etc.
+  description: string;
+  isActive: boolean;
+  isPopular?: boolean;          // Flag for highlighting
+}
+
+/**
+ * Sprite generation direction count
+ */
+export type DirectionCount = 1 | 4 | 8;
+
+/**
+ * Cost estimate for sprite generation
+ */
+export interface GenerationCostEstimate {
+  directions: DirectionCount;
+  creditsRequired: number;
+  usdEquivalent: number;
+  estimatedMinutes: number;
+}
+
+/**
+ * Generation cost constants (in credits, 1 credit = $0.01)
+ */
+export const GENERATION_COSTS: Record<DirectionCount, number> = {
+  1: 50,    // $0.50
+  4: 150,   // $1.50
+  8: 350,   // $3.50
+};

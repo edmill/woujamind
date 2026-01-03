@@ -484,7 +484,7 @@ export const generateSpriteSheet = async (
   direction: SpriteDirection = 'right',
   rows: number = 2,
   cols: number = 4,
-  modelId: string = 'gemini-2.5-pro-image',
+  modelId: string = 'gemini-2.5-flash-image',
   customRules?: string,
   multiViewData?: MultiViewData | null
 ): Promise<SpriteSheetResult> => {
@@ -705,7 +705,7 @@ OUTPUT: Return ONLY the enhanced description text, no introduction or explanatio
 export const editSpriteSheet = async (
   imageBase64: string,
   editPrompt: string,
-  modelId: string = 'gemini-2.5-pro-image'
+  modelId: string = 'gemini-2.5-flash-image'
 ): Promise<string> => {
   console.log('[Edit] ===== STARTING EDIT =====');
   console.log('[Edit] Edit prompt:', editPrompt);
@@ -816,7 +816,7 @@ export const generateInBetweenFrame = async (
   action: string,
   characterDescription: string,
   artStyle: string,
-  modelId: string = 'gemini-2.5-pro-image'
+  modelId: string = 'gemini-2.5-flash-image'
 ): Promise<string> => {
   console.log('[InBetween] ===== STARTING IN-BETWEEN FRAME GENERATION =====');
   console.log('[InBetween] Action:', action);
