@@ -16,6 +16,7 @@ export interface StoredSpriteSheet {
   selectedAction: string;
   selectedExpression?: string;
   artStyle: string;
+  directionCount?: 1 | 4 | 8;         // NEW: Track how many directions were generated
 
   // Grid configuration
   gridRows: number;
@@ -32,6 +33,12 @@ export interface StoredSpriteSheet {
   // History for undo/redo
   history: string[];
   historyIndex: number;
+
+  // Frame selection metadata (for Replicate/video-based generation)
+  totalExtractedFrames?: number;      // Total frames extracted from video (e.g., 150)
+  selectedFrameIndices?: number[];    // Indices of frames selected for sprite sheet
+  frameSelectionMethod?: 'auto' | 'manual'; // How frames were selected
+  allExtractedFramesData?: string[];  // Base64 data URLs of all extracted frames (for Frame Gallery)
 }
 
 const DB_NAME = 'woujamind_sprites';

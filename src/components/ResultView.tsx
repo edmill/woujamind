@@ -110,6 +110,11 @@ interface ResultViewProps {
   // Art Style
   selectedArtStyle: ArtStyle;
   onArtStyleChange: (style: ArtStyle) => void;
+
+  // Frame Gallery (advanced frame selection)
+  hasExtractedFrames?: boolean;
+  extractedFrameCount?: number;
+  onOpenFrameGallery?: () => void;
 }
 
 export function ResultView({
@@ -155,7 +160,10 @@ export function ResultView({
   generationModel = '',
   generationCharacterDescription = '',
   selectedArtStyle,
-  onArtStyleChange
+  onArtStyleChange,
+  hasExtractedFrames = false,
+  extractedFrameCount = 0,
+  onOpenFrameGallery
 }: ResultViewProps) {
   const [frames, setFrames] = useState<HTMLCanvasElement[]>([]);
   const [isLoadingFrames, setIsLoadingFrames] = useState(false);
@@ -792,12 +800,30 @@ export function ResultView({
                        </>
                      )}
 
-                     {/* Art Style Info Badge */}
-                     <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
-                     <div className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg" title={`Art Style: ${currentArtStyle.label}`}>
-                       <Palette className="w-4 h-4" />
-                       <span className="hidden lg:inline text-xs font-semibold">{currentArtStyle.label}</span>
-                     </div>
+                    {/* Frame Gallery Button (Advanced Frame Selection) */}
+                    {hasExtractedFrames && onOpenFrameGallery && (
+                      <>
+                        <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
+                        <button
+                          onClick={onOpenFrameGallery}
+                          disabled={isEditing}
+                          className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={`View all ${extractedFrameCount} extracted frames and customize selection`}
+                        >
+                          <Film className="w-4 h-4" />
+                          <span className="hidden lg:inline text-xs font-semibold">
+                            Frame Gallery ({extractedFrameCount})
+                          </span>
+                        </button>
+                      </>
+                    )}
+
+                    {/* Art Style Info Badge */}
+                    <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg" title={`Art Style: ${currentArtStyle.label}`}>
+                      <Palette className="w-4 h-4" />
+                      <span className="hidden lg:inline text-xs font-semibold">{currentArtStyle.label}</span>
+                    </div>
 
                      {/* Frame Management Buttons */}
                      {(onInsertFrame || onRemoveFrame) && selectedFrameIndices.length === 1 && (

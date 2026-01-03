@@ -392,8 +392,12 @@ export const alignWholeSheet = async (
 
   // Calculate median center point (more robust than average)
   const validCenters = frameCenters.filter(c => c !== null) as Array<{ x: number; y: number; bbox: any }>;
+  
+  console.log(`[Alignment] Detected ${validCenters.length} valid frames out of ${rows * cols} total frames`);
+  
   if (validCenters.length === 0) {
     // Fallback to original image if no valid frames
+    console.warn('[Alignment] No valid character frames detected - returning original image');
     ctx.drawImage(sheet, 0, 0);
     return canvas.toDataURL('image/png');
   }
@@ -404,7 +408,8 @@ export const alignWholeSheet = async (
   const medianX = sortedX[Math.floor(sortedX.length / 2)];
   const medianY = sortedY[Math.floor(sortedY.length / 2)];
 
-  console.log(`[Alignment] Character anchor point - X: ${medianX} (body center), Y: ${medianY} (feet/base)`);
+  console.log(`[Alignment] Target anchor point - X: ${medianX} (body center), Y: ${medianY} (feet/base)`);
+  console.log(`[Alignment] X range: ${sortedX[0]} to ${sortedX[sortedX.length-1]}, Y range: ${sortedY[0]} to ${sortedY[sortedY.length-1]}`);
 
   // SECOND PASS: Align all frames to the consistent anchor point
   for (let i = 0; i < rows * cols; i++) {

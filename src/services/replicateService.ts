@@ -1,11 +1,14 @@
 /**
  * Replicate Service
  * Handles all Replicate API interactions for Seedance video generation
+ * Uses Replicate HTTP API directly (works in browser without backend proxy)
+ * Reference: https://replicate.com/docs/reference/http
  */
 
-import Replicate from 'replicate';
 import { GoogleGenAI } from "@google/genai";
 import { extractFrames } from '../utils/videoProcessing';
+import { FrameCenteringService } from '../utils/frameCentering';
+import { selectOptimalFrames } from '../utils/frameSelection';
 import type { StyleParameters } from '../types';
 
 // Storage key for Replicate API key
@@ -44,15 +47,7 @@ const getGeminiApiKey = (): string => {
   throw new Error("GEMINI_API_KEY_MISSING: Please add your Gemini API key in Settings for prompt optimization");
 };
 
-/**
- * Get Replicate client instance
- */
-const getReplicateClient = (): Replicate => {
-  const apiKey = getReplicateApiKey();
-  return new Replicate({
-    auth: apiKey,
-  });
-};
+// Note: No longer using Replicate SDK - using HTTP API directly instead
 
 /**
  * Get Gemini client instance
@@ -117,14 +112,16 @@ Action: ${action}
 Direction: ${direction}
 ${styleParameters ? `Style: ${styleParameters.artStyleCategory}, Shading: ${styleParameters.shadingTechnique}` : ''}
 
-Focus on:
-1. Character appearance (species, gender, physique, distinctive features)
-2. Clothing and accessories (exact colors, materials, details)
-3. Visual proportions and anatomy
-4. Art style and rendering quality
-5. The specific action and direction
-
-CRITICAL: The prompt MUST include "bright green chroma key background" or "solid green screen background #00FF00" to ensure clean background removal.
+CRITICAL REQUIREMENTS:
+1. If "1 direction", generate ONLY a single view (front or side view)
+2. If "4 directions", generate 4 cardinal views: North, East, South, West
+3. If "8 directions", generate all 8 views: N, NE, E, SE, S, SW, W, NW
+4. Each direction should show the complete ${action} animation cycle
+5. Character appearance (species, gender, physique, distinctive features)
+6. Clothing and accessories (exact colors, materials, details)
+7. Visual proportions and anatomy
+8. Art style and rendering quality
+9. MUST include "bright green chroma key background" for clean background removal
 
 Create a concise, detailed prompt (2-3 sentences) that captures the character's visual essence and the desired animation.
 Include action verbs and movement descriptors.
@@ -171,7 +168,7 @@ export const generateVideoFromImage = async (
   prompt: string,
   onProgress?: (status: string) => void
 ): Promise<Blob> => {
-  const replicate = getReplicateClient();
+  const apiKey = getReplicateApiKey();
 
   try {
     onProgress?.('Initializing video generation...');
@@ -183,22 +180,37 @@ export const generateVideoFromImage = async (
 
     console.log('[generateVideoFromImage] Starting Seedance generation with prompt:', prompt);
 
-    // Call Seedance model
-    // Model: bytedance/seedance-1-pro-fast
+    // Call Seedance model via backend proxy (required due to CORS)
+    // The proxy forwards requests to Replicate API
     onProgress?.('Generating video with Replicate Seedance...');
 
-    const output = await replicate.run(
-      "bytedance/seedance-1-pro-fast:a8c7ea67-c9ab-4f71-ac84-4036af08734b",
-      {
-        input: {
-          image: imageDataUri,
-          prompt: prompt,
-          num_frames: 150, // 5 seconds at 30 FPS
-          guidance_scale: 7.5,
-          num_inference_steps: 20,
-        }
-      }
-    );
+    // Step 1: Call backend proxy with API key from localStorage
+    const proxyUrl = 'http://localhost:3001/api/replicate-proxy';
+    const createResponse = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image: imageDataUri,
+        prompt: prompt,
+        num_frames: 150, // 5 seconds at 30 FPS
+        guidance_scale: 7.5,
+        num_inference_steps: 20,
+        apiKey: apiKey, // Pass API key from localStorage to proxy
+      })
+    });
+
+    if (!createResponse.ok) {
+      const errorData = await createResponse.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || `Proxy request failed: ${createResponse.statusText}`);
+    }
+
+    const { output, error } = await createResponse.json();
+    
+    if (error) {
+      throw new Error(error);
+    }
 
     console.log('[generateVideoFromImage] Seedance output:', output);
 
@@ -327,8 +339,10 @@ export const createSpriteSheetFromFrames = (
  * Steps:
  * 1. Optimize prompt for Seedance (Gemini 2.5 Pro Image)
  * 2. Generate video from image (Replicate Seedance)
- * 3. Extract frames from video (Native Canvas)
- * 4. Create sprite sheet from frames (Canvas Grid)
+ * 3. Extract ALL frames from video (150 frames at 30 FPS)
+ * 4. Smart frame selection (pick optimal frames for animation)
+ * 5. Center frames (fix animation jumping/drifting)
+ * 6. Create sprite sheet from selected frames (Canvas Grid)
  */
 export const generateSpriteSheetFromImage = async (
   referenceImageBase64: string,
@@ -339,7 +353,13 @@ export const generateSpriteSheetFromImage = async (
   styleParameters?: StyleParameters,
   onStatusUpdate?: (status: string) => void,
   onFrameProgress?: (current: number, total: number) => void
-): Promise<{ spriteSheet: HTMLCanvasElement; rows: number; cols: number }> => {
+): Promise<{ 
+  spriteSheet: HTMLCanvasElement; 
+  rows: number; 
+  cols: number;
+  allFrames: HTMLCanvasElement[];        // NEW: All 150 extracted frames
+  selectedIndices: number[];              // NEW: Indices of frames used in sprite sheet
+}> => {
   try {
     // Step 1: Optimize prompt
     onStatusUpdate?.('Optimizing prompt for animation...');
@@ -359,25 +379,68 @@ export const generateSpriteSheetFromImage = async (
       onStatusUpdate
     );
 
-    // Step 3: Extract frames
-    onStatusUpdate?.('Extracting frames from video...');
-    const frames = await extractFramesFromVideo(
+    // Step 3: Extract ALL frames from video (150 frames at 30 FPS)
+    onStatusUpdate?.('Extracting all frames from video (150 frames)...');
+    const ALL_FRAMES_COUNT = 150; // Seedance generates 5 seconds at 30 FPS
+    const allFrames = await extractFramesFromVideo(
       videoBlob,
-      frameCount,
+      ALL_FRAMES_COUNT,
       onFrameProgress
     );
+    console.log('[generateSpriteSheetFromImage] Extracted', allFrames.length, 'total frames');
 
-    // Step 4: Calculate grid dimensions
+    // Step 4: Smart frame selection - pick optimal frames for animation
+    onStatusUpdate?.('Selecting optimal frames for smooth animation...');
+    console.log('[generateSpriteSheetFromImage] Selecting', frameCount, 'frames from', allFrames.length);
+    
+    const selectedIndices = selectOptimalFrames(
+      allFrames,
+      {
+        totalFrames: allFrames.length,
+        targetFrameCount: frameCount,
+        method: 'smart' // Uses quality-based selection within even segments
+      },
+      (current, total) => {
+        console.log(`[Frame Selection] Progress: ${current}/${total}`);
+      }
+    );
+    
+    console.log('[generateSpriteSheetFromImage] Selected frame indices:', selectedIndices);
+    
+    // Extract selected frames
+    const selectedFrames = selectedIndices.map(idx => allFrames[idx]);
+
+    // Step 5: CENTER FRAMES (CRITICAL - Fixes animation jumping/drifting)
+    onStatusUpdate?.('Centering character frames for smooth animation...');
+    console.log('[generateSpriteSheetFromImage] Centering', selectedFrames.length, 'selected frames');
+    
+    const centeringService = new FrameCenteringService({
+      targetWidth: 256,
+      targetHeight: 256,
+      paddingPercent: 0.1,
+      debug: true
+    });
+    
+    const centeredFrames = await centeringService.centerFramesBatch(selectedFrames);
+    console.log('[generateSpriteSheetFromImage] Successfully centered all frames');
+
+    // Step 6: Calculate grid dimensions
     const { rows, cols } = calculateGridDimensions(frameCount);
     console.log('[generateSpriteSheetFromImage] Grid dimensions:', rows, 'x', cols);
 
-    // Step 5: Create sprite sheet
+    // Step 7: Create sprite sheet from centered frames
     onStatusUpdate?.('Creating sprite sheet...');
-    const spriteSheet = createSpriteSheetFromFrames(frames, rows, cols);
+    const spriteSheet = createSpriteSheetFromFrames(centeredFrames, rows, cols);
 
     onStatusUpdate?.('Sprite sheet generated successfully!');
 
-    return { spriteSheet, rows, cols };
+    return { 
+      spriteSheet, 
+      rows, 
+      cols,
+      allFrames,           // Return all 150 frames for user selection
+      selectedIndices      // Return which frames were auto-selected
+    };
 
   } catch (error: any) {
     console.error('[generateSpriteSheetFromImage] Pipeline error:', error);
