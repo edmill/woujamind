@@ -115,7 +115,7 @@ Given this reference image and user's prompt, create an optimized prompt for See
 User's original prompt: "${userPrompt}"
 Action: ${action}
 Direction: ${direction}
-${styleParameters ? `Style: ${styleParameters.artStyle}, Rendering: ${styleParameters.renderingStyle}` : ''}
+${styleParameters ? `Style: ${styleParameters.artStyleCategory}, Shading: ${styleParameters.shadingTechnique}` : ''}
 
 Focus on:
 1. Character appearance (species, gender, physique, distinctive features)
@@ -133,7 +133,7 @@ ALWAYS end with: "bright green chroma key background"
 Output ONLY the optimized prompt text, nothing else.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-pro-latest',
+      model: 'gemini-2.0-flash-exp',
       contents: {
         parts: [
           { text: optimizationPrompt },
@@ -185,6 +185,8 @@ export const generateVideoFromImage = async (
 
     // Call Seedance model
     // Model: bytedance/seedance-1-pro-fast
+    onProgress?.('Generating video with Replicate Seedance...');
+
     const output = await replicate.run(
       "bytedance/seedance-1-pro-fast:a8c7ea67-c9ab-4f71-ac84-4036af08734b",
       {
@@ -194,23 +196,6 @@ export const generateVideoFromImage = async (
           num_frames: 150, // 5 seconds at 30 FPS
           guidance_scale: 7.5,
           num_inference_steps: 20,
-        }
-      },
-      {
-        // Progress callback
-        onProgress: (prediction) => {
-          const status = prediction.status;
-          const logs = prediction.logs;
-
-          if (logs) {
-            console.log('[Seedance]', logs);
-          }
-
-          if (status === 'processing') {
-            onProgress?.('Generating video...');
-          } else if (status === 'succeeded') {
-            onProgress?.('Video generated, downloading...');
-          }
         }
       }
     );

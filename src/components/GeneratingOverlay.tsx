@@ -36,7 +36,7 @@ export function GeneratingOverlay({
       </div>
 
       {/* Centered animated sphere */}
-      <div className="relative z-10 flex flex-col items-center gap-12">
+      <div className="relative z-10 flex flex-col items-center gap-20">
         <motion.div
           animate={
             isSwooshing
@@ -177,7 +177,7 @@ export function GeneratingOverlay({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            className="font-normal text-sm text-slate-600 dark:text-slate-400 px-4 py-2"
+            className="font-normal text-sm text-slate-700 dark:text-slate-300 px-6 py-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-full shadow-lg border border-slate-200 dark:border-slate-700"
           >
             {statusText}
           </motion.div>

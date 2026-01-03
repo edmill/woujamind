@@ -131,6 +131,42 @@ Image utilities are organized into focused modules (all re-exported from `imageU
 - `BlobPreview.tsx`, `CompactAnimationPreview.tsx` - Animation previews
 - `PromptHelper.tsx`, `PromptEnhancer.tsx` - Prompt assistance UI
 
+**Credit System Components (NEW in Phase 1 MVP):**
+- `CreditDisplay.tsx` - Shows user's credit balance (compact and full modes)
+- `CreditStore.tsx` - Modal for purchasing credit packages
+- `GenerationCostEstimate.tsx` - Displays cost and time estimates before generation
+
+**Utility Components:**
+- `ApiKeyInput.tsx` - Reusable API key input with integrated visibility toggle and validation button
+
+### Credit System Architecture
+
+**creditService.ts** - Mock credit management (localStorage-based, will be replaced with API)
+- Initial demo balance: 5000 credits ($50 equivalent)
+- Credit costs: 1 direction = 50 credits, 4 directions = 150 credits, 8 directions = 350 credits
+- Key functions:
+  - `getUserCredits()` - Fetch current balance
+  - `deductCredits(amount, description, jobId)` - Deduct on generation start
+  - `refundCredits(amount, reason, jobId)` - Refund on generation failure
+  - `addCredits(amount, description)` - Add credits from purchases
+  - `calculateGenerationCost(directions)` - Calculate estimated cost
+  - `purchaseCredits(packageId)` - Mock Stripe purchase flow
+
+**Credit Flow:**
+1. User clicks generate → system calculates cost based on direction count
+2. Credits deducted immediately when generation starts
+3. Job ID tracked for refund purposes
+4. On success: credits remain deducted, generation saved
+5. On failure: credits automatically refunded with error description
+6. Credit balance persists in localStorage: `woujamind_user_credits`, `woujamind_credit_transactions`
+
+**UI Design System:**
+All credit components use the Woujamind Design System (design-system.css)
+- Semantic CSS variables for colors, spacing, typography, shadows
+- Dark/light mode support via `prefers-color-scheme`
+- Component classes: `.btn`, `.card`, `.badge`, `.form-control`
+- Design tokens: `--color-*`, `--space-*`, `--font-size-*`, `--radius-*`, `--shadow-*`
+
 ### Type System
 
 **types.ts** defines core types:
@@ -141,6 +177,13 @@ Image utilities are organized into focused modules (all re-exported from `imageU
 - `StyleParameters` - Detailed style analysis result (line weight, shading, colors, textures)
 - `CharacterAnalysis` - Complete analysis result including multi-view detection
 - `MultiViewData` - Multi-view sprite sheet detection result
+- **Credit System Types (NEW):**
+  - `UserCredits` - User balance, total purchased, total spent
+  - `CreditTransaction` - Transaction history record (purchase, spend, refund, admin_adjustment)
+  - `CreditPackage` - Purchasable credit bundle (id, credits, price, bonus, display name)
+  - `DirectionCount` - 1 | 4 | 8 (sprite generation direction options)
+  - `GenerationCostEstimate` - Cost calculation with credits, USD equivalent, estimated time
+  - `GENERATION_COSTS` - Cost constants: 1dir=50cr, 4dir=150cr, 8dir=350cr
 
 ### Generation Workflow
 
@@ -176,6 +219,20 @@ Image utilities are organized into focused modules (all re-exported from `imageU
 - Style parameters are extracted from reference images and embedded in generation prompts
 - Multi-view detection prevents generating duplicate views when reference already contains them
 - Custom rules from Settings are appended to all generation prompts
+
+### API Key Management
+- **ApiKeyInput Component** - Reusable input with integrated features:
+  - Toggle visibility button (eye icon) to show/hide API key
+  - Validate button (check icon) with loading states
+  - Real-time validation status indicators (green=success, red=error)
+  - Validation messages displayed below input
+- **Gemini Validation** - Full API validation by fetching model list from `generativelanguage.googleapis.com/v1beta/models`
+- **Replicate Validation** - Format validation only (checks for `r8_` prefix + 30-50 alphanumeric characters)
+  - Full validation skipped due to CORS restrictions in browser
+  - Key validated during actual sprite generation
+  - Users notified that validation occurs on first use
+- Both keys stored in localStorage and validated on-demand
+- Validation automatically saves valid keys to localStorage
 
 ### State Persistence
 - Current sprite sheet persists across browser refreshes via IndexedDB

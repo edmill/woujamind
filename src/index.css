@@ -1,3 +1,6 @@
+/* Import Woujamind Design System */
+@import './design-system.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

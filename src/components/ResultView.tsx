@@ -254,9 +254,15 @@ export function ResultView({
       setIsSwooshing(false);
       wasGeneratingRef.current = true;
     }
-    // When generation completes, trigger swoosh
+    // When generation completes successfully, trigger swoosh
     else if (wasGeneratingRef.current && imageSrc) {
       setIsSwooshing(true);
+      wasGeneratingRef.current = false;
+    }
+    // When generation fails (no image), hide overlay immediately
+    else if (wasGeneratingRef.current && !imageSrc && !isGenerating) {
+      setShowOverlay(false);
+      setIsSwooshing(false);
       wasGeneratingRef.current = false;
     }
   }, [isGenerating, imageSrc]);
