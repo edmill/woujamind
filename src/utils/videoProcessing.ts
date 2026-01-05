@@ -173,18 +173,30 @@ export const extractFrames = async (
 
     return frames;
   } finally {
-    // Clean up: revoke object URL and remove video element
-    URL.revokeObjectURL(video.src);
-    video.remove();
+    // CRITICAL MEMORY CLEANUP: Properly destroy video element to prevent memory leaks
+    // Video elements hold large memory buffers that accumulate across multiple generations
+    video.pause();
+    const blobUrl = video.src;
+    video.removeAttribute('src');
+    video.load(); // Force release of video buffer
+    if (blobUrl && blobUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(blobUrl);
+    }
+    video.remove(); // Remove from DOM
   }
 };
 
 /**
  * Clean up video resources
+ * CRITICAL: Properly destroys video element to prevent memory leaks
  */
 export const cleanupVideo = (video: HTMLVideoElement) => {
-  if (video.src && video.src.startsWith('blob:')) {
-    URL.revokeObjectURL(video.src);
+  video.pause();
+  const blobUrl = video.src;
+  video.removeAttribute('src');
+  video.load(); // Force release of video buffer from memory
+  if (blobUrl && blobUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(blobUrl);
   }
   video.remove();
 };

@@ -197,6 +197,10 @@ export default function Woujamind() {
   const [isCreditStoreOpen, setIsCreditStoreOpen] = useState(false);
   const [currentGenerationJobId, setCurrentGenerationJobId] = useState<string | null>(null);
 
+  // Rate Limiting (SECURITY: Prevent API cost explosions from spam/bugs)
+  const lastGenerationTime = useRef<number>(0);
+  const MIN_GENERATION_INTERVAL_MS = 10000; // 10 seconds between generations
+
   // Legacy: Keep for backward compatibility (can be removed later)
   const [tokens, setTokens] = useState<number>(1); // Deprecated - use credits instead
   const [showPricing, setShowPricing] = useState(false); // Deprecated
@@ -563,6 +567,16 @@ export default function Woujamind() {
       alert("Please connect your API key first");
       return;
     }
+
+    // SECURITY: Rate limiting - prevent rapid-fire API cost explosions
+    const now = Date.now();
+    const timeSinceLastGeneration = now - lastGenerationTime.current;
+    if (timeSinceLastGeneration < MIN_GENERATION_INTERVAL_MS) {
+      const waitSeconds = Math.ceil((MIN_GENERATION_INTERVAL_MS - timeSinceLastGeneration) / 1000);
+      toast.error(`Please wait ${waitSeconds} seconds before generating again to prevent accidental charges.`);
+      return;
+    }
+    lastGenerationTime.current = now;
 
     // Calculate optimal frame count based on action and direction
     const optimalFrameCount = calculateOptimalFrameCount(selectedAction, selectedDirectionCount);

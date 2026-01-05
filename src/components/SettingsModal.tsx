@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, RotateCcw, ShieldAlert, Key, CheckCircle2, AlertCircle, Loader2, HardDrive, Download, Trash2, AlertTriangle } from 'lucide-react';
+import { X, Save, Key, CheckCircle2, AlertCircle, Loader2, HardDrive, Download, Trash2, AlertTriangle, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../utils';
 import { getStorageStats, clearAllSprites } from '../utils/spriteStorage';
@@ -26,31 +26,15 @@ QUALITY STANDARDS:
 • Professional composition - proper spacing, centered characters, full visibility
 • Clean output - pure white backgrounds, no artifacts, grid lines, or text overlays`;
 
-const DEFAULT_GEMINI_30_RULES = `PERSONA: You are a master game artist and technical animator specializing in production-ready sprite sheets for professional 2D game development. You understand the precise technical requirements for game engine integration and prioritize pixel-perfect consistency and clean composition.
-
-QUALITY STANDARDS:
-• Invisible grid structure - mathematical spacing only, zero visible borders or separators
-• Pixel-perfect consistency - exact character dimensions, proportions, and colors across every frame
-• Professional-grade composition - optimal padding, perfect centering, complete character visibility
-• Production-ready output - pristine white backgrounds (#FFFFFF), zero artifacts or annotations
-• Character props ALLOWED - characters may hold items, weapons, or tools that move with them
-• NO duplicate body parts - each character has exactly one set of limbs/body parts per frame
-• NO cross-frame elements - no projectiles, beams, or connections spanning multiple frames
-• Enhanced detail - leverage advanced model capabilities for superior sprite quality and animation smoothness`;
-
 // LocalStorage keys
 const STORAGE_KEYS = {
   API_KEY: 'woujamind_api_key',
   REPLICATE_API_KEY: 'woujamind_replicate_api_key',
-  GEMINI_25_RULES: 'woujamind_gemini_25_rules',
-  GEMINI_30_RULES: 'woujamind_gemini_30_rules',
 };
 
 export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }: SettingsModalProps) {
   const [apiKey, setApiKey] = useState<string>('');
   const [replicateApiKey, setReplicateApiKey] = useState<string>('');
-  const [gemini25Rules, setGemini25Rules] = useState<string>(DEFAULT_GEMINI_25_RULES);
-  const [gemini30Rules, setGemini30Rules] = useState<string>(DEFAULT_GEMINI_30_RULES);
 
   // Gemini validation state
   const [geminiValidationStatus, setGeminiValidationStatus] = useState<'idle' | 'success' | 'error' | 'validating'>('idle');
@@ -60,8 +44,6 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
   const [replicateValidationStatus, setReplicateValidationStatus] = useState<'idle' | 'success' | 'error' | 'validating'>('idle');
   const [replicateValidationMessage, setReplicateValidationMessage] = useState<string>('');
 
-  const [activeRulesTab, setActiveRulesTab] = useState<'25' | '30'>('25');
-  const [showSaveSuccess, setShowSaveSuccess] = useState<{ type: 'rules25' | 'rules30' | 'all' | null }>({ type: null });
   const [storageStats, setStorageStats] = useState<{ count: number; estimatedSize: number } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -78,13 +60,9 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
       try {
         const storedApiKey = localStorage.getItem(STORAGE_KEYS.API_KEY);
         const storedReplicateApiKey = localStorage.getItem(STORAGE_KEYS.REPLICATE_API_KEY);
-        const stored25Rules = localStorage.getItem(STORAGE_KEYS.GEMINI_25_RULES);
-        const stored30Rules = localStorage.getItem(STORAGE_KEYS.GEMINI_30_RULES);
 
         setApiKey(storedApiKey || currentApiKey || '');
         setReplicateApiKey(storedReplicateApiKey || '');
-        setGemini25Rules(stored25Rules || DEFAULT_GEMINI_25_RULES);
-        setGemini30Rules(stored30Rules || DEFAULT_GEMINI_30_RULES);
 
         // Reset validation states
         setGeminiValidationStatus('idle');
@@ -159,7 +137,12 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
 
     try {
       // Test the API key by making a simple request to list models
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
+      // SECURITY: Use header instead of query param to avoid logging API keys in URLs
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+        headers: {
+          'x-goog-api-key': apiKey
+        }
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -242,21 +225,6 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
     }
   };
 
-  const handleSaveRules = (model: '25' | '30') => {
-    if (model === '25') {
-      localStorage.setItem(STORAGE_KEYS.GEMINI_25_RULES, gemini25Rules);
-      setShowSaveSuccess({ type: 'rules25' });
-    } else {
-      localStorage.setItem(STORAGE_KEYS.GEMINI_30_RULES, gemini30Rules);
-      setShowSaveSuccess({ type: 'rules30' });
-    }
-    
-    // Hide success indicator after 2 seconds
-    setTimeout(() => {
-      setShowSaveSuccess({ type: null });
-    }, 2000);
-  };
-
   const handleSave = () => {
     // Save API key
     handleSaveApiKey();
@@ -266,26 +234,8 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
       localStorage.setItem(STORAGE_KEYS.REPLICATE_API_KEY, replicateApiKey);
     }
 
-    // Save both rule sets
-    localStorage.setItem(STORAGE_KEYS.GEMINI_25_RULES, gemini25Rules);
-    localStorage.setItem(STORAGE_KEYS.GEMINI_30_RULES, gemini30Rules);
-    
-    // Show success indicator
-    setShowSaveSuccess({ type: 'all' });
-    
-    // Close after showing success briefly
-    setTimeout(() => {
-      setShowSaveSuccess({ type: null });
-      onClose();
-    }, 1500);
-  };
-
-  const handleResetRules = (model: '25' | '30') => {
-    if (model === '25') {
-      setGemini25Rules(DEFAULT_GEMINI_25_RULES);
-    } else {
-      setGemini30Rules(DEFAULT_GEMINI_30_RULES);
-    }
+    // Close modal
+    onClose();
   };
 
   return (
@@ -319,11 +269,11 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
               </button>
 
               <div className="flex items-center gap-3 mb-2">
-                <ShieldAlert className="w-6 h-6 text-orange-500 dark:text-orange-400" />
+                <Settings className="w-6 h-6 text-orange-500 dark:text-orange-400" />
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h2>
               </div>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Manage your API key and model-specific generation rules
+                Manage your API keys and storage
               </p>
             </div>
 
@@ -487,159 +437,11 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
                 </div>
               </section>
 
-              {/* Model Rules Section */}
-              <section className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <ShieldAlert className="w-5 h-5 text-sky-500 dark:text-sky-400" />
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Model-Specific Rules</h3>
-                </div>
-
-                <div className="bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900/50 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    These rules are injected into every generation request to ensure consistency and prevent common AI artifacts. 
-                    Different rules can be configured for Gemini 2.5 and Gemini 3.0 models.
-                  </p>
-                </div>
-
-                {/* Tabs */}
-                <div className="bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl border border-slate-200 dark:border-slate-800 flex gap-1 mb-4">
-                  <button
-                    onClick={() => setActiveRulesTab('25')}
-                    className={cn(
-                      "flex-1 py-2.5 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all",
-                      activeRulesTab === '25'
-                        ? "bg-white dark:bg-slate-800 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0"
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
-                    )}
-                  >
-                    <span>Gemini 2.5</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveRulesTab('30')}
-                    className={cn(
-                      "flex-1 py-2.5 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all",
-                      activeRulesTab === '30'
-                        ? "bg-white dark:bg-slate-800 text-orange-900 dark:text-white shadow-sm dark:shadow-lg ring-1 ring-slate-200 dark:ring-0"
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
-                    )}
-                  >
-                    <span>Gemini 3.0</span>
-                  </button>
-                </div>
-
-                {/* Tab Content */}
-                <div className="space-y-4">
-                  {activeRulesTab === '25' ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                          Gemini 2.5 Rules
-                        </label>
-                        <button
-                          onClick={() => handleResetRules('25')}
-                          className="text-xs px-2 py-1 rounded-lg text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          Reset
-                        </button>
-                      </div>
-                      <textarea
-                        value={gemini25Rules}
-                        onChange={(e) => setGemini25Rules(e.target.value)}
-                        className="w-full h-64 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent resize-none"
-                        placeholder="Enter generation rules for Gemini 2.5..."
-                      />
-                      <button
-                        onClick={() => handleSaveRules('25')}
-                        className="w-full relative flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20 overflow-hidden"
-                      >
-                        <AnimatePresence mode="wait">
-                          {showSaveSuccess.type === 'rules25' ? (
-                            <motion.div
-                              key="success"
-                              initial={{ scale: 0, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              exit={{ scale: 0, opacity: 0 }}
-                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                              className="flex items-center gap-2"
-                            >
-                              <CheckCircle2 className="w-5 h-5" />
-                              <span>Saved!</span>
-                            </motion.div>
-                          ) : (
-                            <motion.div
-                              key="save"
-                              initial={{ scale: 1, opacity: 1 }}
-                              exit={{ scale: 0.8, opacity: 0 }}
-                              className="flex items-center gap-2"
-                            >
-                              <Save className="w-4 h-4" />
-                              <span>Save Gemini 2.5 Rules</span>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                          Gemini 3.0 Rules
-                        </label>
-                        <button
-                          onClick={() => handleResetRules('30')}
-                          className="text-xs px-2 py-1 rounded-lg text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          Reset
-                        </button>
-                      </div>
-                      <textarea
-                        value={gemini30Rules}
-                        onChange={(e) => setGemini30Rules(e.target.value)}
-                        className="w-full h-64 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent resize-none"
-                        placeholder="Enter generation rules for Gemini 3.0..."
-                      />
-                      <button
-                        onClick={() => handleSaveRules('30')}
-                        className="w-full relative flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-orange-500 via-orange-400 to-blue-500 hover:from-orange-600 hover:to-sky-600 transition-all shadow-lg shadow-orange-500/20 overflow-hidden"
-                      >
-                        <AnimatePresence mode="wait">
-                          {showSaveSuccess.type === 'rules30' ? (
-                            <motion.div
-                              key="success"
-                              initial={{ scale: 0, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              exit={{ scale: 0, opacity: 0 }}
-                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                              className="flex items-center gap-2"
-                            >
-                              <CheckCircle2 className="w-5 h-5" />
-                              <span>Saved!</span>
-                            </motion.div>
-                          ) : (
-                            <motion.div
-                              key="save"
-                              initial={{ scale: 1, opacity: 1 }}
-                              exit={{ scale: 0.8, opacity: 0 }}
-                              className="flex items-center gap-2"
-                            >
-                              <Save className="w-4 h-4" />
-                              <span>Save Gemini 3.0 Rules</span>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </section>
-
             </div>
 
             {/* Footer */}
             <div className="p-6 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
-              <button 
+              <button
                 onClick={onClose}
                 className="px-6 py-2.5 rounded-xl font-bold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
               >
@@ -647,33 +449,10 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
               </button>
               <button
                 onClick={handleSave}
-                className="relative flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700 transition-all shadow-lg shadow-orange-500/20 overflow-hidden min-w-[140px]"
+                className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700 transition-all shadow-lg shadow-orange-500/20"
               >
-                <AnimatePresence mode="wait">
-                  {showSaveSuccess.type === 'all' ? (
-                    <motion.div
-                      key="success"
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0, opacity: 0 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                      className="flex items-center gap-2"
-                    >
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span>Saved!</span>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="save"
-                      initial={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.8, opacity: 0 }}
-                      className="flex items-center gap-2"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>Save Settings</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <Save className="w-4 h-4" />
+                <span>Save Settings</span>
               </button>
             </div>
 
@@ -729,15 +508,15 @@ export const getStoredApiKey = (): string | null => {
   return localStorage.getItem(STORAGE_KEYS.API_KEY);
 };
 
-export const getStoredRules = (model: string): string => {
-  // Check if model is 3.0 variant (not 2.5)
-  const is30Model = model.includes('gemini-3') || model.includes('3.0');
-  const key = is30Model ? STORAGE_KEYS.GEMINI_30_RULES : STORAGE_KEYS.GEMINI_25_RULES;
-  const stored = localStorage.getItem(key);
+export const getStoredRules = (): string => {
+  // Read from environment variable
+  const envRules = import.meta.env.VITE_GEMINI_SYSTEM_RULES;
 
-  if (stored) return stored;
+  if (envRules) {
+    return envRules;
+  }
 
-  // Return defaults if not stored
-  return is30Model ? DEFAULT_GEMINI_30_RULES : DEFAULT_GEMINI_25_RULES;
+  // Fallback to default if not in .env
+  return DEFAULT_GEMINI_25_RULES;
 };
 
