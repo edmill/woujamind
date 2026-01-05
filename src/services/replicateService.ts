@@ -1,10 +1,10 @@
 /**
  * Replicate Service
  * Handles all Replicate API interactions for Seedance video generation
- * Uses Replicate HTTP API directly (works in browser without backend proxy)
- * Reference: https://replicate.com/docs/reference/http
+ * Uses Replicate JavaScript SDK (works in browser with user's API key)
  */
 
+import Replicate from 'replicate';
 import { GoogleGenAI } from "@google/genai";
 import { extractFrames } from '../utils/videoProcessing';
 import { FrameCenteringService } from '../utils/frameCentering';
@@ -47,7 +47,15 @@ const getGeminiApiKey = (): string => {
   throw new Error("GEMINI_API_KEY_MISSING: Please add your Gemini API key in Settings for prompt optimization");
 };
 
-// Note: No longer using Replicate SDK - using HTTP API directly instead
+/**
+ * Get Replicate client instance
+ */
+const getReplicateClient = (): Replicate => {
+  const apiKey = getReplicateApiKey();
+  return new Replicate({
+    auth: apiKey,
+  });
+};
 
 /**
  * Get Gemini client instance
@@ -170,7 +178,7 @@ export const generateVideoFromImage = async (
   prompt: string,
   onProgress?: (status: string) => void
 ): Promise<Blob> => {
-  const apiKey = getReplicateApiKey();
+  const replicate = getReplicateClient();
 
   try {
     onProgress?.('Initializing video generation...');
@@ -182,37 +190,35 @@ export const generateVideoFromImage = async (
 
     console.log('[generateVideoFromImage] Starting Seedance generation with prompt:', prompt);
 
-    // Call Seedance model via backend proxy (required due to CORS)
-    // The proxy forwards requests to Replicate API
-    onProgress?.('Generating video with Replicate Seedance...');
-
-    // Step 1: Call backend proxy with API key from localStorage
-    const proxyUrl = 'http://localhost:3001/api/replicate-proxy';
-    const createResponse = await fetch(proxyUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    // Call Seedance model using Replicate SDK
+    // Model: bytedance/seedance-1-pro-fast
+    const output = await replicate.run(
+      "bytedance/seedance-1-pro-fast:a8c7ea67-c9ab-4f71-ac84-4036af08734b",
+      {
+        input: {
+          image: imageDataUri,
+          prompt: prompt,
+          num_frames: 150, // 5 seconds at 30 FPS
+          guidance_scale: 7.5,
+          num_inference_steps: 20,
+        }
       },
-      body: JSON.stringify({
-        image: imageDataUri,
-        prompt: prompt,
-        num_frames: 150, // 5 seconds at 30 FPS
-        guidance_scale: 7.5,
-        num_inference_steps: 20,
-        apiKey: apiKey, // Pass API key from localStorage to proxy
-      })
-    });
+      // Progress callback - third parameter is the callback function directly
+      (prediction: any) => {
+        const status = prediction.status;
+        const logs = prediction.logs;
 
-    if (!createResponse.ok) {
-      const errorData = await createResponse.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(errorData.error || `Proxy request failed: ${createResponse.statusText}`);
-    }
+        if (logs) {
+          console.log('[Seedance]', logs);
+        }
 
-    const { output, error } = await createResponse.json();
-    
-    if (error) {
-      throw new Error(error);
-    }
+        if (status === 'processing') {
+          onProgress?.('Generating video...');
+        } else if (status === 'succeeded') {
+          onProgress?.('Video generated, downloading...');
+        }
+      }
+    );
 
     console.log('[generateVideoFromImage] Seedance output:', output);
 

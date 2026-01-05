@@ -38,6 +38,47 @@ The application requires two API keys, stored either in `.env` or in browser loc
 
 The app checks for keys in this order: localStorage → environment variables → AI Studio integration (window.aistudio).
 
+## ⚠️ CRITICAL: Replicate API Implementation
+
+**IMPORTANT - READ THIS BEFORE MAKING ANY CHANGES TO replicateService.ts:**
+
+This application uses the **Replicate JavaScript SDK directly** in the browser. We do NOT and should NEVER use a backend proxy server.
+
+### Why We Use the SDK Directly
+- This is a **SaaS application** that runs entirely in the browser
+- Users provide their own Replicate API keys (stored in localStorage)
+- The Replicate SDK handles all API communication client-side
+- **NO backend server exists or should be created**
+
+### Implementation Rules
+✅ **CORRECT**: Use `import Replicate from 'replicate'` and call `replicate.run()` directly
+❌ **NEVER**: Create proxy servers (e.g., localhost:3001/api/replicate-proxy)
+❌ **NEVER**: Use direct HTTP fetch calls to Replicate's REST API
+❌ **NEVER**: Add backend server dependencies or Express routes
+
+### Historical Context
+In January 2026, a "rogue AI agent" incorrectly changed the working SDK implementation to use a proxy server approach. This broke the application because:
+1. No backend server exists in this codebase
+2. Users cannot run proxy servers for a SaaS app
+3. The SDK was already working perfectly in December 2025
+
+**If you need to modify replicateService.ts, refer to commit `1d7e35c` (December 2025) as the reference implementation.**
+
+### Code Pattern (ALWAYS USE THIS)
+```typescript
+import Replicate from 'replicate';
+
+const replicate = new Replicate({ auth: apiKey });
+
+const output = await replicate.run(
+  "model-id",
+  { input: { ...params } },
+  (prediction: any) => {
+    // Progress callback
+  }
+);
+```
+
 ## Architecture Overview
 
 ### State Management
@@ -62,9 +103,11 @@ The main application state is managed in `Component.tsx` (the `Woujamind` compon
 - `generateInBetweenFrame()` - Creates interpolated frames between existing frames
 
 **replicateService.ts** - Video-based generation using Replicate's Seedance model
+- ⚠️ **CRITICAL**: Uses Replicate SDK directly (see "CRITICAL: Replicate API Implementation" section above)
 - `generateSpriteSheetFromImage()` - Generates animated sprite video from reference image + prompt
 - `calculateGridDimensions()` - Calculates grid layout based on frame count
 - Video is processed into individual frames using `extractFrames()` from videoProcessing.ts
+- **NEVER modify to use proxy servers or direct HTTP calls - SDK only!**
 
 ### Image Processing Pipeline
 
