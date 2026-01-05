@@ -392,10 +392,14 @@ export function InputSidebar({
               </div>
 
               <div className="min-h-[100px]">
+                <AnimatePresence mode="wait">
                 {tabMode === 'action' ? (
                   <motion.div
+                      key="actions-grid"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.2 }}
                       className="grid grid-cols-2 sm:grid-cols-3 gap-3"
                   >
                       {ACTIONS.map((action, i) => {
@@ -447,9 +451,12 @@ export function InputSidebar({
                       )})}
                   </motion.div>
                 ) : (
-                  <motion.div 
+                  <motion.div
+                      key="expressions-grid"
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      transition={{ duration: 0.2 }}
                       className="grid grid-cols-2 sm:grid-cols-3 gap-3"
                   >
                       {EXPRESSIONS.map((exp, i) => (
@@ -492,6 +499,7 @@ export function InputSidebar({
                       ))}
                   </motion.div>
                 )}
+                </AnimatePresence>
               </div>
             </section>
 

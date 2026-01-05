@@ -75,28 +75,40 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
   // Load settings from localStorage on mount
   useEffect(() => {
     if (isOpen) {
-      const storedApiKey = localStorage.getItem(STORAGE_KEYS.API_KEY);
-      const storedReplicateApiKey = localStorage.getItem(STORAGE_KEYS.REPLICATE_API_KEY);
-      const stored25Rules = localStorage.getItem(STORAGE_KEYS.GEMINI_25_RULES);
-      const stored30Rules = localStorage.getItem(STORAGE_KEYS.GEMINI_30_RULES);
+      try {
+        const storedApiKey = localStorage.getItem(STORAGE_KEYS.API_KEY);
+        const storedReplicateApiKey = localStorage.getItem(STORAGE_KEYS.REPLICATE_API_KEY);
+        const stored25Rules = localStorage.getItem(STORAGE_KEYS.GEMINI_25_RULES);
+        const stored30Rules = localStorage.getItem(STORAGE_KEYS.GEMINI_30_RULES);
 
-      setApiKey(storedApiKey || currentApiKey || '');
-      setReplicateApiKey(storedReplicateApiKey || '');
-      setGemini25Rules(stored25Rules || DEFAULT_GEMINI_25_RULES);
-      setGemini30Rules(stored30Rules || DEFAULT_GEMINI_30_RULES);
+        setApiKey(storedApiKey || currentApiKey || '');
+        setReplicateApiKey(storedReplicateApiKey || '');
+        setGemini25Rules(stored25Rules || DEFAULT_GEMINI_25_RULES);
+        setGemini30Rules(stored30Rules || DEFAULT_GEMINI_30_RULES);
 
-      // Reset validation states
-      setGeminiValidationStatus('idle');
-      setGeminiValidationMessage('');
-      setReplicateValidationStatus('idle');
-      setReplicateValidationMessage('');
+        // Reset validation states
+        setGeminiValidationStatus('idle');
+        setGeminiValidationMessage('');
+        setReplicateValidationStatus('idle');
+        setReplicateValidationMessage('');
 
-      // Backwards compatibility
-      setValidationStatus('idle');
-      setValidationMessage('');
+        // Backwards compatibility
+        setValidationStatus('idle');
+        setValidationMessage('');
 
-      // Load storage stats
-      getStorageStats().then(setStorageStats).catch(console.error);
+        // Load storage stats with error handling
+        getStorageStats()
+          .then(setStorageStats)
+          .catch((error) => {
+            console.error('Failed to load storage stats:', error);
+            // Set safe defaults if storage fails
+            setStorageStats({ count: 0, estimatedSize: 0 });
+          });
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+        // Set safe defaults
+        setStorageStats({ count: 0, estimatedSize: 0 });
+      }
     }
   }, [isOpen, currentApiKey]);
 
@@ -169,6 +181,7 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
         setGeminiValidationMessage(errorMsg);
       }
     } catch (error: any) {
+      console.error('Gemini API validation error:', error);
       setGeminiValidationStatus('error');
       setGeminiValidationMessage(error.message || 'Failed to validate API key. Please check your connection.');
     }
@@ -208,6 +221,7 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
       toast.success('Replicate API key saved! It will be validated during sprite generation.');
 
     } catch (error: any) {
+      console.error('Replicate API validation error:', error);
       setReplicateValidationStatus('error');
       setReplicateValidationMessage('Failed to validate API key format.');
     }
@@ -314,7 +328,7 @@ export function SettingsModal({ isOpen, onClose, onApiKeyChange, currentApiKey }
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 sprite-scroll">
 
               {/* Storage Management Section */}
               <section className="space-y-3">
