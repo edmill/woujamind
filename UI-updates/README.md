@@ -1,4 +1,4 @@
-# Sprite Magic Generator
+# Woujamind
 
 A high-performance, intuitive interface for generating sprite sheets using AI. Designed for game developers and pixel artists who need rapid prototyping tools.
 
@@ -12,12 +12,12 @@ A high-performance, intuitive interface for generating sprite sheets using AI. D
 ## Usage
 
 ```tsx
-import SpriteMagic from '@/sd-components/246b0315-9aa0-49d7-be62-97c24bbdd8e8';
+import Woujamind from '@/sd-components/246b0315-9aa0-49d7-be62-97c24bbdd8e8';
 
 function MyGameDevTool() {
   return (
     <div className="p-8">
-      <SpriteMagic />
+      <Woujamind />
     </div>
   );
 }
