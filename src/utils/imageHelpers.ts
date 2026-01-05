@@ -106,22 +106,21 @@ export const getBackgroundColor = (ctx: CanvasRenderingContext2D, width: number,
 
   // PRIORITY 1: Check for green chroma key (bright green background)
   // Chroma key green is typically RGB(0, 255, 0) or close to it
-  // CRITICAL: Only detect chroma key if it's the DOMINANT edge color (>60% of edge pixels)
-  // This prevents false positives when green characters touch edges
+  // RELAXED DETECTION: Accept any significant green presence (>20% of edges OR brightest green > 180)
   let chromaKeyGreen = null;
   let totalEdgePixels = 0;
-  
+
   // Calculate total edge pixels for percentage check
   totalEdgePixels = (width * 2) + ((height - 2) * 2);
-  
+
   for (const color of colorMap.values()) {
     // Check if this is a bright green (chroma key)
-    // Green channel high (>200), Red and Blue channels low (<100)
-    if (color.g > 200 && color.r < 100 && color.b < 100) {
+    // RELAXED: Green channel high (>180), Red and Blue channels low (<120)
+    // This catches more green variations from video generation
+    if (color.g > 180 && color.r < 120 && color.b < 120) {
       const greenPercentage = (color.count / totalEdgePixels) * 100;
-      // Only consider it chroma key if it's dominant (>60% of edge pixels)
-      // AND it's very bright green (g > 220 for stricter detection)
-      if (greenPercentage > 60 && color.g > 220) {
+      // RELAXED: Accept if >20% of edges (was 60%) OR if very bright (g > 200)
+      if (greenPercentage > 20 || color.g > 200) {
         if (!chromaKeyGreen || color.count > chromaKeyGreen.count) {
           chromaKeyGreen = color;
         }
@@ -180,7 +179,8 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
   console.log('[processRemoveBackground] Detected background color:', bgColor);
 
   // Detect if this is a green chroma key background
-  const isChromaKey = bgColor.g > 200 && bgColor.r < 100 && bgColor.b < 100;
+  // RELAXED: Match the relaxed detection from getBackgroundColor
+  const isChromaKey = bgColor.g > 180 && bgColor.r < 120 && bgColor.b < 120;
 
   // Detect if this is a white/light background (brightness > 240)
   const brightness = (bgColor.r + bgColor.g + bgColor.b) / 3;
@@ -196,10 +196,10 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
   const visited = new Uint8Array(width * height);
 
   // Adjust threshold based on background type:
-  // - Chroma key (green): aggressive threshold (50) - safe to remove anything green
+  // - Chroma key (green): VERY AGGRESSIVE threshold (80) - remove all green variations
   // - White background: very conservative threshold (15) - avoid removing white character parts
   // - Other backgrounds: moderate threshold (40)
-  const threshold = isChromaKey ? 50 : isWhiteBackground ? 15 : 40;
+  const threshold = isChromaKey ? 80 : isWhiteBackground ? 15 : 40;
   console.log('[processRemoveBackground] Using threshold:', threshold);
 
   let pixelsRemoved = 0;
@@ -260,10 +260,53 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
     floodFill(width - 1, y);
   }
 
+  // SPECIAL PASS FOR CHROMA KEY: Remove ground/shadow pixels (dark green grass/shadows)
+  // This is CRITICAL for video-generated sprites which often have ground beneath character
+  if (isChromaKey) {
+    console.log('[processRemoveBackground] Running shadow/ground removal pass for chroma key');
+
+    // Detect and remove dark greenish pixels (shadows/ground) at the bottom of the frame
+    // These are darker versions of the green chroma key
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const a = data[idx + 3];
+
+        // Skip already transparent
+        if (a < 10) continue;
+
+        // Detect dark greenish pixels (grass/shadow)
+        // Characteristics: Green is dominant, but overall dark (brightness < 180)
+        // Also remove any very dark pixels near the bottom (likely ground)
+        const pixelBrightness = (r + g + b) / 3;
+        const isGreenish = g > r && g > b; // Green is dominant channel
+        const isDark = pixelBrightness < 180;
+        const isVeryDark = pixelBrightness < 120;
+
+        // Remove if:
+        // 1. Dark greenish pixel (likely shadow/grass) OR
+        // 2. Very dark pixel in bottom 40% of frame (likely ground) OR
+        // 3. Any green-tinted pixel (g > r+20 OR g > b+20) that's darker than 200
+        const isBottomRegion = y > height * 0.6;
+        const hasGreenTint = (g > r + 20) || (g > b + 20);
+
+        if ((isGreenish && isDark) ||
+            (isVeryDark && isBottomRegion) ||
+            (hasGreenTint && pixelBrightness < 200)) {
+          data[idx + 3] = 0; // Make transparent
+          pixelsRemoved++;
+        }
+      }
+    }
+  }
+
   // Second pass: Remove isolated blocks of background color trapped inside sprite
   // This catches background pixels that weren't connected to edges
   // For white backgrounds, use very tight threshold to avoid removing white character parts
-  const internalThreshold = isChromaKey ? 45 : isWhiteBackground ? 10 : 35;
+  const internalThreshold = isChromaKey ? 70 : isWhiteBackground ? 10 : 35;
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -330,7 +373,8 @@ export const processRemoveBackground = (ctx: CanvasRenderingContext2D, width: nu
   // Third pass: Clean up remaining background pixels near transparent areas
   // This catches edge cases and smooths boundaries
   // For white backgrounds, skip this pass entirely to protect white character parts
-  const edgeThreshold = isChromaKey ? 40 : isWhiteBackground ? 0 : 30;
+  // For chroma key, use AGGRESSIVE threshold to remove all green traces
+  const edgeThreshold = isChromaKey ? 70 : isWhiteBackground ? 0 : 30;
 
   if (edgeThreshold > 0) {
     for (let y = 1; y < height - 1; y++) {

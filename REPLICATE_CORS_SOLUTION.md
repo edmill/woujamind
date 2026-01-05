@@ -266,3 +266,4 @@ When working correctly:
 
 **Summary:** Replicate requires a backend proxy due to CORS restrictions. Use `npm run start:all` to start both servers, add your API keys to `.env`, and enjoy perfect sprite alignment! 🚀
 
+

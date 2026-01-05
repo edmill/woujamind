@@ -4,7 +4,6 @@
  */
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Dot, Plus, Compass } from 'lucide-react';
 import { cn } from '../utils';
 import { DirectionSelection } from '../types';
 import { calculateGenerationCost } from '../services/creditService';
@@ -15,85 +14,151 @@ interface DirectionSelectorProps {
   disabled?: boolean;
 }
 
+// Visual direction diagrams
+const DirectionDiagrams = {
+  1: () => (
+    <svg viewBox="0 0 32 32" className="w-full h-full">
+      {/* Single character sprite facing down */}
+      <circle cx="16" cy="14" r="4" className="fill-current opacity-80" />
+      <rect x="13" y="18" width="6" height="8" rx="1" className="fill-current opacity-80" />
+      {/* Down arrow */}
+      <path d="M16 28 L16 30 M14 29 L16 31 L18 29" className="stroke-current opacity-60" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  4: () => (
+    <svg viewBox="0 0 32 32" className="w-full h-full">
+      {/* 4 small sprites arranged in cross pattern */}
+      {/* Top (N) */}
+      <circle cx="16" cy="6" r="2" className="fill-current opacity-70" />
+      <rect x="15" y="8" width="2" height="3" className="fill-current opacity-70" />
+      {/* Right (E) */}
+      <circle cx="26" cy="16" r="2" className="fill-current opacity-70" />
+      <rect x="25" y="18" width="2" height="3" className="fill-current opacity-70" />
+      {/* Bottom (S) */}
+      <circle cx="16" cy="26" r="2" className="fill-current opacity-70" />
+      <rect x="15" y="28" width="2" height="3" className="fill-current opacity-70" />
+      {/* Left (W) */}
+      <circle cx="6" cy="16" r="2" className="fill-current opacity-70" />
+      <rect x="5" y="18" width="2" height="3" className="fill-current opacity-70" />
+      {/* Plus symbol in center */}
+      <path d="M16 14 L16 18 M14 16 L18 16" className="stroke-current opacity-40" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  ),
+  8: () => (
+    <svg viewBox="0 0 32 32" className="w-full h-full">
+      {/* 8 tiny sprites in compass pattern */}
+      {/* N */}
+      <circle cx="16" cy="4" r="1.5" className="fill-current opacity-60" />
+      <rect x="15.25" y="5.5" width="1.5" height="2" className="fill-current opacity-60" />
+      {/* NE */}
+      <circle cx="23" cy="9" r="1.5" className="fill-current opacity-60" />
+      <rect x="22.25" y="10.5" width="1.5" height="2" className="fill-current opacity-60" />
+      {/* E */}
+      <circle cx="28" cy="16" r="1.5" className="fill-current opacity-60" />
+      <rect x="27.25" y="17.5" width="1.5" height="2" className="fill-current opacity-60" />
+      {/* SE */}
+      <circle cx="23" cy="23" r="1.5" className="fill-current opacity-60" />
+      <rect x="22.25" y="24.5" width="1.5" height="2" className="fill-current opacity-60" />
+      {/* S */}
+      <circle cx="16" cy="28" r="1.5" className="fill-current opacity-60" />
+      <rect x="15.25" y="29.5" width="1.5" height="2" className="fill-current opacity-60" />
+      {/* SW */}
+      <circle cx="9" cy="23" r="1.5" className="fill-current opacity-60" />
+      <rect x="8.25" y="24.5" width="1.5" height="2" className="fill-current opacity-60" />
+      {/* W */}
+      <circle cx="4" cy="16" r="1.5" className="fill-current opacity-60" />
+      <rect x="3.25" y="17.5" width="1.5" height="2" className="fill-current opacity-60" />
+      {/* NW */}
+      <circle cx="9" cy="9" r="1.5" className="fill-current opacity-60" />
+      <rect x="8.25" y="10.5" width="1.5" height="2" className="fill-current opacity-60" />
+      {/* Compass center */}
+      <circle cx="16" cy="16" r="2" className="stroke-current fill-none opacity-30" strokeWidth="1" />
+    </svg>
+  )
+};
+
 export function DirectionSelector({
   selectedDirectionCount,
   onDirectionCountChange,
   disabled = false
 }: DirectionSelectorProps) {
-  const directions: { count: DirectionSelection; label: string; icon: React.ReactNode; description: string }[] = [
+  const directions: { count: DirectionSelection; label: string; diagram: React.FC; description: string }[] = [
     {
       count: 1,
       label: '1',
-      icon: <Dot className="w-4 h-4" />,
+      diagram: DirectionDiagrams[1],
       description: 'Single direction'
     },
     {
       count: 4,
       label: '4',
-      icon: <Plus className="w-4 h-4" />,
+      diagram: DirectionDiagrams[4],
       description: '4 directions (N, E, S, W)'
     },
     {
       count: 8,
       label: '8',
-      icon: <Compass className="w-4 h-4" />,
+      diagram: DirectionDiagrams[8],
       description: '8 directions (N, NE, E, SE, S, SW, W, NW)'
     }
   ];
 
   return (
-    <div className="space-y-2">
-      {/* Compact Button Layout */}
-      <div className="flex items-center justify-center gap-2">
+    <div className="space-y-3">
+      {/* Button Layout with Visual Examples */}
+      <div className="flex items-stretch justify-center gap-3">
         {directions.map((dir) => {
           const isSelected = selectedDirectionCount === dir.count;
           const cost = calculateGenerationCost(dir.count);
+          const DiagramComponent = dir.diagram;
 
           return (
             <motion.button
               key={dir.count}
-              whileHover={!disabled ? { scale: 1.05 } : {}}
-              whileTap={!disabled ? { scale: 0.95 } : {}}
+              whileHover={!disabled ? { scale: 1.03 } : {}}
+              whileTap={!disabled ? { scale: 0.97 } : {}}
               onClick={() => !disabled && onDirectionCountChange(dir.count)}
               disabled={disabled}
               className={cn(
-                "relative flex flex-col items-center justify-center rounded-lg border transition-all",
-                "w-14 h-14 group",
+                "relative flex flex-col items-center justify-between rounded-xl border-2 transition-all",
+                "flex-1 px-3 py-3 group min-h-[100px]",
                 isSelected
-                  ? "border-orange-500 bg-orange-500/10 shadow-[0_0_10px_rgba(249,115,22,0.3)]"
-                  : "border-slate-200 bg-white/50 hover:border-orange-300 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-orange-600",
+                  ? "border-orange-500 bg-orange-500/10 shadow-[0_0_15px_rgba(249,115,22,0.25)]"
+                  : "border-slate-200 bg-white/80 hover:border-orange-300 dark:border-slate-700 dark:bg-slate-800/80 dark:hover:border-orange-600",
                 disabled && "opacity-50 cursor-not-allowed"
               )}
               title={dir.description}
             >
-              {/* Icon */}
+              {/* Visual Diagram */}
               <div className={cn(
-                "relative z-10 transition-colors",
+                "w-full aspect-square max-w-[48px] transition-colors",
                 isSelected
                   ? "text-orange-600 dark:text-orange-400"
-                  : "text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300"
+                  : "text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-400"
               )}>
-                {dir.icon}
+                <DiagramComponent />
               </div>
 
-              {/* Label */}
-              <div className={cn(
-                "relative z-10 text-sm font-bold transition-colors -mt-0.5",
-                isSelected
-                  ? "text-orange-600 dark:text-orange-400"
-                  : "text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
-              )}>
-                {dir.label}
-              </div>
+              {/* Label with count */}
+              <div className="flex flex-col items-center gap-0.5 mt-2">
+                <div className={cn(
+                  "text-xs font-semibold transition-colors",
+                  isSelected
+                    ? "text-orange-700 dark:text-orange-300"
+                    : "text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-300"
+                )}>
+                  {dir.label} Direction{dir.count > 1 ? 's' : ''}
+                </div>
 
-              {/* Cost badge */}
-              <div className={cn(
-                "absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap transition-all",
-                isSelected
-                  ? "bg-orange-500 text-white"
-                  : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
-              )}>
-                {cost.creditsRequired}cr
+                {/* Cost badge */}
+                <div className={cn(
+                  "px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap transition-all",
+                  isSelected
+                    ? "bg-orange-500 text-white shadow-sm"
+                    : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                )}>
+                  {cost.creditsRequired}cr
+                </div>
               </div>
             </motion.button>
           );
@@ -108,18 +173,6 @@ export function DirectionSelector({
             {calculateGenerationCost(selectedDirectionCount).creditsRequired}cr
           </span>
           {' '}(${calculateGenerationCost(selectedDirectionCount).usdEquivalent.toFixed(2)})
-        </div>
-      </div>
-
-      {/* Compact hint - overhead games only */}
-      <div className="flex items-start gap-1.5 p-2 rounded-md bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800">
-        <div className="text-sky-600 dark:text-sky-400 mt-0.5 flex-shrink-0">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <div className="text-[10px] text-sky-700 dark:text-sky-300 leading-relaxed">
-          <span className="font-semibold">Overhead games only:</span> For top-down/top-view games. Not needed for 2D side-scrolling games.
         </div>
       </div>
     </div>

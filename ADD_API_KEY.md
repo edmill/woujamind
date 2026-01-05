@@ -177,3 +177,4 @@ Authorization: 'Bearer your_replicate_api_key_here'  ❌ Bad (placeholder)
 
 Once you add your API key, everything should work perfectly! 🚀
 
+

@@ -189,3 +189,4 @@ With Replicate enabled:
 
 **Summary:** Replicate now works out of the box using the HTTP API! Just add your API key and enjoy perfect sprite alignment with video-based generation. 🚀
 
+

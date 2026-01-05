@@ -379,3 +379,4 @@ When Replicate is working correctly, you'll see:
 
 **Note:** Enabling Replicate requires a backend proxy due to browser CORS restrictions. This is a one-time setup that unlocks professional-quality sprite generation with perfect alignment!
 
+

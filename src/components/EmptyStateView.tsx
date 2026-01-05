@@ -4,15 +4,18 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { Loader2 } from 'lucide-react';
 
 interface EmptyStateViewProps {
   isGenerating?: boolean;
   statusText?: string;
+  isLoadingSprites?: boolean;
 }
 
 export function EmptyStateView({
   isGenerating = false,
-  statusText = ''
+  statusText = '',
+  isLoadingSprites = false
 }: EmptyStateViewProps) {
   const sphereRef = useRef<HTMLDivElement>(null);
   const [eyePosition, setEyePosition] = useState({ x: 0, y: 0 });
@@ -46,8 +49,32 @@ export function EmptyStateView({
       <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-sky-50 to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 opacity-60" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(251,146,60,0.1),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(14,165,233,0.1),transparent_50%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(251,146,60,0.05),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(14,165,233,0.05),transparent_50%)]" />
 
+      {/* Loading sprites state */}
+      {isLoadingSprites && !isGenerating && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-col items-center gap-4 relative z-10"
+        >
+          <div className="relative">
+            {/* Outer Spinner */}
+            <div className="w-16 h-16 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
+            {/* Inner Spinner Reverse */}
+            <div className="absolute inset-2 border-4 border-sky-500/20 border-b-sky-500 rounded-full animate-spin [animation-direction:reverse] [animation-duration:1.5s]"></div>
+            {/* Center Icon */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 text-orange-500 dark:text-orange-400 animate-pulse" />
+            </div>
+          </div>
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+            Loading sprite sheets...
+          </p>
+        </motion.div>
+      )}
+
       {/* Centered message */}
-      {!isGenerating && (
+      {!isGenerating && !isLoadingSprites && (
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}

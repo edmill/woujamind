@@ -70,6 +70,7 @@ interface ResultViewProps {
   // Editing & History
   onEdit?: (prompt: string) => void;
   onCleanBackground?: () => void;
+  onReprocessBackground?: () => void; // NEW: Re-process background removal on entire sheet
   onUndo?: () => void;
   onRedo?: () => void;
   canUndo?: boolean;
@@ -135,6 +136,7 @@ export function ResultView({
   onToggleFrameSelect,
   onEdit,
   onCleanBackground,
+  onReprocessBackground,
   onUndo,
   onRedo,
   canUndo = false,
@@ -761,230 +763,265 @@ export function ResultView({
             </div>
 
             <div className="flex-1 bg-slate-100 dark:bg-slate-900/50 rounded-2xl relative flex flex-col shadow-inner group/sheet min-h-0 overflow-visible">
-               {/* AI Edit Toolbar */}
-               <div className="h-14 border-b border-slate-200 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md flex items-center justify-between px-4 relative z-20 shrink-0 rounded-t-2xl">
-                  {/* Left: History Controls */}
-                  <div className="flex items-center gap-1">
-                     <button 
-                       onClick={onUndo}
-                       disabled={!canUndo || isEditing}
-                       className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed" 
-                       title="Undo"
-                     >
-                       <Undo className="w-4 h-4" />
-                     </button>
-                     <button 
-                       onClick={onRedo}
-                       disabled={!canRedo || isEditing}
-                       className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed" 
-                       title="Redo"
-                     >
-                       <Redo className="w-4 h-4" />
-                     </button>
-                     
-                     {/* Auto-Align Button */}
-                     {(onAlignAll || onAutoAlign) && (
-                       <>
-                         <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
-                         <button
-                           onClick={handleAutoAlignClick}
-                           disabled={isEditing}
-                           className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                           title={selectedFrameIndices.length === 1 ? "Auto-Align Selected Frame" : "Auto-Align Full Grid (Fix Jitter)"}
-                         >
-                           <LayoutList className="w-4 h-4" />
-                           <span className="hidden lg:inline text-xs font-semibold">
-                             {selectedFrameIndices.length === 1 ? 'Align Frame' : 'Align Grid'}
-                           </span>
-                         </button>
-                       </>
-                     )}
-
-                    {/* Frame Gallery Button (Advanced Frame Selection) */}
-                    {hasExtractedFrames && onOpenFrameGallery && (
-                      <>
-                        <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
-                        <button
-                          onClick={onOpenFrameGallery}
-                          disabled={isEditing}
-                          className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                          title={`View all ${extractedFrameCount} extracted frames and customize selection`}
-                        >
-                          <Film className="w-4 h-4" />
-                          <span className="hidden lg:inline text-xs font-semibold">
-                            Frame Gallery ({extractedFrameCount})
-                          </span>
-                        </button>
-                      </>
-                    )}
-
-                    {/* Art Style Info Badge */}
-                    <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
-                    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg" title={`Art Style: ${currentArtStyle.label}`}>
-                      <Palette className="w-4 h-4" />
-                      <span className="hidden lg:inline text-xs font-semibold">{currentArtStyle.label}</span>
-                    </div>
-
-                     {/* Frame Management Buttons */}
-                     {(onInsertFrame || onRemoveFrame) && selectedFrameIndices.length === 1 && (
-                       <>
-                         <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
-
-                         {/* Insert Frame Button with Dropdown */}
-                         {onInsertFrame && (
-                           <div className="relative" ref={insertDropdownRef}>
-                             <button
-                               onClick={() => setShowInsertDropdown(!showInsertDropdown)}
-                               disabled={isEditing}
-                               className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                               title="Insert Frame"
-                             >
-                               <Plus className="w-4 h-4" />
-                               <span className="hidden lg:inline text-xs font-semibold">Insert</span>
-                               <ChevronDown className={cn("w-3 h-3 transition-transform", showInsertDropdown && "rotate-180")} />
-                             </button>
-
-                             {/* Insert Dropdown */}
-                             <AnimatePresence>
-                               {showInsertDropdown && (
-                                 <motion.div
-                                   initial={{ opacity: 0, y: -10 }}
-                                   animate={{ opacity: 1, y: 0 }}
-                                   exit={{ opacity: 0, y: -10 }}
-                                   className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50"
-                                 >
-                                   <div className="p-2">
-                                     <button
-                                       onClick={() => {
-                                         onInsertFrame(selectedFrameIndices[0], 'before');
-                                         setShowInsertDropdown(false);
-                                       }}
-                                       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-left"
-                                     >
-                                       <Plus className="w-4 h-4" />
-                                       <div className="flex-1">
-                                         <div className="font-bold text-sm">Insert Before</div>
-                                         <div className="text-xs text-slate-500 dark:text-slate-400">Add frame before Frame {selectedFrameIndices[0] + 1}</div>
-                                       </div>
-                                     </button>
-                                     <button
-                                       onClick={() => {
-                                         onInsertFrame(selectedFrameIndices[0], 'after');
-                                         setShowInsertDropdown(false);
-                                       }}
-                                       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-left"
-                                     >
-                                       <Plus className="w-4 h-4" />
-                                       <div className="flex-1">
-                                         <div className="font-bold text-sm">Insert After</div>
-                                         <div className="text-xs text-slate-500 dark:text-slate-400">Add frame after Frame {selectedFrameIndices[0] + 1}</div>
-                                       </div>
-                                     </button>
-                                   </div>
-                                 </motion.div>
-                               )}
-                             </AnimatePresence>
-                           </div>
-                         )}
-
-                         {/* Remove Frame Button */}
-                         {onRemoveFrame && (
-                           <button
-                             onClick={() => onRemoveFrame(selectedFrameIndices[0])}
-                             disabled={isEditing}
-                             className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                             title="Remove Frame"
+               {/* AI Edit Toolbar - Two Row Layout */}
+               <div className="border-b border-slate-200 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md flex flex-col relative z-20 shrink-0 rounded-t-2xl">
+                  {/* Row 1: General Tools */}
+                  <div className="flex items-center justify-between px-5 py-2">
+                     {/* Left: History, Alignment, Gallery, Art Style */}
+                     <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {/* History Controls */}
+                        <div className="flex items-center gap-1">
+                           <button 
+                             onClick={onUndo}
+                             disabled={!canUndo || isEditing}
+                             className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed" 
+                             title="Undo"
                            >
-                             <Minus className="w-4 h-4" />
-                             <span className="hidden lg:inline text-xs font-semibold">Remove</span>
+                              <Undo className="w-4 h-4" />
                            </button>
-                         )}
+                           <button 
+                             onClick={onRedo}
+                             disabled={!canRedo || isEditing}
+                             className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed" 
+                             title="Redo"
+                           >
+                              <Redo className="w-4 h-4" />
+                           </button>
+                        </div>
+                        
+                        <div className="w-px h-5 bg-slate-300 dark:bg-slate-700" />
 
-                         <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
+                        {/* Alignment */}
+                        {(onAlignAll || onAutoAlign) && (
+                           <button
+                             onClick={handleAutoAlignClick}
+                             disabled={isEditing}
+                             className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-orange-600 dark:hover:text-orange-400 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                             title={selectedFrameIndices.length === 1 ? "Auto-Align Selected Frame" : "Auto-Align Full Grid (Fix Jitter)"}
+                           >
+                              <LayoutList className="w-4 h-4" />
+                              <span className="text-xs font-semibold">
+                                 {selectedFrameIndices.length === 1 ? 'Align Frame' : 'Align Grid'}
+                              </span>
+                           </button>
+                        )}
 
-                         {/* Upload Image Button */}
-                         {onReplaceFrameWithImage && (
+                        {/* Frame Gallery */}
+                        {hasExtractedFrames && onOpenFrameGallery && (
                            <>
-                             <button
-                               onClick={handleReplaceImageClick}
-                               disabled={isEditing}
-                               className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                               title="Replace frame with custom image"
-                             >
-                               <FileImage className="w-4 h-4" />
-                               <span className="hidden lg:inline text-xs font-semibold">Upload</span>
-                             </button>
-                             <input
-                               ref={replaceImageInputRef}
-                               type="file"
-                               accept="image/*"
-                               onChange={handleReplaceImageChange}
-                               className="hidden"
-                             />
+                              <div className="w-px h-5 bg-slate-300 dark:bg-slate-700" />
+                              <button
+                                onClick={onOpenFrameGallery}
+                                disabled={isEditing}
+                                className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                title={`View all ${extractedFrameCount} extracted frames and customize selection`}
+                              >
+                                 <Film className="w-4 h-4" />
+                                 <span className="text-xs font-semibold">
+                                    Gallery
+                                 </span>
+                                 <span className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-mono">
+                                    {extractedFrameCount}
+                                 </span>
+                              </button>
                            </>
-                         )}
-                       </>
-                     )}
+                        )}
+
+                        {/* Art Style Badge */}
+                        <div className="w-px h-5 bg-slate-300 dark:bg-slate-700" />
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg" title={`Art Style: ${currentArtStyle.label}`}>
+                           <Palette className="w-4 h-4 flex-shrink-0" />
+                           <span className="text-xs font-semibold whitespace-nowrap">{currentArtStyle.label}</span>
+                        </div>
+                     </div>
                   </div>
 
-                  {/* Right: Clean Background & Magic Edit Buttons */}
-                  <div className="flex items-center gap-3">
-                     {/* Clean Background Button */}
-                     {onCleanBackground && selectedFrameIndices.length > 0 && (
-                       <button
-                         onClick={onCleanBackground}
-                         disabled={isEditing}
-                         className={cn(
-                           "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold",
-                           'bg-white/90 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700',
-                           isEditing && 'opacity-50 cursor-not-allowed'
-                         )}
-                         title={
-                           selectedFrameIndices.length === 1
-                             ? `Clean background from Frame ${selectedFrameIndices[0] + 1}`
-                             : selectedFrameIndices.length > 1
-                             ? `Clean background from ${selectedFrameIndices.length} selected frames`
-                             : "Clean background from entire sheet"
-                         }
-                       >
-                         <Sparkles className="w-3.5 h-3.5" />
-                         <span>
-                           {isEditing
-                             ? 'Cleaning...'
-                             : selectedFrameIndices.length === 1
-                             ? `Clean Frame ${selectedFrameIndices[0] + 1}`
-                             : selectedFrameIndices.length > 1
-                             ? `Clean ${selectedFrameIndices.length} Frames`
-                             : 'Clean All'}
-                         </span>
-                       </button>
-                     )}
+                  {/* Row 2: Frame Actions & Editing Tools */}
+                  {(onInsertFrame || onRemoveFrame || onReplaceFrameWithImage || onCleanBackground || onReprocessBackground || onEdit) && (
+                     <div className="flex items-center justify-between px-5 py-2 border-t border-slate-200/50 dark:border-slate-700/30">
+                        {/* Left: Frame Management */}
+                        <div className="flex items-center gap-3">
+                           {(onInsertFrame || onRemoveFrame || onReplaceFrameWithImage) && selectedFrameIndices.length === 1 && (
+                              <div className="relative" ref={insertDropdownRef}>
+                                 <button
+                                   onClick={() => setShowInsertDropdown(!showInsertDropdown)}
+                                   disabled={isEditing}
+                                   className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                   title="Frame Actions"
+                                 >
+                                    <Settings2 className="w-4 h-4" />
+                                    <span className="text-xs font-semibold">Frame</span>
+                                    <ChevronDown className={cn("w-3 h-3 transition-transform", showInsertDropdown && "rotate-180")} />
+                                 </button>
 
-                     {onEdit && (
-                       <button
-                         onClick={() => setShowEditBar(!showEditBar)}
-                         disabled={isEditing || selectedFrameIndices.length > 1}
-                         className={cn(
-                           "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold",
-                           showEditBar 
-                             ? 'bg-orange-600 dark:bg-orange-500 border-orange-500 text-white' 
-                             : 'bg-white/90 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700',
-                           (isEditing || selectedFrameIndices.length > 1) && 'opacity-50 cursor-not-allowed'
-                         )}
-                         title={selectedFrameIndices.length > 1 ? "Select only 1 frame to use Magic Edit" : "Edit Sheet or Selected Frame"}
-                       >
-                         <Wand2 className="w-3.5 h-3.5" />
-                         <span>
-                           {isEditing ? 'Editing...' : selectedFrameIndices.length === 1 ? `Edit Frame ${selectedFrameIndices[0] + 1}` : 'Magic Edit'}
-                         </span>
-                       </button>
-                     )}
-                  </div>
+                                 {/* Frame Actions Dropdown */}
+                                 <AnimatePresence>
+                                    {showInsertDropdown && (
+                                       <motion.div
+                                          initial={{ opacity: 0, y: -10 }}
+                                          animate={{ opacity: 1, y: 0 }}
+                                          exit={{ opacity: 0, y: -10 }}
+                                          className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50"
+                                       >
+                                          <div className="p-2 space-y-1">
+                                             {onInsertFrame && (
+                                                <>
+                                                   <button
+                                                     onClick={() => {
+                                                        onInsertFrame(selectedFrameIndices[0], 'before');
+                                                        setShowInsertDropdown(false);
+                                                     }}
+                                                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-left"
+                                                   >
+                                                      <Plus className="w-4 h-4" />
+                                                      <div className="flex-1">
+                                                         <div className="font-semibold text-sm">Insert Before</div>
+                                                         <div className="text-xs text-slate-500 dark:text-slate-400">Add frame before current</div>
+                                                      </div>
+                                                   </button>
+                                                   <button
+                                                     onClick={() => {
+                                                        onInsertFrame(selectedFrameIndices[0], 'after');
+                                                        setShowInsertDropdown(false);
+                                                     }}
+                                                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-left"
+                                                   >
+                                                      <Plus className="w-4 h-4" />
+                                                      <div className="flex-1">
+                                                         <div className="font-semibold text-sm">Insert After</div>
+                                                         <div className="text-xs text-slate-500 dark:text-slate-400">Add frame after current</div>
+                                                      </div>
+                                                   </button>
+                                                </>
+                                             )}
+                                             {onRemoveFrame && (
+                                                <button
+                                                  onClick={() => {
+                                                     onRemoveFrame(selectedFrameIndices[0]);
+                                                     setShowInsertDropdown(false);
+                                                  }}
+                                                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 transition-colors text-left"
+                                                >
+                                                   <Minus className="w-4 h-4" />
+                                                   <div className="flex-1">
+                                                      <div className="font-semibold text-sm">Remove Frame</div>
+                                                      <div className="text-xs text-slate-500 dark:text-slate-400">Delete this frame</div>
+                                                   </div>
+                                                </button>
+                                             )}
+                                             {onReplaceFrameWithImage && (
+                                                <>
+                                                   <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+                                                   <button
+                                                     onClick={() => {
+                                                        handleReplaceImageClick();
+                                                        setShowInsertDropdown(false);
+                                                     }}
+                                                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-sky-50 dark:hover:bg-sky-900/20 text-slate-700 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 transition-colors text-left"
+                                                   >
+                                                      <Upload className="w-4 h-4" />
+                                                      <div className="flex-1">
+                                                         <div className="font-semibold text-sm">Replace with Image</div>
+                                                         <div className="text-xs text-slate-500 dark:text-slate-400">Upload custom frame</div>
+                                                      </div>
+                                                   </button>
+                                                </>
+                                             )}
+                                          </div>
+                                       </motion.div>
+                                    )}
+                                 </AnimatePresence>
+                              </div>
+                           )}
+                           <input
+                              ref={replaceImageInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={handleReplaceImageChange}
+                              className="hidden"
+                           />
+                        </div>
+
+                        {/* Right: Background & Edit Actions */}
+                        <div className="flex items-center gap-2">
+                           {/* Re-process Background Button */}
+                           {onReprocessBackground && (
+                              <button
+                                onClick={onReprocessBackground}
+                                disabled={isEditing}
+                                className={cn(
+                                   "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-semibold",
+                                   'bg-emerald-600 dark:bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600',
+                                   isEditing && 'opacity-50 cursor-not-allowed'
+                                )}
+                                title="Re-process background removal with improved algorithm (removes green backgrounds & shadows)"
+                              >
+                                 <RotateCcw className="w-3.5 h-3.5" />
+                                 <span>
+                                    {isEditing ? 'Processing...' : 'Fix Background'}
+                                 </span>
+                              </button>
+                           )}
+
+                           {/* Clean Background Button */}
+                           {onCleanBackground && selectedFrameIndices.length > 0 && (
+                              <button
+                                onClick={onCleanBackground}
+                                disabled={isEditing}
+                                className={cn(
+                                   "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-semibold",
+                                   'bg-white/90 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700',
+                                   isEditing && 'opacity-50 cursor-not-allowed'
+                                )}
+                                title={
+                                   selectedFrameIndices.length === 1
+                                      ? `Clean background from Frame ${selectedFrameIndices[0] + 1}`
+                                      : selectedFrameIndices.length > 1
+                                      ? `Clean background from ${selectedFrameIndices.length} selected frames`
+                                      : "Clean background from entire sheet"
+                                }
+                              >
+                                 <Sparkles className="w-3.5 h-3.5" />
+                                 <span>
+                                    {isEditing
+                                       ? 'Cleaning...'
+                                       : selectedFrameIndices.length === 1
+                                       ? `Clean Frame ${selectedFrameIndices[0] + 1}`
+                                       : selectedFrameIndices.length > 1
+                                       ? `Clean ${selectedFrameIndices.length}`
+                                       : 'Clean All'}
+                                 </span>
+                              </button>
+                           )}
+
+                           {/* Magic Edit Button */}
+                           {onEdit && (
+                              <button
+                                onClick={() => setShowEditBar(!showEditBar)}
+                                disabled={isEditing || selectedFrameIndices.length > 1}
+                                className={cn(
+                                   "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-semibold",
+                                   showEditBar 
+                                      ? 'bg-orange-600 dark:bg-orange-500 border-orange-500 text-white' 
+                                      : 'bg-white/90 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700',
+                                   (isEditing || selectedFrameIndices.length > 1) && 'opacity-50 cursor-not-allowed'
+                                )}
+                                title={selectedFrameIndices.length > 1 ? "Select only 1 frame to use Magic Edit" : "Edit Sheet or Selected Frame"}
+                              >
+                                 <Wand2 className="w-3.5 h-3.5" />
+                                 <span>
+                                    {isEditing ? 'Editing...' : selectedFrameIndices.length === 1 ? `Edit Frame ${selectedFrameIndices[0] + 1}` : 'Magic Edit'}
+                                 </span>
+                              </button>
+                           )}
+                        </div>
+                     </div>
+                  )}
                </div>
                
                {/* Magic Edit Bar */}
                {showEditBar && onEdit && imageSrc && (
-                 <div className="absolute top-[4.5rem] left-4 right-4 z-30 pointer-events-auto">
+                 <div className="absolute top-[7rem] left-4 right-4 z-30 pointer-events-auto">
                    <div className={cn(
                      "bg-white dark:bg-slate-900 border rounded-xl p-2 shadow-2xl flex gap-2",
                      selectedFrameIndices.length === 1 ? 'border-orange-500/50' : 'border-orange-500/50'

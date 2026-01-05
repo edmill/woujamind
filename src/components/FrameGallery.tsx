@@ -120,69 +120,71 @@ export const FrameGallery: React.FC<FrameGalleryProps> = ({
           </button>
         </div>
 
-        {/* Playback Preview */}
+        {/* Playback Preview & Selection Tools */}
         <div className="playback-preview-section">
           <div className="preview-container">
             <canvas 
               ref={previewCanvasRef}
               className="preview-canvas"
               style={{
-                maxWidth: '300px',
-                maxHeight: '300px',
+                maxWidth: '200px',
+                maxHeight: '200px',
                 imageRendering: 'pixelated'
               }}
             />
           </div>
           
-          <div className="playback-controls">
-            <button 
-              className="btn btn-primary"
-              onClick={() => setIsPlaying(!isPlaying)}
-              disabled={localSelectedIndices.length === 0}
-            >
-              {isPlaying ? '⏸ Pause' : '▶ Play'}
-            </button>
-            
-            <div className="speed-control">
-              <label>Speed: {playbackSpeed} FPS</label>
-              <input
-                type="range"
-                min="10"
-                max="60"
-                value={playbackSpeed}
-                onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-                className="speed-slider"
-              />
+          <div className="playback-controls-section">
+            <div className="playback-controls">
+              <button 
+                className="btn btn-primary btn-small"
+                onClick={() => setIsPlaying(!isPlaying)}
+                disabled={localSelectedIndices.length === 0}
+              >
+                {isPlaying ? '⏸' : '▶'}
+              </button>
+              
+              <div className="speed-control">
+                <label>Speed: {playbackSpeed} FPS</label>
+                <input
+                  type="range"
+                  min="10"
+                  max="60"
+                  value={playbackSpeed}
+                  onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+                  className="speed-slider"
+                />
+              </div>
+            </div>
+
+            {/* Selection Tools */}
+            <div className="selection-tools">
+              <button className="btn btn-secondary btn-small" onClick={selectAll}>
+                Select All
+              </button>
+              <button className="btn btn-secondary btn-small" onClick={deselectAll}>
+                Deselect All
+              </button>
+              <button 
+                className="btn btn-secondary btn-small" 
+                onClick={() => selectRange(0, 49)}
+              >
+                First 50
+              </button>
+              <button 
+                className="btn btn-secondary btn-small" 
+                onClick={() => selectRange(50, 99)}
+              >
+                Middle 50
+              </button>
+              <button 
+                className="btn btn-secondary btn-small" 
+                onClick={() => selectRange(100, 149)}
+              >
+                Last 50
+              </button>
             </div>
           </div>
-        </div>
-
-        {/* Selection Tools */}
-        <div className="selection-tools">
-          <button className="btn btn-secondary" onClick={selectAll}>
-            Select All
-          </button>
-          <button className="btn btn-secondary" onClick={deselectAll}>
-            Deselect All
-          </button>
-          <button 
-            className="btn btn-secondary" 
-            onClick={() => selectRange(0, 49)}
-          >
-            First 50
-          </button>
-          <button 
-            className="btn btn-secondary" 
-            onClick={() => selectRange(50, 99)}
-          >
-            Middle 50
-          </button>
-          <button 
-            className="btn btn-secondary" 
-            onClick={() => selectRange(100, 149)}
-          >
-            Last 50
-          </button>
         </div>
 
         {/* Frame Grid */}
@@ -306,14 +308,14 @@ export const FrameGallery: React.FC<FrameGalleryProps> = ({
           border-bottom: 1px solid var(--color-border, #333);
           display: flex;
           gap: 24px;
-          align-items: center;
+          align-items: flex-start;
         }
 
         .preview-container {
           flex-shrink: 0;
           background: #000;
           border-radius: 8px;
-          padding: 12px;
+          padding: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -324,21 +326,29 @@ export const FrameGallery: React.FC<FrameGalleryProps> = ({
           border: 1px solid var(--color-border, #333);
         }
 
-        .playback-controls {
+        .playback-controls-section {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 16px;
           flex: 1;
+        }
+
+        .playback-controls {
+          display: flex;
+          align-items: center;
+          gap: 16px;
         }
 
         .speed-control {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 6px;
+          flex: 1;
+          max-width: 200px;
         }
 
         .speed-control label {
-          font-size: 14px;
+          font-size: 12px;
           color: var(--color-text-secondary, #aaa);
         }
 
@@ -347,11 +357,10 @@ export const FrameGallery: React.FC<FrameGalleryProps> = ({
         }
 
         .selection-tools {
-          padding: 16px 24px;
-          border-bottom: 1px solid var(--color-border, #333);
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
+          max-width: 50%;
         }
 
         .frame-grid-container {
@@ -448,6 +457,11 @@ export const FrameGallery: React.FC<FrameGalleryProps> = ({
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
+        }
+
+        .btn-small {
+          padding: 6px 12px;
+          font-size: 12px;
         }
 
         .btn-primary {

@@ -202,3 +202,4 @@ If alignment consistently fails:
 
 **Remember**: AI-generated sprites may not always be perfect. The alignment tools are there to help, but sometimes regeneration with a better prompt is the best solution!
 
+
