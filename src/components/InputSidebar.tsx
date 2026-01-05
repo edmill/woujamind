@@ -488,14 +488,12 @@ export function InputSidebar({
               </div>
             </section>
 
-            </div>
-
-            {/* Direction Selection */}
-            <section className="space-y-4 pt-4 px-5">
+            {/* Direction Selection - Overhead Games Only */}
+            <section className="space-y-2">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">4</span>
-                  Directions
+                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-[10px] flex items-center justify-center border border-orange-200 dark:border-orange-500/30">4</span>
+                  Directions (Overhead)
                 </h2>
               </div>
               
@@ -505,6 +503,8 @@ export function InputSidebar({
                 disabled={isGenerating}
               />
             </section>
+
+            </div>
 
             {/* Generate Button - Pinned to bottom */}
             <div className="pt-4 pb-2 space-y-3 shrink-0 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0a0a0e] relative z-10 mt-auto">

@@ -444,10 +444,20 @@ export const alignWholeSheet = async (
       const offsetX = medianX - frameCenter.x;
       const offsetY = medianY - frameCenter.y;
 
-      // Draw the frame with offset to align centers
-      const drawX = destSheetX + bbox.minX + offsetX;
-      const drawY = destSheetY + bbox.minY + offsetY;
+      // Calculate desired position
+      let drawX = destSheetX + bbox.minX + offsetX;
+      let drawY = destSheetY + bbox.minY + offsetY;
 
+      // Clamp to frame boundaries to prevent clipping
+      const minDrawX = destSheetX;
+      const maxDrawX = destSheetX + frameW - bbox.width;
+      const minDrawY = destSheetY;
+      const maxDrawY = destSheetY + frameH - bbox.height;
+
+      drawX = Math.max(minDrawX, Math.min(maxDrawX, drawX));
+      drawY = Math.max(minDrawY, Math.min(maxDrawY, drawY));
+
+      // Draw the frame with offset to align centers (clamped to boundaries)
       ctx.drawImage(
         tempCanvas,
         bbox.minX, bbox.minY, bbox.width, bbox.height,

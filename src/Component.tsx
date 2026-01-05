@@ -38,7 +38,7 @@ import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet,
 import { framesToDataUrls, dataUrlsToFrames } from './utils/frameSelection';
 import { initDB, saveSpriteSheet, getSpriteSheetsByDate, deleteSpriteSheet, StoredSpriteSheet } from './utils/spriteStorage';
 import { migrateLocalStorage } from './utils/localStorageMigration';
-import { getUserCredits, deductCredits, refundCredits, calculateGenerationCost, hasSufficientCredits } from './services/creditService';
+import { getUserCredits, deductCredits, calculateGenerationCost, hasSufficientCredits } from './services/creditService';
 
 export default function Woujamind() {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -101,15 +101,16 @@ export default function Woujamind() {
     setAutoSelectedFrameIndices(newIndices);
   };
 
-  // Handler to apply frame gallery selection and regenerate sprite sheet
+  // Handler to apply frame gallery selection - NO CHARGE, just reorganizes existing frames
   const handleApplyFrameSelection = async () => {
     if (allExtractedFrames.length === 0 || autoSelectedFrameIndices.length === 0) {
       toast.error('No frames selected');
       return;
     }
 
-    setIsGenerating(true);
-    setStatusText('Regenerating sprite sheet with selected frames...');
+    // Use setIsEditing instead of setIsGenerating - this is just rearranging existing frames
+    setIsEditing(true);
+    setStatusText('Updating sprite sheet with selected frames...');
     setIsFrameGalleryOpen(false);
 
     try {
@@ -117,7 +118,7 @@ export default function Woujamind() {
       const { FrameCenteringService } = await import('./utils/frameCentering');
       const { createSpriteSheetFromFrames, calculateGridDimensions } = await import('./services/replicateService');
 
-      // Extract selected frames
+      // Extract selected frames - these are already generated and paid for!
       const selectedFrames = autoSelectedFrameIndices.map(idx => allExtractedFrames[idx]);
 
       // Center the selected frames
@@ -133,7 +134,7 @@ export default function Woujamind() {
       // Calculate new grid dimensions
       const { rows, cols } = calculateGridDimensions(selectedFrames.length);
 
-      // Create new sprite sheet
+      // Create new sprite sheet from existing frames
       const spriteSheet = createSpriteSheetFromFrames(centeredFrames, rows, cols);
       const spriteSheetBase64 = spriteSheet.toDataURL('image/png');
 
@@ -170,12 +171,13 @@ export default function Woujamind() {
       });
       await reloadSprites();
       
-      toast.success(`Sprite sheet regenerated with ${selectedFrames.length} frames!`);
+      toast.success(`Sprite sheet updated with ${selectedFrames.length} frames!`);
     } catch (error) {
       console.error('[handleApplyFrameSelection] Error:', error);
-      toast.error('Failed to regenerate sprite sheet');
+      toast.error('Failed to update sprite sheet');
     } finally {
-      setIsGenerating(false);
+      setIsEditing(false);
+      setStatusText("");
     }
   };
 
@@ -569,24 +571,9 @@ export default function Woujamind() {
       return;
     }
 
-    // Generate job ID for tracking
+    // Generate job ID for tracking (for logging purposes only - no deduction yet)
     const jobId = crypto.randomUUID();
     setCurrentGenerationJobId(jobId);
-
-    // Deduct credits immediately
-    const deductionSuccess = deductCredits(
-      estimate.creditsRequired,
-      `Sprite generation (${selectedDirectionCount} ${selectedDirectionCount === 1 ? 'direction' : 'directions'}, ${selectedAction} animation)`,
-      jobId
-    );
-
-    if (!deductionSuccess) {
-      toast.error('Failed to deduct credits. Please try again.');
-      return;
-    }
-
-    // Refresh credit display
-    refreshCredits();
 
     setIsGenerating(true);
     setStatusText("Preparing your request...");
@@ -709,7 +696,21 @@ export default function Woujamind() {
       pushToHistory(alignmentResult.aligned);
       setResult(true);
       setHasResult(true);
-      // Panel already collapsed when Generate was clicked
+      
+      // Deduct credits ONLY after successful generation
+      const deductionSuccess = deductCredits(
+        estimate.creditsRequired,
+        `Sprite generation (${selectedDirectionCount} ${selectedDirectionCount === 1 ? 'direction' : 'directions'}, ${selectedAction} animation)`,
+        jobId
+      );
+
+      if (!deductionSuccess) {
+        console.warn('[handleGenerate] Failed to deduct credits after successful generation');
+        // Non-fatal - generation succeeded, just log warning
+      }
+
+      // Refresh credit display
+      refreshCredits();
       setTokens(prev => Math.max(0, prev - 1));
 
       setStatusText("Saving sprite sheet to local storage...");
@@ -769,21 +770,8 @@ export default function Woujamind() {
       console.error("Generation failed:", error);
       const errorMessage = error.message || JSON.stringify(error);
 
-      // Refund credits on failure
-      if (currentGenerationJobId) {
-        const directionCount: DirectionCount = 1;
-        const estimate = calculateGenerationCost(directionCount);
-        refundCredits(
-          estimate.creditsRequired,
-          `Generation failed: ${errorMessage.substring(0, 100)}`,
-          currentGenerationJobId
-        );
-        refreshCredits();
-        toast.success(`No charge - ${estimate.creditsRequired} credits refunded automatically`, {
-          description: "You're only charged for successful generations"
-        });
-        setCurrentGenerationJobId(null);
-      }
+      // No refund needed - credits are only deducted on successful generation
+      setCurrentGenerationJobId(null);
 
       if (errorMessage.match(/(Requested entity was not found|PERMISSION_DENIED|UNAUTHENTICATED|API keys are not supported|API_KEY_MISSING|401|403)/)) {
         setHasApiKey(false);
