@@ -198,3 +198,4 @@ const useReplicate = false; // Disable video generation, use Gemini only
 
 **Ready?** Start the proxy, start the frontend, and generate amazing sprites! 🎨
 
+

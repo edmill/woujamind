@@ -17,9 +17,11 @@ import {
 } from 'lucide-react';
 import { cn } from '../utils';
 import { ART_STYLES, ACTIONS, EXPRESSIONS } from '../constants';
-import { ArtStyle, TabMode, ActionType, ExpressionType, SpriteDirection, MultiViewData, DirectionSelection } from '../types';
+import { ArtStyle, TabMode, ActionType, ExpressionType, SpriteDirection, MultiViewData, DirectionSelection, ViewType } from '../types';
 import { DirectionSelector } from './DirectionSelector';
+import { ViewTypeSelector } from './ViewTypeSelector';
 import { calculateGenerationCost } from '../services/creditService';
+import { calculateGridDimensions } from '../services/replicateService';
 
 interface InputSidebarProps {
   isDesktop: boolean;
@@ -53,7 +55,11 @@ interface InputSidebarProps {
   setSelectedDirection?: (direction: SpriteDirection) => void;
   multiViewData?: MultiViewData | null;
 
-  // Direction Selection (NEW)
+  // View Type (NEW)
+  selectedViewType: ViewType;
+  setSelectedViewType: (viewType: ViewType) => void;
+
+  // Direction Selection (NEW - only for top-down)
   selectedDirectionCount: DirectionSelection;
   setSelectedDirectionCount: (count: DirectionSelection) => void;
 
@@ -89,6 +95,8 @@ export function InputSidebar({
   selectedDirection,
   setSelectedDirection,
   multiViewData,
+  selectedViewType,
+  setSelectedViewType,
   selectedDirectionCount,
   setSelectedDirectionCount,
   tokens,
@@ -385,20 +393,19 @@ export function InputSidebar({
 
               <div className="min-h-[100px]">
                 {tabMode === 'action' ? (
-                  <motion.div 
+                  <motion.div
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       className="grid grid-cols-2 sm:grid-cols-3 gap-3"
                   >
                       {ACTIONS.map((action, i) => {
-                        const gridHint = {
-                          idle: '1x4 Grid (4 frames)',
-                          walk: '2x4 Grid (8 frames)',
-                          run: '2x4 Grid (8 frames)',
-                          jump: '2x3 Grid (6 frames)',
-                          attack: '2x3 Grid (6 frames)',
-                          cast: '2x4 Grid (8 frames)'
-                        }[action.id] || 'Custom Grid';
+                        // Calculate frame count based on selected view type
+                        const baseFrames = action.frames;
+                        const totalFrames = selectedViewType === 'top-down'
+                          ? baseFrames * selectedDirectionCount
+                          : baseFrames;
+                        const { rows, cols } = calculateGridDimensions(totalFrames);
+                        const gridHint = `${rows}×${cols} (${totalFrames} frame${totalFrames > 1 ? 's' : ''})`;
 
                         return (
                         <motion.button
@@ -488,21 +495,39 @@ export function InputSidebar({
               </div>
             </section>
 
-            {/* Direction Selection - Overhead Games Only */}
+            {/* View Type Selection */}
             <section className="space-y-2">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-[10px] flex items-center justify-center border border-orange-200 dark:border-orange-500/30">4</span>
-                  Directions (Overhead)
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">4</span>
+                  Game Perspective
                 </h2>
               </div>
-              
-              <DirectionSelector
-                selectedDirectionCount={selectedDirectionCount}
-                onDirectionCountChange={setSelectedDirectionCount}
+
+              <ViewTypeSelector
+                selectedViewType={selectedViewType}
+                onViewTypeChange={setSelectedViewType}
                 disabled={isGenerating}
               />
             </section>
+
+            {/* Direction Selection - Only for Top-Down Games */}
+            {selectedViewType === 'top-down' && (
+              <section className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-300 text-xs flex items-center justify-center border border-orange-200 dark:border-orange-500/30">5</span>
+                    Number of Directions
+                  </h2>
+                </div>
+
+                <DirectionSelector
+                  selectedDirectionCount={selectedDirectionCount}
+                  onDirectionCountChange={setSelectedDirectionCount}
+                  disabled={isGenerating}
+                />
+              </section>
+            )}
 
             </div>
 

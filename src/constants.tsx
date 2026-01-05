@@ -18,12 +18,12 @@ import {
 } from './components/AnimatedIcons';
 
 export const ACTIONS: ActionOption[] = [
-  { id: 'idle', label: 'Idle', icon: <IdleIcon className="w-5 h-5" />, frames: 4 },
-  { id: 'walk', label: 'Walk', icon: <WalkIcon className="w-5 h-5" />, frames: 6 },
+  { id: 'idle', label: 'Idle', icon: <IdleIcon className="w-5 h-5" />, frames: 8 },
+  { id: 'walk', label: 'Walk', icon: <WalkIcon className="w-5 h-5" />, frames: 8 },
   { id: 'run', label: 'Run', icon: <RunIcon className="w-5 h-5" />, frames: 8 },
-  { id: 'jump', label: 'Jump', icon: <JumpIcon className="w-5 h-5" />, frames: 5 },
+  { id: 'jump', label: 'Jump', icon: <JumpIcon className="w-5 h-5" />, frames: 6 },
   { id: 'attack', label: 'Attack', icon: <AttackIcon className="w-5 h-5" />, frames: 6 },
-  { id: 'cast', label: 'Cast', icon: <CastIcon className="w-5 h-5" />, frames: 7 },
+  { id: 'cast', label: 'Cast', icon: <CastIcon className="w-5 h-5" />, frames: 8 },
 ];
 
 export const EXPRESSIONS: ExpressionOption[] = [

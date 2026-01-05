@@ -228,3 +228,4 @@ The Frame Gallery puts you in complete control of your sprite animations. Start 
 
 **Remember**: More frames = smoother animation, but larger file size. Find the sweet spot for your game!
 
+

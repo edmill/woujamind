@@ -30,9 +30,9 @@ import { CreditDisplay } from './components/CreditDisplay';
 import { CreditStore } from './components/CreditStore';
 import { FrameGallery } from './components/FrameGallery';
 import { ACTIONS } from './constants';
-import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData, DirectionCount, DirectionSelection, UserCredits } from './types';
+import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData, DirectionCount, DirectionSelection, UserCredits, ViewType } from './types';
 import { cn } from './utils';
-import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame, analyzeCharacter } from './services/geminiService';
+import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame, analyzeCharacter, generateReferenceImage } from './services/geminiService';
 import { generateSpriteSheetFromImage, calculateGridDimensions } from './services/replicateService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
 import { framesToDataUrls, dataUrlsToFrames } from './utils/frameSelection';
@@ -52,6 +52,7 @@ export default function Woujamind() {
   const [selectedArtStyle, setSelectedArtStyle] = useState<ArtStyle>('pixel');
   const [selectedDirection, setSelectedDirection] = useState<SpriteDirection>('right');
   const [multiViewData, setMultiViewData] = useState<MultiViewData | null>(null);
+  const [selectedViewType, setSelectedViewType] = useState<ViewType>('side-view'); // Default to side-view
   const [selectedDirectionCount, setSelectedDirectionCount] = useState<DirectionSelection>(1); // Default to 1 direction
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -134,8 +135,8 @@ export default function Woujamind() {
       // Calculate new grid dimensions
       const { rows, cols } = calculateGridDimensions(selectedFrames.length);
 
-      // Create new sprite sheet from existing frames
-      const spriteSheet = createSpriteSheetFromFrames(centeredFrames, rows, cols);
+      // Create new sprite sheet from existing frames with background removal
+      const spriteSheet = await createSpriteSheetFromFrames(centeredFrames, rows, cols, true);
       const spriteSheetBase64 = spriteSheet.toDataURL('image/png');
 
       // Update state with new sprite sheet
@@ -207,17 +208,9 @@ export default function Woujamind() {
 
   // Calculate optimal frame count based on action and direction count
   const calculateOptimalFrameCount = (action: ActionType, directionCount: DirectionSelection): number => {
-    // Base frames per action (for single direction) - Increased for smooth animation
-    const baseFrames: Record<ActionType, number> = {
-      idle: 30,   // Increased from 4 to 30 for smooth breathing/idle motion
-      walk: 40,   // Increased from 8 to 40 for smooth walk cycle
-      run: 40,    // Increased from 8 to 40 for smooth run cycle
-      jump: 35,   // Increased from 6 to 35 for smooth jump arc
-      attack: 35, // Increased from 6 to 35 for smooth attack motion
-      cast: 40    // Increased from 8 to 40 for smooth casting animation
-    };
-    
-    const framesPerDirection = baseFrames[action];
+    // Use the actual frame counts from ACTIONS constant to avoid mismatches
+    const actionData = ACTIONS.find(a => a.id === action);
+    const framesPerDirection = actionData?.frames || 8;
     return framesPerDirection * directionCount;
   };
 
@@ -255,6 +248,19 @@ export default function Woujamind() {
   useEffect(() => {
     migrateLocalStorage();
   }, []);
+
+  // Auto-adjust direction count when view type changes
+  useEffect(() => {
+    if (selectedViewType === 'side-view') {
+      // For side-view games, default to 1 direction
+      setSelectedDirectionCount(1);
+    } else if (selectedViewType === 'top-down') {
+      // For top-down games, default to 4 directions if currently at 1
+      if (selectedDirectionCount === 1) {
+        setSelectedDirectionCount(4);
+      }
+    }
+  }, [selectedViewType]);
 
   // Check for API Key on mount
   useEffect(() => {
@@ -585,7 +591,7 @@ export default function Woujamind() {
     setActiveFrameIndex(null);
 
     try {
-      // Convert file to base64 if provided
+      // Convert file to base64 if provided, OR generate a reference image from prompt
       let imageBase64: string | null = null;
       if (selectedFile) {
         setStatusText("Processing reference image...");
@@ -595,6 +601,21 @@ export default function Woujamind() {
           reader.onerror = reject;
           reader.readAsDataURL(selectedFile);
         });
+      } else {
+        // No image uploaded - generate a reference image with Gemini
+        setStatusText("Generating reference character image with Gemini AI...");
+        console.log('[handleGenerate] No reference image uploaded, generating with Gemini');
+        try {
+          imageBase64 = await generateReferenceImage(
+            prompt,
+            selectedArtStyle,
+            'gemini-2.5-flash-image'
+          );
+          setStatusText("Reference image generated successfully!");
+        } catch (error) {
+          console.error('[handleGenerate] Failed to generate reference image:', error);
+          throw new Error(`Failed to generate reference image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       }
 
       setStatusText("Analyzing character design and action requirements...");
@@ -606,7 +627,7 @@ export default function Woujamind() {
       setActiveFrameIndex(null);
       setSelectedFrame(null);
 
-      // STEP 1: Analyze character (optional - provides better context)
+      // STEP 1: Analyze character (now always runs since we always have an image)
       let characterDescription = prompt;
       let styleParams = undefined;
       if (imageBase64) {
@@ -625,11 +646,10 @@ export default function Woujamind() {
 
       setStatusText(`Generating ${optimalFrameCount} frame sprite sheet with ${selectedAction} animation (${selectedDirectionCount} ${selectedDirectionCount === 1 ? 'direction' : 'directions'})...`);
 
-      // Check if using Replicate for video-based generation
-      // When true: Generates video → extracts 150 frames → perfect alignment + Frame Gallery
-      // When false: Uses Gemini image generation → may have alignment issues
-      // Now uses Replicate HTTP API directly (no backend proxy needed!)
-      const useReplicate = true; // ✅ Enabled - uses HTTP API directly
+      // ALWAYS use Replicate for video-based generation
+      // Generates video → extracts 150 frames → perfect alignment + Frame Gallery
+      // Reference image is now guaranteed (either uploaded or generated by Gemini)
+      const useReplicate = true; // ✅ Always enabled - uses Replicate Seedance
 
       let spriteSheetBase64: string;
       let generatedPrompt: string;
@@ -637,9 +657,14 @@ export default function Woujamind() {
       let generatedCharacterDesc: string;
 
       if (useReplicate) {
+        // Ensure we have a reference image (should always be true now)
+        if (!imageBase64) {
+          throw new Error('Reference image is required for Replicate generation');
+        }
+
         // STEP 2-7: Generate sprite sheet using Replicate Seedance pipeline
         const replicateResult = await generateSpriteSheetFromImage(
-          imageBase64 || '',
+          imageBase64,
           characterDescription,
           selectedAction,
           `${selectedDirectionCount} ${selectedDirectionCount === 1 ? 'direction' : 'directions'}`, // Pass direction count
@@ -1201,6 +1226,77 @@ export default function Woujamind() {
     }
   };
 
+  /**
+   * Re-process background removal on entire sprite sheet
+   * Uses the improved background removal algorithm to fix green backgrounds and shadows
+   * This is useful for existing sprite sheets that need better background removal
+   */
+  const handleReprocessBackground = async () => {
+    if (!generatedImage) return;
+
+    console.log('=== REPROCESS BACKGROUND STARTED ===');
+    console.log('Grid configuration:', { rows: gridRows, cols: gridCols });
+
+    setIsEditing(true);
+    setStatusText('Re-processing background removal on all frames...');
+
+    try {
+      const totalFrames = gridRows * gridCols;
+      const { processRemoveBackground } = await import('./utils/imageHelpers');
+
+      // Process each frame individually for best results
+      let currentSheet = generatedImage;
+
+      for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
+        setStatusText(`Re-processing frame ${frameIndex + 1} of ${totalFrames}...`);
+        console.log(`Processing frame ${frameIndex + 1}/${totalFrames}`);
+
+        // 1. Crop frame
+        const croppedFrame = await cropFrame(currentSheet, frameIndex, gridRows, gridCols);
+
+        // 2. Load to canvas
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = croppedFrame;
+        });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
+
+        if (!ctx) {
+          console.error(`Failed to create canvas for frame ${frameIndex}`);
+          continue;
+        }
+
+        ctx.drawImage(img, 0, 0);
+
+        // 3. Apply improved background removal
+        processRemoveBackground(ctx, canvas.width, canvas.height);
+
+        const cleanedFrame = canvas.toDataURL('image/png');
+
+        // 4. Paste back into sheet
+        currentSheet = await pasteFrame(currentSheet, cleanedFrame, frameIndex, gridRows, gridCols);
+      }
+
+      pushToHistory(currentSheet);
+      console.log('=== REPROCESS BACKGROUND COMPLETED ===');
+      toast.success(`All ${totalFrames} frames reprocessed with improved background removal!`);
+
+    } catch (error: any) {
+      console.error('=== REPROCESS BACKGROUND FAILED ===');
+      console.error("Error details:", error);
+      toast.error(error.message || "Failed to reprocess background. Please try again.");
+    } finally {
+      setIsEditing(false);
+      setStatusText("");
+    }
+  };
+
   const handleAutoAlignFrame = async (index: number) => {
     if (!generatedImage) return;
     setIsEditing(true);
@@ -1754,6 +1850,8 @@ export default function Woujamind() {
               selectedDirection={selectedDirection}
               setSelectedDirection={setSelectedDirection}
               multiViewData={multiViewData}
+              selectedViewType={selectedViewType}
+              setSelectedViewType={setSelectedViewType}
               selectedDirectionCount={selectedDirectionCount}
               setSelectedDirectionCount={setSelectedDirectionCount}
               tokens={tokens}
@@ -1849,6 +1947,7 @@ export default function Woujamind() {
                           <EmptyStateView
                             isGenerating={isGenerating}
                             statusText={displayStatusText || statusText}
+                            isLoadingSprites={isLoadingSprites}
                           />
                         )}
                      </div>
@@ -1882,6 +1981,7 @@ export default function Woujamind() {
                      onToggleFrameSelect={handleToggleFrameSelect}
                      onEdit={handleEditSpriteSheet}
                      onCleanBackground={handleCleanBackground}
+                     onReprocessBackground={handleReprocessBackground}
                      onUndo={handleUndo}
                      onRedo={handleRedo}
                      canUndo={historyIndex > 0}

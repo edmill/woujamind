@@ -271,3 +271,4 @@ Frame data is now fully persistent! Users can:
 
 This implementation delivers on the promise of "complete transparency and control" by ensuring users never lose access to their extracted frames, even after closing the browser or reloading the page.
 
+

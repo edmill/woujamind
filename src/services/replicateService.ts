@@ -62,13 +62,15 @@ const getGeminiClient = (): GoogleGenAI => {
  * Prefers landscape orientation (more columns than rows)
  */
 export const calculateGridDimensions = (frameCount: number): { rows: number; cols: number } => {
-  // Predefined optimal layouts
+  // Predefined optimal layouts for common frame counts
   const layouts: Record<number, { rows: number; cols: number }> = {
+    6: { rows: 2, cols: 3 },
     8: { rows: 2, cols: 4 },
     16: { rows: 4, cols: 4 },
     24: { rows: 4, cols: 6 },
     32: { rows: 4, cols: 8 },
     48: { rows: 6, cols: 8 },
+    64: { rows: 8, cols: 8 },
   };
 
   if (layouts[frameCount]) {
@@ -287,13 +289,15 @@ export const extractFramesFromVideo = async (
 
 /**
  * Create a sprite sheet from individual frames
- * Arranges frames in a grid layout with white background
+ * Arranges frames in a grid layout with transparent background
+ * Automatically removes backgrounds from the final sprite sheet
  */
-export const createSpriteSheetFromFrames = (
+export const createSpriteSheetFromFrames = async (
   frames: HTMLCanvasElement[],
   rows: number,
-  cols: number
-): HTMLCanvasElement => {
+  cols: number,
+  removeBackground: boolean = true
+): Promise<HTMLCanvasElement> => {
   if (frames.length === 0) {
     throw new Error('No frames provided for sprite sheet creation');
   }
@@ -301,19 +305,18 @@ export const createSpriteSheetFromFrames = (
   const frameWidth = frames[0].width;
   const frameHeight = frames[0].height;
 
-  // Create sprite sheet canvas
+  // Create sprite sheet canvas with alpha support
   const spriteSheet = document.createElement('canvas');
   spriteSheet.width = cols * frameWidth;
   spriteSheet.height = rows * frameHeight;
 
-  const ctx = spriteSheet.getContext('2d', { alpha: true });
+  const ctx = spriteSheet.getContext('2d', { alpha: true, willReadFrequently: true });
   if (!ctx) {
     throw new Error('Failed to create sprite sheet canvas context');
   }
 
-  // Fill with white background
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, spriteSheet.width, spriteSheet.height);
+  // Start with transparent background instead of white
+  ctx.clearRect(0, 0, spriteSheet.width, spriteSheet.height);
 
   // Draw frames in grid layout
   let frameIndex = 0;
@@ -330,6 +333,15 @@ export const createSpriteSheetFromFrames = (
   }
 
   console.log('[createSpriteSheetFromFrames] Created sprite sheet:', spriteSheet.width, 'x', spriteSheet.height);
+
+  // Automatically remove background from the entire sprite sheet
+  if (removeBackground) {
+    console.log('[createSpriteSheetFromFrames] Removing background from sprite sheet...');
+    const { processRemoveBackground } = await import('../utils/imageHelpers');
+    processRemoveBackground(ctx, spriteSheet.width, spriteSheet.height);
+    console.log('[createSpriteSheetFromFrames] Background removal complete');
+  }
+
   return spriteSheet;
 };
 
@@ -428,15 +440,15 @@ export const generateSpriteSheetFromImage = async (
     const { rows, cols } = calculateGridDimensions(frameCount);
     console.log('[generateSpriteSheetFromImage] Grid dimensions:', rows, 'x', cols);
 
-    // Step 7: Create sprite sheet from centered frames
-    onStatusUpdate?.('Creating sprite sheet...');
-    const spriteSheet = createSpriteSheetFromFrames(centeredFrames, rows, cols);
+    // Step 7: Create sprite sheet from centered frames with automatic background removal
+    onStatusUpdate?.('Creating sprite sheet and removing backgrounds...');
+    const spriteSheet = await createSpriteSheetFromFrames(centeredFrames, rows, cols, true);
 
     onStatusUpdate?.('Sprite sheet generated successfully!');
 
-    return { 
-      spriteSheet, 
-      rows, 
+    return {
+      spriteSheet,
+      rows,
       cols,
       allFrames,           // Return all 150 frames for user selection
       selectedIndices      // Return which frames were auto-selected

@@ -43,7 +43,7 @@ export function FileLibraryView({ sprites, onOpenSprite, onDeleteSprite, viewMod
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="w-full h-full overflow-y-auto px-6 py-4"
+      className="w-full h-full overflow-y-auto px-6 py-4 sprite-scroll"
     >
       <div className="space-y-10">
         {sections.map((section, sectionIndex) => (

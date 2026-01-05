@@ -230,3 +230,4 @@ With Replicate HTTP API enabled:
 
 **Summary:** You were absolutely right - the Replicate HTTP API works perfectly in the browser without any backend proxy. The issue was using the wrong tool (Node.js SDK instead of HTTP API). Now it's fixed and working! 🚀
 
+
