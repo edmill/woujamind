@@ -306,6 +306,7 @@ All credit components use the Woujamind Design System (design-system.css)
 - localStorage used only for API keys and migration marker
 
 ### Vite Configuration
-- Environment variables must use `VITE_` prefix to be exposed to client code
-- Exception: `GEMINI_API_KEY` is explicitly mapped in vite.config.ts for backward compatibility
-- API keys are injected as `process.env.API_KEY` and `process.env.GEMINI_API_KEY`
+- Environment variables must use `VITE_` prefix to be exposed to client code (e.g., `VITE_GEMINI_API_KEY`)
+- **SECURITY**: API keys are NEVER injected into the client bundle via `define` in vite.config
+- Users provide their own API keys via Settings modal (stored in localStorage)
+- Development convenience: `.env` file can contain `VITE_*` prefixed keys for local testing only
