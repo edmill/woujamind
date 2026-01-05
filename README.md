@@ -1,4 +1,4 @@
-# Sprite Magic Generator
+# Woujamind
 
 A high-performance, intuitive interface for generating sprite sheets using AI. Designed for game developers and pixel artists who need rapid prototyping tools.
 
@@ -16,7 +16,7 @@ A high-performance, intuitive interface for generating sprite sheets using AI. D
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - A Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
 
 ### Installation
@@ -72,7 +72,7 @@ This project integrates the backend services from `spritegen.ai`:
 - **Image Utilities** (`src/utils/imageUtils.ts`): Frame extraction, alignment, and GIF creation
 - **API Key Management**: Supports both environment variables and AI Studio integration
 
-The new UI provides a modern, user-friendly interface while leveraging the proven sprite generation logic from spritegen.ai.
+The UI provides a modern, user-friendly interface while leveraging the proven sprite generation logic from spritegen.ai.
 
 ## Dependencies
 
