@@ -1,5 +1,7 @@
 {
-  "name": "SpriteGen.ai",
-  "description": "Generate game character sprite sheets and animations from a single image using Gemini AI.",
-  "requestFramePermissions": []
+  "name": "Woujamind",
+  "slug": "woujamind",
+  "description": "Woujamind - a web UI for sprite generation",
+  "version": "1.0.0",
+  "author": "edmill"
 }
