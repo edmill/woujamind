@@ -106,19 +106,32 @@ export const getBackgroundColor = (ctx: CanvasRenderingContext2D, width: number,
 
   // PRIORITY 1: Check for green chroma key (bright green background)
   // Chroma key green is typically RGB(0, 255, 0) or close to it
+  // CRITICAL: Only detect chroma key if it's the DOMINANT edge color (>60% of edge pixels)
+  // This prevents false positives when green characters touch edges
   let chromaKeyGreen = null;
+  let totalEdgePixels = 0;
+  
+  // Calculate total edge pixels for percentage check
+  totalEdgePixels = (width * 2) + ((height - 2) * 2);
+  
   for (const color of colorMap.values()) {
     // Check if this is a bright green (chroma key)
     // Green channel high (>200), Red and Blue channels low (<100)
     if (color.g > 200 && color.r < 100 && color.b < 100) {
-      if (!chromaKeyGreen || color.count > chromaKeyGreen.count) {
-        chromaKeyGreen = color;
+      const greenPercentage = (color.count / totalEdgePixels) * 100;
+      // Only consider it chroma key if it's dominant (>60% of edge pixels)
+      // AND it's very bright green (g > 220 for stricter detection)
+      if (greenPercentage > 60 && color.g > 220) {
+        if (!chromaKeyGreen || color.count > chromaKeyGreen.count) {
+          chromaKeyGreen = color;
+        }
       }
     }
   }
 
   if (chromaKeyGreen) {
-    console.log('[getBackgroundColor] Detected chroma key green background:', chromaKeyGreen);
+    const greenPercentage = (chromaKeyGreen.count / totalEdgePixels) * 100;
+    console.log('[getBackgroundColor] Detected chroma key green background:', chromaKeyGreen, `(${greenPercentage.toFixed(1)}% of edges)`);
     return chromaKeyGreen;
   }
 
