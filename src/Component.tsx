@@ -98,6 +98,9 @@ export default function Woujamind() {
   const [autoSelectedFrameIndices, setAutoSelectedFrameIndices] = useState<number[]>([]);
   const [isFrameGalleryOpen, setIsFrameGalleryOpen] = useState<boolean>(false);
 
+  // Variable Frame Detection State (for non-uniform sprite sheets)
+  const [variableFrames, setVariableFrames] = useState<import('./utils/variableFrameDetection').VariableFrame[] | null>(null);
+
   // Handler for frame gallery selection changes
   const handleFrameGallerySelectionChange = (newIndices: number[]) => {
     setAutoSelectedFrameIndices(newIndices);
@@ -1563,7 +1566,7 @@ export default function Woujamind() {
     setShowNewConfirm(false);
   };
 
-  const handleSpriteSheetUpload = async (file: File, rows: number, cols: number) => {
+  const handleSpriteSheetUpload = async (file: File, rows: number, cols: number, variableFrames?: import('./utils/variableFrameDetection').VariableFrame[]) => {
     try {
       // Convert file to data URL
       const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -1582,6 +1585,14 @@ export default function Woujamind() {
       // Update grid dimensions
       _setGridRows(rows);
       _setGridCols(cols);
+
+      // Store variable frames if provided
+      if (variableFrames && variableFrames.length > 0) {
+        setVariableFrames(variableFrames);
+        console.log(`[Component] Using ${variableFrames.length} variable frames`);
+      } else {
+        setVariableFrames(null);
+      }
 
       // Set as uploaded source
       setUploadSource('uploaded');
@@ -1634,7 +1645,10 @@ export default function Woujamind() {
       setActiveFrameIndex(null);
       setSelectedFrame(null);
 
-      toast.success(`Sprite sheet loaded! ${rows}×${cols} grid (${rows * cols} frames)`);
+      const frameCount = variableFrames && variableFrames.length > 0 
+        ? variableFrames.length 
+        : rows * cols;
+      toast.success(`Sprite sheet loaded! ${variableFrames ? `${frameCount} variable frames` : `${rows}×${cols} grid (${frameCount} frames)`}`);
     } catch (error) {
       console.error('Upload failed:', error);
       toast.error('Failed to load sprite sheet. Please try again.');
@@ -1978,6 +1992,7 @@ export default function Woujamind() {
                      imageSrc={generatedImage}
                      rows={gridRows}
                      cols={gridCols}
+                     variableFrames={variableFrames}
                      selectedFrame={selectedFrame}
                      setSelectedFrame={setSelectedFrame}
                      activeFrameIndex={activeFrameIndex}

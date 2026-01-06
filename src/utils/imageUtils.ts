@@ -18,6 +18,7 @@ export {
 } from './imageHelpers';
 
 // Frame extraction and GIF creation
+export { extractVariableFrames } from './frameExtraction';
 export {
   extractFrames,
   createGifBlob
