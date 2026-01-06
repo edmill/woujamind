@@ -29,6 +29,7 @@ import { OpenFileIndicator } from './components/OpenFileIndicator';
 import { CreditDisplay } from './components/CreditDisplay';
 import { CreditStore } from './components/CreditStore';
 import { FrameGallery } from './components/FrameGallery';
+import { VersionDisplay } from './components/VersionDisplay';
 import { ACTIONS } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData, DirectionCount, DirectionSelection, UserCredits, ViewType } from './types';
 import { cn } from './utils';
@@ -1962,6 +1963,9 @@ export default function Woujamind() {
                            : "Expressions modify the character's facial features and subtle idle animations."}
                        </p>
                      </div>
+                     
+                     {/* Version and Build Number */}
+                     <VersionDisplay />
                    </motion.div>
                  ) : (
                   <ResultView 
