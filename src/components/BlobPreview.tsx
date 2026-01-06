@@ -42,9 +42,9 @@ export const BlobPreview = ({
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  const bodyVariants = {
-    idle: { 
-      scaleY: [1, 1.05, 0.95, 1], 
+  const bodyVariants: any = {
+    idle: {
+      scaleY: [1, 1.05, 0.95, 1],
       scaleX: [1, 0.95, 1.05, 1],
       y: [0, -5, 0],
       borderRadius: [
@@ -52,7 +52,7 @@ export const BlobPreview = ({
         "50% 60% 50% 40% / 40% 50% 40% 60%",
         "60% 40% 30% 70% / 60% 30% 70% 40%"
       ],
-      transition: { repeat: Infinity, duration: 4, ease: "easeInOut" } 
+      transition: { repeat: Infinity, duration: 4, ease: "easeInOut" }
     },
     walk: { 
       y: [0, -10, 0], 
