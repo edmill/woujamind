@@ -1,15 +1,39 @@
 /**
  * Replicate Service
  * Handles all Replicate API interactions for Seedance video generation
- * Uses Replicate JavaScript SDK (works in browser with user's API key)
+ *
+ * ARCHITECTURE: Uses Vercel serverless function (/api/replicate) as a proxy
+ * to avoid CORS issues when calling Replicate API from the browser.
+ * User's API key is passed securely in request body to the serverless function.
  */
 
-import Replicate from 'replicate';
 import { GoogleGenAI } from "@google/genai";
 import { extractFrames } from '../utils/videoProcessing';
 import { FrameCenteringService } from '../utils/frameCentering';
 import { selectOptimalFrames } from '../utils/frameSelection';
 import type { StyleParameters } from '../types';
+
+// Serverless function endpoint (works locally via Vite proxy and on Vercel)
+// In local development, this should proxy to a local server or use Vercel dev server
+const REPLICATE_PROXY_URL = '/api/replicate';
+
+/**
+ * Check if the proxy endpoint is available
+ * Returns true if endpoint responds, false otherwise
+ */
+const checkProxyAvailability = async (): Promise<boolean> => {
+  try {
+    // Try a simple OPTIONS request to check if endpoint exists
+    const response = await fetch(REPLICATE_PROXY_URL, {
+      method: 'OPTIONS',
+      signal: AbortSignal.timeout(3000) // 3 second timeout
+    });
+    return response.ok || response.status === 200 || response.status === 204;
+  } catch (error) {
+    console.warn('[Replicate Service] Proxy endpoint not available:', error);
+    return false;
+  }
+};
 
 // Storage key for Replicate API key
 const REPLICATE_API_KEY_STORAGE = 'woujamind_replicate_api_key';
@@ -45,16 +69,6 @@ const getGeminiApiKey = (): string => {
   if (envKey) return envKey;
 
   throw new Error("GEMINI_API_KEY_MISSING: Please add your Gemini API key in Settings for prompt optimization");
-};
-
-/**
- * Get Replicate client instance
- */
-const getReplicateClient = (): Replicate => {
-  const apiKey = getReplicateApiKey();
-  return new Replicate({
-    auth: apiKey,
-  });
 };
 
 /**
@@ -170,18 +184,31 @@ Output ONLY the optimized prompt text, nothing else.`;
 };
 
 /**
- * Generate a 5-second video from an image using Seedance
+ * Generate a 5-second video from an image using Seedance via serverless function
  * Returns the video as a Blob
+ *
+ * ARCHITECTURE: Calls /api/replicate serverless function which proxies to Replicate API
+ * This avoids CORS issues while keeping the SaaS architecture (no dedicated server)
  */
 export const generateVideoFromImage = async (
   imageBase64: string,
   prompt: string,
   onProgress?: (status: string) => void
 ): Promise<Blob> => {
-  const replicate = getReplicateClient();
+  const apiKey = getReplicateApiKey();
 
   try {
     onProgress?.('Initializing video generation...');
+
+    // Check if proxy endpoint is available (with timeout)
+    const proxyAvailable = await checkProxyAvailability();
+    if (!proxyAvailable) {
+      throw new Error(
+        'PROXY_UNAVAILABLE: The Replicate API proxy endpoint is not available. ' +
+        'If running locally, make sure you are using Vercel dev server (`vercel dev`) ' +
+        'or have configured a local proxy. The endpoint should be available at /api/replicate'
+      );
+    }
 
     // Convert base64 to data URI if not already
     const imageDataUri = imageBase64.startsWith('data:')
@@ -190,39 +217,171 @@ export const generateVideoFromImage = async (
 
     console.log('[generateVideoFromImage] Starting Seedance generation with prompt:', prompt);
 
-    // Call Seedance model using Replicate SDK
-    // Model: bytedance/seedance-1-pro-fast
-    const output = await replicate.run(
-      "bytedance/seedance-1-pro-fast:a8c7ea67-c9ab-4f71-ac84-4036af08734b",
-      {
-        input: {
-          image: imageDataUri,
-          prompt: prompt,
-          num_frames: 150, // 5 seconds at 30 FPS
-          guidance_scale: 7.5,
-          num_inference_steps: 20,
-        }
-      },
-      // Progress callback - third parameter is the callback function directly
-      (prediction: any) => {
-        const status = prediction.status;
-        const logs = prediction.logs;
+    // Step 1: Create prediction via serverless function
+    const createController = new AbortController();
+    const createTimeoutId = setTimeout(() => createController.abort(), 30000); // 30 second timeout for create
 
-        if (logs) {
-          console.log('[Seedance]', logs);
-        }
-
-        if (status === 'processing') {
-          onProgress?.('Generating video...');
-        } else if (status === 'succeeded') {
-          onProgress?.('Video generated, downloading...');
-        }
+    let createResponse;
+    try {
+      createResponse = await fetch(REPLICATE_PROXY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'create',
+          apiKey: apiKey,
+          model: 'a5fd550893da3b6f67997812759065652454ddaca10e96b83b59cbae1814cb36', // seedance-1-pro latest
+          input: {
+            input_urls: [imageDataUri],
+            prompt: prompt,
+            duration: 5, // 5 seconds video
+            resolution: '480p', // 480p or 720p
+            fps: 24, // Only 24 fps supported
+            aspect_ratio: '1:1', // Square for sprites
+          },
+        }),
+        signal: createController.signal,
+      });
+      clearTimeout(createTimeoutId);
+    } catch (createError: any) {
+      clearTimeout(createTimeoutId);
+      if (createError.name === 'AbortError' || createError.message?.includes('timeout')) {
+        throw new Error('TIMEOUT: Request to create prediction timed out. The proxy endpoint may be unavailable or slow.');
       }
-    );
+      throw createError;
+    }
 
-    console.log('[generateVideoFromImage] Seedance output:', output);
+    if (!createResponse.ok) {
+      const errorData = await createResponse.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to create prediction: ${createResponse.statusText}`);
+    }
 
-    // Output should be a video URL
+    const prediction = await createResponse.json();
+    const predictionId = prediction.id;
+
+    console.log('[generateVideoFromImage] Prediction created:', predictionId);
+
+    // Step 2: Poll for completion
+    let status = prediction.status;
+    let output = prediction.output;
+    const MAX_POLL_TIME = 5 * 60 * 1000; // 5 minutes
+    const POLL_INTERVAL = 2000; // 2 seconds
+    const MAX_ITERATIONS = 150; // Maximum number of polling iterations (5 min / 2 sec = 150)
+    const startTime = Date.now();
+    let iterationCount = 0;
+
+    while (status === 'starting' || status === 'processing') {
+      // Safety check: Maximum iterations
+      iterationCount++;
+      if (iterationCount > MAX_ITERATIONS) {
+        throw new Error('TIMEOUT: Video generation exceeded maximum polling iterations. The prediction may be stuck.');
+      }
+
+      // Check timeout
+      if (Date.now() - startTime > MAX_POLL_TIME) {
+        throw new Error('TIMEOUT: Video generation took too long (>5 minutes)');
+      }
+
+      // Wait before polling
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+
+      // Get prediction status
+      let statusData;
+      try {
+        // Add timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout per request
+
+        const statusResponse = await fetch(REPLICATE_PROXY_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'get',
+            apiKey: apiKey,
+            predictionId: predictionId,
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!statusResponse.ok) {
+          const errorData = await statusResponse.json().catch(() => ({}));
+          throw new Error(errorData.message || `Failed to get prediction status: ${statusResponse.statusText}`);
+        }
+
+        statusData = await statusResponse.json();
+      } catch (fetchError: any) {
+        console.error('[generateVideoFromImage] Polling error:', fetchError);
+        
+        // Handle timeout specifically
+        if (fetchError.name === 'AbortError' || fetchError.message?.includes('timeout')) {
+          throw new Error('TIMEOUT: Request to Replicate API proxy timed out. The proxy endpoint may be unavailable or slow.');
+        }
+        
+        // If we can't get status, break the loop and throw
+        throw new Error(`Failed to poll prediction status: ${fetchError.message || 'Network error'}`);
+      }
+
+      // Validate response structure
+      if (!statusData || typeof statusData !== 'object') {
+        console.error('[generateVideoFromImage] Invalid status response:', statusData);
+        throw new Error('Invalid response from Replicate API: status data is malformed');
+      }
+
+      // Update status - validate it exists
+      const newStatus = statusData.status;
+      if (!newStatus || typeof newStatus !== 'string') {
+        console.error('[generateVideoFromImage] Missing or invalid status in response:', statusData);
+        throw new Error('Invalid response from Replicate API: status field is missing or invalid');
+      }
+
+      // Only update if status actually changed (prevents infinite loops from malformed responses)
+      if (newStatus !== status) {
+        status = newStatus;
+        output = statusData.output;
+        console.log('[generateVideoFromImage] Status changed:', status, '(iteration', iterationCount, ')');
+      } else {
+        // Status unchanged - log for debugging but continue polling
+        console.log('[generateVideoFromImage] Status unchanged:', status, '(iteration', iterationCount, ')');
+      }
+
+      // Validate status is a known value - break loop if unexpected
+      const validStatuses = ['starting', 'processing', 'succeeded', 'failed', 'canceled'];
+      if (!validStatuses.includes(status)) {
+        console.error('[generateVideoFromImage] Unexpected status value:', status);
+        throw new Error(`Unexpected prediction status from Replicate API: "${status}". Expected one of: ${validStatuses.join(', ')}`);
+      }
+
+      // Update progress
+      if (status === 'processing') {
+        onProgress?.('Generating video...');
+      } else if (status === 'succeeded') {
+        onProgress?.('Video generated, downloading...');
+      } else if (status === 'failed') {
+        onProgress?.('Video generation failed...');
+      } else if (status === 'canceled') {
+        onProgress?.('Video generation canceled...');
+      }
+    }
+
+    // Step 3: Check final status
+    if (status === 'failed') {
+      throw new Error(`Video generation failed: ${prediction.error || 'Unknown error'}`);
+    }
+
+    if (status === 'canceled') {
+      throw new Error('Video generation was canceled');
+    }
+
+    if (status !== 'succeeded') {
+      throw new Error(`Unexpected prediction status: ${status}`);
+    }
+
+    // Step 4: Get video URL
     let videoUrl: string;
     if (typeof output === 'string') {
       videoUrl = output;
@@ -234,7 +393,7 @@ export const generateVideoFromImage = async (
 
     onProgress?.('Downloading video...');
 
-    // Download the video
+    // Step 5: Download the video
     const response = await fetch(videoUrl);
     if (!response.ok) {
       throw new Error(`Failed to download video: ${response.statusText}`);
@@ -253,8 +412,8 @@ export const generateVideoFromImage = async (
       throw error;
     } else if (error.message?.includes('rate limit')) {
       throw new Error('RATE_LIMIT: Replicate API rate limit exceeded. Please wait a moment and try again.');
-    } else if (error.message?.includes('timeout')) {
-      throw new Error('TIMEOUT: Video generation timed out after 5 minutes. Please try again with a simpler prompt.');
+    } else if (error.message?.includes('TIMEOUT')) {
+      throw error; // Pass through timeout errors
     } else {
       throw new Error(`Video generation failed: ${error.message || 'Unknown error'}`);
     }
