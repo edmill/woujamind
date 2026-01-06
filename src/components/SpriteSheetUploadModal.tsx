@@ -5,14 +5,15 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Upload, LayoutGrid, ChevronRight, ChevronLeft, Check } from 'lucide-react';
+import { X, Upload, LayoutGrid, ChevronRight, ChevronLeft, Check, Sparkles, Edit2, Trash2, Plus, Save } from 'lucide-react';
 import { smartDetectGrid, validateSpriteSheetFile, GridDetectionResult } from '../utils/gridDetection';
+import { detectVariableFrames, VariableFrame, VariableFrameDetectionResult } from '../utils/variableFrameDetection';
 import { toast } from 'sonner';
 
 interface SpriteSheetUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpload: (file: File, rows: number, cols: number) => void;
+  onUpload: (file: File, rows: number, cols: number, variableFrames?: VariableFrame[]) => void;
 }
 
 type UploadStep = 'select' | 'detect' | 'manual';
@@ -23,13 +24,20 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<HTMLImageElement | null>(null);
   const [detectionResult, setDetectionResult] = useState<GridDetectionResult | null>(null);
+  const [variableFrameResult, setVariableFrameResult] = useState<VariableFrameDetectionResult | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
   const [manualRows, setManualRows] = useState(2);
   const [manualCols, setManualCols] = useState(4);
   const [isDragging, setIsDragging] = useState(false);
+  const [useVariableFrames, setUseVariableFrames] = useState(false);
+  const [selectedFrameIndex, setSelectedFrameIndex] = useState<number | null>(null);
+  const [isAddingFrame, setIsAddingFrame] = useState(false);
+  const [newFrameStart, setNewFrameStart] = useState<{ x: number; y: number } | null>(null);
+  const [editingFrame, setEditingFrame] = useState<VariableFrame | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -40,10 +48,16 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
       setPreviewUrl(null);
       setPreviewImage(null);
       setDetectionResult(null);
+      setVariableFrameResult(null);
       setIsDetecting(false);
       setManualRows(2);
       setManualCols(4);
       setIsDragging(false);
+      setUseVariableFrames(false);
+      setSelectedFrameIndex(null);
+      setIsAddingFrame(false);
+      setNewFrameStart(null);
+      setEditingFrame(null);
     }
   }, [isOpen]);
 
@@ -55,39 +69,289 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Always use manualRows/manualCols since they're editable in both steps
-    const rows = manualRows;
-    const cols = manualCols;
-
     canvas.width = previewImage.naturalWidth;
     canvas.height = previewImage.naturalHeight;
 
     // Draw image
     ctx.drawImage(previewImage, 0, 0);
 
-    // Draw grid overlay
-    ctx.strokeStyle = 'rgba(249, 115, 22, 0.8)'; // Orange
-    ctx.lineWidth = 2;
+    // Draw overlay based on detection mode
+    if (useVariableFrames && variableFrameResult && variableFrameResult.frames.length > 0) {
+      // Draw variable frame bounding boxes
+      ctx.strokeStyle = 'rgba(249, 115, 22, 0.8)'; // Orange
+      ctx.lineWidth = 2;
+      ctx.font = '12px monospace';
+      ctx.fillStyle = 'rgba(249, 115, 22, 0.9)';
+      ctx.textBaseline = 'top';
 
-    const cellWidth = canvas.width / cols;
-    const cellHeight = canvas.height / rows;
+      for (const frame of variableFrameResult.frames) {
+        const isSelected = selectedFrameIndex === frame.index;
+        // Use editing frame coordinates if currently editing
+        const displayFrame = (isSelected && editingFrame) ? editingFrame : frame;
+        
+        // Draw bounding box (highlighted if selected)
+        ctx.strokeStyle = isSelected ? 'rgba(59, 130, 246, 1)' : 'rgba(249, 115, 22, 0.8)';
+        ctx.lineWidth = isSelected ? 3 : 2;
+        ctx.strokeRect(displayFrame.x, displayFrame.y, displayFrame.width, displayFrame.height);
+        
+        // Draw selection highlight
+        if (isSelected) {
+          ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+          ctx.fillRect(displayFrame.x, displayFrame.y, displayFrame.width, displayFrame.height);
+        }
+        
+        // Draw frame index label
+        const label = `Frame ${frame.index + 1}`;
+        const textMetrics = ctx.measureText(label);
+        const labelWidth = textMetrics.width;
+        const labelHeight = 16;
+        
+        // Draw background for label
+        ctx.fillStyle = isSelected ? 'rgba(59, 130, 246, 0.9)' : 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(displayFrame.x, displayFrame.y, labelWidth + 4, labelHeight);
+        
+        // Draw label text
+        ctx.fillStyle = isSelected ? 'rgba(255, 255, 255, 1)' : 'rgba(249, 115, 22, 1)';
+        ctx.fillText(label, displayFrame.x + 2, displayFrame.y + 2);
+      }
+      
+      // Draw new frame being added
+      if (isAddingFrame && newFrameStart && canvasRef.current) {
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        // This will be updated by mouse move handler
+      }
+    } else {
+      // Draw uniform grid overlay
+      const rows = manualRows;
+      const cols = manualCols;
 
-    // Draw vertical lines
-    for (let i = 1; i < cols; i++) {
-      ctx.beginPath();
-      ctx.moveTo(i * cellWidth, 0);
-      ctx.lineTo(i * cellWidth, canvas.height);
-      ctx.stroke();
+      ctx.strokeStyle = 'rgba(249, 115, 22, 0.8)'; // Orange
+      ctx.lineWidth = 2;
+
+      const cellWidth = canvas.width / cols;
+      const cellHeight = canvas.height / rows;
+
+      // Draw vertical lines
+      for (let i = 1; i < cols; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * cellWidth, 0);
+        ctx.lineTo(i * cellWidth, canvas.height);
+        ctx.stroke();
+      }
+
+      // Draw horizontal lines
+      for (let i = 1; i < rows; i++) {
+        ctx.beginPath();
+        ctx.moveTo(0, i * cellHeight);
+        ctx.lineTo(canvas.width, i * cellHeight);
+        ctx.stroke();
+      }
     }
+  }, [previewImage, detectionResult, step, manualRows, manualCols, useVariableFrames, variableFrameResult, selectedFrameIndex, isAddingFrame, newFrameStart, editingFrame]);
 
-    // Draw horizontal lines
-    for (let i = 1; i < rows; i++) {
-      ctx.beginPath();
-      ctx.moveTo(0, i * cellHeight);
-      ctx.lineTo(canvas.width, i * cellHeight);
-      ctx.stroke();
+  // Handle canvas mouse down
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || !variableFrameResult || !useVariableFrames) return;
+    
+    if (isAddingFrame) {
+      // Start drawing new frame
+      const canvas = canvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      setNewFrameStart({ x, y });
+    } else {
+      // Select existing frame
+      handleCanvasClick(e);
     }
-  }, [previewImage, detectionResult, step, manualRows, manualCols]);
+  };
+
+  // Handle canvas click to select frames
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || !variableFrameResult || !useVariableFrames || isAddingFrame) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    // Check if clicking on a frame
+    for (const frame of variableFrameResult.frames) {
+      if (x >= frame.x && x <= frame.x + frame.width &&
+          y >= frame.y && y <= frame.y + frame.height) {
+        setSelectedFrameIndex(frame.index);
+        setEditingFrame({ ...frame });
+        return;
+      }
+    }
+    
+    // If clicking outside, deselect
+    setSelectedFrameIndex(null);
+    setEditingFrame(null);
+  };
+
+  // Handle frame deletion
+  const handleDeleteFrame = () => {
+    if (selectedFrameIndex === null || !variableFrameResult) return;
+    
+    const updatedFrames = variableFrameResult.frames
+      .filter(f => f.index !== selectedFrameIndex)
+      .map((f, i) => ({ ...f, index: i })); // Re-index
+    
+    setVariableFrameResult({
+      ...variableFrameResult,
+      frames: updatedFrames
+    });
+    setSelectedFrameIndex(null);
+    setEditingFrame(null);
+    toast.success('Frame deleted');
+  };
+
+  // Handle frame update
+  const handleUpdateFrame = () => {
+    if (!editingFrame || selectedFrameIndex === null || !variableFrameResult) return;
+    
+    const updatedFrames = variableFrameResult.frames.map(f => 
+      f.index === selectedFrameIndex ? { ...editingFrame, index: selectedFrameIndex } : f
+    );
+    
+    setVariableFrameResult({
+      ...variableFrameResult,
+      frames: updatedFrames
+    });
+    toast.success('Frame updated');
+  };
+
+  // Handle add new frame
+  const handleStartAddFrame = () => {
+    setIsAddingFrame(true);
+    setSelectedFrameIndex(null);
+    setEditingFrame(null);
+  };
+
+  // Handle canvas mouse move for adding frames
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isAddingFrame || !canvasRef.current || !previewImage) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    if (newFrameStart) {
+      // Redraw canvas to show the rectangle being drawn
+      const ctx = canvas.getContext('2d');
+      if (ctx && previewImage) {
+        ctx.drawImage(previewImage, 0, 0);
+        // Redraw all existing frames
+        if (variableFrameResult) {
+          for (const frame of variableFrameResult.frames) {
+            const isSelected = selectedFrameIndex === frame.index;
+            ctx.strokeStyle = isSelected ? 'rgba(59, 130, 246, 1)' : 'rgba(249, 115, 22, 0.8)';
+            ctx.lineWidth = isSelected ? 3 : 2;
+            ctx.strokeRect(frame.x, frame.y, frame.width, frame.height);
+          }
+        }
+        // Draw the new frame being created
+        ctx.strokeStyle = 'rgba(59, 130, 246, 1)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        const startX = Math.min(newFrameStart.x, x);
+        const startY = Math.min(newFrameStart.y, y);
+        const width = Math.abs(x - newFrameStart.x);
+        const height = Math.abs(y - newFrameStart.y);
+        ctx.strokeRect(startX, startY, width, height);
+        ctx.setLineDash([]);
+      }
+    }
+  };
+
+  // Handle canvas mouse up for adding frames
+  const handleCanvasMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isAddingFrame || !newFrameStart || !canvasRef.current || !variableFrameResult || !previewImage) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const endX = (e.clientX - rect.left) * scaleX;
+    const endY = (e.clientY - rect.top) * scaleY;
+    
+    const x = Math.min(newFrameStart.x, endX);
+    const y = Math.min(newFrameStart.y, endY);
+    const width = Math.abs(endX - newFrameStart.x);
+    const height = Math.abs(endY - newFrameStart.y);
+    
+    // Only add if frame is large enough
+    if (width >= 16 && height >= 16) {
+      const newFrame: VariableFrame = {
+        x: Math.max(0, Math.min(x, canvas.width - width)),
+        y: Math.max(0, Math.min(y, canvas.height - height)),
+        width: Math.min(width, canvas.width - x),
+        height: Math.min(height, canvas.height - y),
+        index: variableFrameResult.frames.length,
+        confidence: 0.5
+      };
+      
+      const updatedFrames = [...variableFrameResult.frames, newFrame]
+        .sort((a, b) => {
+          if (Math.abs(a.y - b.y) < 10) return a.x - b.x;
+          return a.y - b.y;
+        })
+        .map((f, i) => ({ ...f, index: i }));
+      
+      setVariableFrameResult({
+        ...variableFrameResult,
+        frames: updatedFrames
+      });
+      
+      setSelectedFrameIndex(newFrame.index);
+      setEditingFrame({ ...newFrame, index: newFrame.index });
+      toast.success('Frame added');
+    }
+    
+    setIsAddingFrame(false);
+    setNewFrameStart(null);
+    
+    // Redraw canvas after adding frame
+    if (canvasRef.current && previewImage) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(previewImage, 0, 0);
+        // Redraw all frames
+        if (variableFrameResult) {
+          const updatedFrames = [...variableFrameResult.frames, newFrame]
+            .sort((a, b) => {
+              if (Math.abs(a.y - b.y) < 10) return a.x - b.x;
+              return a.y - b.y;
+            })
+            .map((f, i) => ({ ...f, index: i }));
+          
+          for (const frame of updatedFrames) {
+            const isSelected = selectedFrameIndex === frame.index;
+            ctx.strokeStyle = isSelected ? 'rgba(59, 130, 246, 1)' : 'rgba(249, 115, 22, 0.8)';
+            ctx.lineWidth = isSelected ? 3 : 2;
+            ctx.strokeRect(frame.x, frame.y, frame.width, frame.height);
+          }
+        }
+      }
+    }
+  };
 
   const handleFileSelect = async (file: File) => {
     // Validate file
@@ -113,9 +377,30 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
     img.onload = async () => {
       setPreviewImage(img);
 
-      // Run grid detection
+      // Run both grid and variable frame detection
       setIsDetecting(true);
       try {
+        let detectedVariableFrames: VariableFrameDetectionResult | null = null;
+        
+        // Try variable frame detection first (for non-uniform sprite sheets)
+        try {
+          const variableResult = await detectVariableFrames(img, {
+            // minSize will be calculated dynamically based on image dimensions
+            backgroundThreshold: 40, // Increased for better background detection
+            padding: 2
+          });
+          
+          if (variableResult.frames.length > 0) {
+            detectedVariableFrames = variableResult;
+            setVariableFrameResult(variableResult);
+            console.log(`[SpriteSheetUpload] Detected ${variableResult.frames.length} variable frames using ${variableResult.method}`);
+          }
+        } catch (varError) {
+          console.warn('Variable frame detection failed:', varError);
+          // Continue with grid detection
+        }
+
+        // Also run grid detection (for uniform sprite sheets)
         const result = await smartDetectGrid(img);
         setDetectionResult(result);
 
@@ -131,6 +416,11 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
         // Warn about non-grid images
         if (result.detected.rows === 1 && result.detected.cols === 1 && result.confidence === 'low') {
           toast.warning('This appears to be a single image. Is this a sprite sheet?');
+        }
+
+        // If variable frames detected, suggest using them
+        if (detectedVariableFrames && detectedVariableFrames.frames.length > 0) {
+          toast.info(`Detected ${detectedVariableFrames.frames.length} variable-sized frames. Toggle "Variable Frames" to use them.`, { duration: 5000 });
         }
 
         // Move to detection preview step
@@ -191,7 +481,28 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
     }
 
     // Use the manually editable values (which start from detected values)
-    onUpload(selectedFile, manualRows, manualCols);
+    if (useVariableFrames && variableFrameResult && variableFrameResult.frames.length > 0) {
+      // Ensure frames are sorted and properly indexed before passing
+      const sortedFrames = [...variableFrameResult.frames]
+        .sort((a, b) => {
+          // Sort by position: top-to-bottom, left-to-right
+          const rowTolerance = Math.max(a.height, b.height) * 0.3;
+          if (Math.abs(a.y - b.y) < rowTolerance) {
+            return a.x - b.x; // Same row, sort by x
+          }
+          return a.y - b.y; // Different rows, sort by y
+        })
+        .map((frame, i) => ({ ...frame, index: i })); // Re-index to ensure sequential indices
+      
+      const frameCount = sortedFrames.length;
+      const estimatedCols = Math.ceil(Math.sqrt(frameCount));
+      const estimatedRows = Math.ceil(frameCount / estimatedCols);
+      
+      console.log(`[SpriteSheetUpload] Uploading ${frameCount} variable frames with indices:`, sortedFrames.map(f => f.index));
+      onUpload(selectedFile, estimatedRows, estimatedCols, sortedFrames);
+    } else {
+      onUpload(selectedFile, manualRows, manualCols);
+    }
   };
 
   const handleUseManual = () => {
@@ -207,7 +518,28 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
       }
     }
 
-    onUpload(selectedFile, manualRows, manualCols);
+    if (useVariableFrames && variableFrameResult && variableFrameResult.frames.length > 0) {
+      // Ensure frames are sorted and properly indexed before passing (same as handleUseDetected)
+      const sortedFrames = [...variableFrameResult.frames]
+        .sort((a, b) => {
+          // Sort by position: top-to-bottom, left-to-right
+          const rowTolerance = Math.max(a.height, b.height) * 0.3;
+          if (Math.abs(a.y - b.y) < rowTolerance) {
+            return a.x - b.x; // Same row, sort by x
+          }
+          return a.y - b.y; // Different rows, sort by y
+        })
+        .map((frame, i) => ({ ...frame, index: i })); // Re-index to ensure sequential indices
+      
+      const frameCount = sortedFrames.length;
+      const estimatedCols = Math.ceil(Math.sqrt(frameCount));
+      const estimatedRows = Math.ceil(frameCount / estimatedCols);
+      
+      console.log(`[SpriteSheetUpload] Uploading ${frameCount} variable frames with indices:`, sortedFrames.map(f => f.index));
+      onUpload(selectedFile, estimatedRows, estimatedCols, sortedFrames);
+    } else {
+      onUpload(selectedFile, manualRows, manualCols);
+    }
   };
 
   const getConfidenceBadge = (confidence: 'high' | 'medium' | 'low') => {
@@ -320,7 +652,13 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                   <div className="lg:col-span-2">
                     <canvas
                       ref={canvasRef}
-                      className="w-full h-auto border border-slate-200 dark:border-slate-800 rounded-lg"
+                      onMouseDown={handleCanvasMouseDown}
+                      onClick={handleCanvasClick}
+                      onMouseMove={handleCanvasMouseMove}
+                      onMouseUp={handleCanvasMouseUp}
+                      className={`w-full h-auto border border-slate-200 dark:border-slate-800 rounded-lg ${
+                        isAddingFrame ? 'cursor-crosshair' : useVariableFrames ? 'cursor-pointer' : ''
+                      }`}
                       style={{ imageRendering: 'pixelated' }}
                     />
                   </div>
@@ -384,16 +722,158 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                       <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Frame Size</p>
                         <p className="text-sm font-medium text-slate-900 dark:text-white">
-                          {Math.floor(previewImage.naturalWidth / manualCols)} ×{' '}
-                          {Math.floor(previewImage.naturalHeight / manualRows)} px
+                          {useVariableFrames && variableFrameResult 
+                            ? 'Variable (detected)' 
+                            : `${Math.floor(previewImage.naturalWidth / manualCols)} × ${Math.floor(previewImage.naturalHeight / manualRows)} px`}
                         </p>
                       </div>
                       <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total Frames</p>
                         <p className="text-sm font-medium text-slate-900 dark:text-white">
-                          {manualRows * manualCols}
+                          {useVariableFrames && variableFrameResult 
+                            ? variableFrameResult.frames.length 
+                            : manualRows * manualCols}
                         </p>
                       </div>
+
+                      {/* Variable Frame Detection Toggle */}
+                      {variableFrameResult && variableFrameResult.frames.length > 0 && (
+                        <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={useVariableFrames}
+                              onChange={(e) => setUseVariableFrames(e.target.checked)}
+                              className="w-4 h-4 text-orange-500 border-slate-300 rounded focus:ring-orange-500"
+                            />
+                            <div className="flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-orange-500" />
+                              <span className="text-sm font-medium text-slate-900 dark:text-white">
+                                Variable Frames ({variableFrameResult.frames.length} detected)
+                              </span>
+                            </div>
+                          </label>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 ml-6">
+                            Use detected variable-sized frames instead of uniform grid
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Frame Editing Panel */}
+                      {useVariableFrames && variableFrameResult && variableFrameResult.frames.length > 0 && (
+                        <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Edit Frames</h4>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={handleStartAddFrame}
+                                className="px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5"
+                                title="Add new frame by drawing on canvas"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                Add Frame
+                              </button>
+                            </div>
+                          </div>
+                          
+                          {isAddingFrame && (
+                            <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs text-blue-700 dark:text-blue-300 flex items-center justify-between">
+                              <span>Click and drag on the canvas to draw a new frame</span>
+                              <button
+                                onClick={() => {
+                                  setIsAddingFrame(false);
+                                  setNewFrameStart(null);
+                                  // Redraw canvas
+                                  if (canvasRef.current && previewImage) {
+                                    const canvas = canvasRef.current;
+                                    const ctx = canvas.getContext('2d');
+                                    if (ctx) {
+                                      ctx.drawImage(previewImage, 0, 0);
+                                      // Redraw frames
+                                      if (variableFrameResult) {
+                                        for (const frame of variableFrameResult.frames) {
+                                          const isSelected = selectedFrameIndex === frame.index;
+                                          ctx.strokeStyle = isSelected ? 'rgba(59, 130, 246, 1)' : 'rgba(249, 115, 22, 0.8)';
+                                          ctx.lineWidth = isSelected ? 3 : 2;
+                                          ctx.strokeRect(frame.x, frame.y, frame.width, frame.height);
+                                        }
+                                      }
+                                    }
+                                  }
+                                }}
+                                className="ml-2 px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 rounded hover:bg-blue-200 dark:hover:bg-blue-900/60"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
+
+                          {selectedFrameIndex !== null && editingFrame && (
+                            <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-slate-900 dark:text-white">
+                                  Editing Frame {selectedFrameIndex + 1}
+                                </span>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={handleUpdateFrame}
+                                    className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded"
+                                    title="Save changes"
+                                  >
+                                    <Save className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={handleDeleteFrame}
+                                    className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                    title="Delete frame"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">X</label>
+                                  <input
+                                    type="number"
+                                    value={editingFrame.x}
+                                    onChange={(e) => setEditingFrame({ ...editingFrame, x: parseInt(e.target.value) || 0 })}
+                                    className="w-full px-2 py-1 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">Y</label>
+                                  <input
+                                    type="number"
+                                    value={editingFrame.y}
+                                    onChange={(e) => setEditingFrame({ ...editingFrame, y: parseInt(e.target.value) || 0 })}
+                                    className="w-full px-2 py-1 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">Width</label>
+                                  <input
+                                    type="number"
+                                    value={editingFrame.width}
+                                    onChange={(e) => setEditingFrame({ ...editingFrame, width: Math.max(1, parseInt(e.target.value) || 1) })}
+                                    className="w-full px-2 py-1 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">Height</label>
+                                  <input
+                                    type="number"
+                                    value={editingFrame.height}
+                                    onChange={(e) => setEditingFrame({ ...editingFrame, height: Math.max(1, parseInt(e.target.value) || 1) })}
+                                    className="w-full px-2 py-1 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {detectionResult.suggestions.length > 0 && (
@@ -426,7 +906,13 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                   <div className="lg:col-span-2">
                     <canvas
                       ref={canvasRef}
-                      className="w-full h-auto border border-slate-200 dark:border-slate-800 rounded-lg"
+                      onMouseDown={handleCanvasMouseDown}
+                      onClick={handleCanvasClick}
+                      onMouseMove={handleCanvasMouseMove}
+                      onMouseUp={handleCanvasMouseUp}
+                      className={`w-full h-auto border border-slate-200 dark:border-slate-800 rounded-lg ${
+                        isAddingFrame ? 'cursor-crosshair' : useVariableFrames ? 'cursor-pointer' : ''
+                      }`}
                       style={{ imageRendering: 'pixelated' }}
                     />
                   </div>
@@ -473,7 +959,9 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                       <div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total Frames</p>
                         <p className="text-sm font-medium text-slate-900 dark:text-white">
-                          {manualRows * manualCols}
+                          {useVariableFrames && variableFrameResult 
+                            ? variableFrameResult.frames.length 
+                            : manualRows * manualCols}
                         </p>
                       </div>
                     </div>

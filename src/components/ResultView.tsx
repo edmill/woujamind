@@ -40,7 +40,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { cn } from '../utils';
-import { extractFrames } from '../utils/imageUtils';
+import { extractFrames, extractVariableFrames } from '../utils/imageUtils';
 import { enhancePrompt } from '../services/geminiService';
 import { ArtStyle } from '../types';
 import { ART_STYLES } from '../constants';
@@ -59,6 +59,7 @@ interface ResultViewProps {
   imageSrc: string | null;
   rows: number;
   cols: number;
+  variableFrames?: import('../utils/variableFrameDetection').VariableFrame[] | null; // Variable frame coordinates for non-uniform sprite sheets
   
   // Frame Selection
   selectedFrame: number | null;
@@ -129,6 +130,7 @@ export function ResultView({
   imageSrc,
   rows,
   cols,
+  variableFrames,
   selectedFrame,
   setSelectedFrame,
   activeFrameIndex,
@@ -302,8 +304,22 @@ export function ResultView({
     img.src = imageSrc;
 
     img.onload = () => {
-      console.log('[ResultView] Extracting frames with:', { isTransparent, hasDropShadow, rows, cols, totalFrames });
-      const extractedFrames = extractFrames(img, rows, cols, totalFrames, isTransparent, hasDropShadow);
+      console.log('[ResultView] Extracting frames with:', { isTransparent, hasDropShadow, rows, cols, totalFrames, hasVariableFrames: !!variableFrames });
+      
+      let extractedFrames: HTMLCanvasElement[];
+      if (variableFrames && variableFrames.length > 0) {
+        // Use variable frame extraction
+        // IMPORTANT: Frames are extracted in the exact order provided, preserving indices
+        // Frame index 0 in variableFrames becomes frames[0], index 1 becomes frames[1], etc.
+        console.log(`[ResultView] Using ${variableFrames.length} variable frames with indices:`, variableFrames.map(f => f.index));
+        extractedFrames = extractVariableFrames(img, variableFrames, isTransparent, hasDropShadow);
+        console.log(`[ResultView] Extracted ${extractedFrames.length} frames - indices match:`, 
+          extractedFrames.length === variableFrames.length ? '✓' : '✗');
+      } else {
+        // Use uniform grid extraction
+        extractedFrames = extractFrames(img, rows, cols, totalFrames, isTransparent, hasDropShadow);
+      }
+      
       console.log('[ResultView] Extracted', extractedFrames.length, 'frames');
       setFrames(extractedFrames);
       if (extractedFrames.length > 0) {
@@ -316,7 +332,7 @@ export function ResultView({
       console.error('[ResultView] Failed to load sprite sheet image');
       setIsLoadingFrames(false);
     };
-  }, [imageSrc, rows, cols, totalFrames, isTransparent, hasDropShadow]);
+  }, [imageSrc, rows, cols, totalFrames, isTransparent, hasDropShadow, variableFrames]);
 
   // Animation loop
   useEffect(() => {
