@@ -304,7 +304,7 @@ export default function Woujamind() {
   // Rotating fun status messages during generation
   const statusTextRef = useRef<string>('');
   const messageIndexRef = useRef<number>(0);
-  const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!isGenerating) {
