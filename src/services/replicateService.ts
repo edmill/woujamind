@@ -197,13 +197,14 @@ export const generateVideoFromImage = async (
       body: JSON.stringify({
         action: 'create',
         apiKey: apiKey,
-        model: 'a8c7ea67-c9ab-4f71-ac84-4036af08734b', // seedance-1-pro-fast
+        model: 'a5fd550893da3b6f67997812759065652454ddaca10e96b83b59cbae1814cb36', // seedance-1-pro latest
         input: {
-          image: imageDataUri,
+          input_urls: [imageDataUri],
           prompt: prompt,
-          num_frames: 150, // 5 seconds at 30 FPS
-          guidance_scale: 7.5,
-          num_inference_steps: 20,
+          duration: 5, // 5 seconds video
+          resolution: '480p', // 480p or 720p
+          fps: 24, // Only 24 fps supported
+          aspect_ratio: '1:1', // Square for sprites
         },
       }),
     });
