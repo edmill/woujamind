@@ -450,30 +450,7 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
     setIsAddingFrame(false);
     setNewFrameStart(null);
     
-    // Redraw canvas after adding frame
-    if (canvasRef.current && previewImage) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(previewImage, 0, 0);
-        // Redraw all frames
-        if (variableFrameResult) {
-          const updatedFrames = [...variableFrameResult.frames, newFrame]
-            .sort((a, b) => {
-              if (Math.abs(a.y - b.y) < 10) return a.x - b.x;
-              return a.y - b.y;
-            })
-            .map((f, i) => ({ ...f, index: i }));
-          
-          for (const frame of updatedFrames) {
-            const isSelected = selectedFrameIndex === frame.index;
-            ctx.strokeStyle = isSelected ? 'rgba(59, 130, 246, 1)' : 'rgba(249, 115, 22, 0.8)';
-            ctx.lineWidth = isSelected ? 3 : 2;
-            ctx.strokeRect(frame.x, frame.y, frame.width, frame.height);
-          }
-        }
-      }
-    }
+    // Canvas will automatically redraw via useEffect when variableFrameResult changes
   };
 
   const handleFileSelect = async (file: File) => {
