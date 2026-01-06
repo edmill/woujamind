@@ -5,6 +5,7 @@
 
 import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 import { processRemoveBackground } from './imageHelpers';
+import { VariableFrame } from './variableFrameDetection';
 
 export const extractFrames = (
   img: HTMLImageElement,
@@ -86,6 +87,82 @@ export const extractFrames = (
 
       frames.push(canvas);
     }
+  }
+
+  return frames;
+};
+
+/**
+ * Extract frames using variable frame coordinates (for non-uniform sprite sheets)
+ */
+export const extractVariableFrames = (
+  img: HTMLImageElement,
+  variableFrames: VariableFrame[],
+  removeBackground: boolean = false,
+  dropShadow: boolean = false
+): HTMLCanvasElement[] => {
+  const frames: HTMLCanvasElement[] = [];
+  const shadowPadding = dropShadow ? 30 : 0;
+
+  // Extract frames in the exact order provided (preserving indices from upload modal)
+  // The frames array will have the same order and indices as the variableFrames input
+  for (const frameData of variableFrames) {
+    const canvas = document.createElement('canvas');
+    canvas.width = frameData.width + shadowPadding * 2;
+    canvas.height = frameData.height + shadowPadding * 2;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
+
+    if (!ctx) continue;
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw raw frame to temp canvas
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = frameData.width;
+    tempCanvas.height = frameData.height;
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true, alpha: true });
+
+    if (!tempCtx) continue;
+    tempCtx.imageSmoothingEnabled = false;
+
+    // Extract frame from sprite sheet using variable coordinates
+    tempCtx.drawImage(
+      img,
+      frameData.x,
+      frameData.y,
+      frameData.width,
+      frameData.height,
+      0,
+      0,
+      frameData.width,
+      frameData.height
+    );
+
+    if (removeBackground) {
+      processRemoveBackground(tempCtx, frameData.width, frameData.height);
+    }
+
+    // Apply drop shadow if enabled
+    if (dropShadow) {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 8;
+    }
+
+    // Draw with padding to accommodate shadow
+    ctx.drawImage(tempCanvas, shadowPadding, shadowPadding);
+
+    // Reset shadow
+    if (dropShadow) {
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    }
+
+    frames.push(canvas);
   }
 
   return frames;
