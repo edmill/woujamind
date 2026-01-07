@@ -2,7 +2,7 @@
  * ResultView Component
  * Displays the generated sprite sheet and animation preview with full integration.
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
@@ -119,7 +119,7 @@ interface ResultViewProps {
   onOpenFrameGallery?: () => void;
 }
 
-export function ResultView({
+function ResultViewComponent({
   tokens,
   reset,
   setPrompt,
@@ -1827,4 +1827,7 @@ export function ResultView({
     </motion.div>
   );
 }
+
+// Memoize ResultView to prevent unnecessary re-renders
+export const ResultView = React.memo(ResultViewComponent);
 
