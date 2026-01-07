@@ -1016,7 +1016,7 @@ export default function Woujamind() {
         setStatusText(`Applying AI edits to frame ${targetIndex + 1}: "${trimmedPrompt}"...`);
 
         // 2. Edit
-        const modelId = 'gemini-2.5-pro-image';
+        const modelId = 'gemini-2.5-flash-image';
         console.log('Step 2: Editing with AI...');
         console.log('Model:', modelId);
         console.log('Edit prompt being sent:', trimmedPrompt);
@@ -1040,7 +1040,7 @@ export default function Woujamind() {
         console.log('Number of frames to edit:', selectedFrameIndices.length);
         console.log('Frame indices:', selectedFrameIndices);
         setStatusText(`Preparing batch edit of ${selectedFrameIndices.length} frames...`);
-        const modelId = 'gemini-2.5-pro-image';
+        const modelId = 'gemini-2.5-flash-image';
         let currentSheet = generatedImage;
 
         // Edit each selected frame sequentially
@@ -1066,7 +1066,7 @@ export default function Woujamind() {
         console.log('--- FULL SHEET EDIT MODE ---');
         console.log('Editing entire sprite sheet');
         setStatusText(`Applying AI edits to entire ${gridRows}×${gridCols} sprite sheet...`);
-        const modelId = 'gemini-2.5-pro-image';
+        const modelId = 'gemini-2.5-flash-image';
         console.log('Model:', modelId);
         console.log('Edit prompt being sent:', trimmedPrompt);
         const rawEdited = await editSpriteSheet(generatedImage, trimmedPrompt, modelId);
@@ -1398,7 +1398,7 @@ export default function Woujamind() {
 
       // Generate the in-between frame using AI
       console.log('Generating in-between frame with AI...');
-      const modelId = 'gemini-2.5-pro-image';
+      const modelId = 'gemini-2.5-flash-image';
       const newFrameDataUrl = await generateInBetweenFrame(
         frameBefore,
         frameAfter,
