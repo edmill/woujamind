@@ -7,6 +7,63 @@ import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 import { processRemoveBackground } from './imageHelpers';
 import { VariableFrame } from './variableFrameDetection';
 
+/**
+ * Check if a frame is empty (all transparent or all background color)
+ * @param canvas - The canvas to check
+ * @param threshold - Minimum number of non-transparent/non-background pixels (default: 10)
+ * @returns true if frame is empty, false otherwise
+ */
+export const isFrameEmpty = (canvas: HTMLCanvasElement, threshold: number = 10): boolean => {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return true;
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  
+  let contentPixels = 0;
+  
+  // Check for non-transparent pixels with sufficient alpha
+  for (let i = 3; i < data.length; i += 4) {
+    const alpha = data[i];
+    if (alpha > 30) { // Pixel has sufficient opacity
+      contentPixels++;
+      if (contentPixels >= threshold) {
+        return false; // Found enough content, not empty
+      }
+    }
+  }
+  
+  // If we found fewer than threshold content pixels, consider it empty
+  return contentPixels < threshold;
+};
+
+/**
+ * Filter out empty frames from an array of frames
+ * @param frames - Array of canvas frames
+ * @returns Object with non-empty frames and their original indices
+ */
+export const filterEmptyFrames = (frames: HTMLCanvasElement[]): {
+  frames: HTMLCanvasElement[];
+  indices: number[];
+} => {
+  const nonEmptyFrames: HTMLCanvasElement[] = [];
+  const nonEmptyIndices: number[] = [];
+  
+  frames.forEach((frame, index) => {
+    if (!isFrameEmpty(frame)) {
+      nonEmptyFrames.push(frame);
+      nonEmptyIndices.push(index);
+    }
+  });
+  
+  console.log(`[filterEmptyFrames] Filtered ${frames.length - nonEmptyFrames.length} empty frames, kept ${nonEmptyFrames.length}`);
+  
+  return {
+    frames: nonEmptyFrames,
+    indices: nonEmptyIndices
+  };
+};
+
 export const extractFrames = (
   img: HTMLImageElement,
   rows: number,

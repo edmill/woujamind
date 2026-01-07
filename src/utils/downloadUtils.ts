@@ -5,6 +5,27 @@
 import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 
 /**
+ * Check if a frame (ImageData) is empty
+ */
+function isImageDataEmpty(imageData: ImageData, threshold: number = 10): boolean {
+  const data = imageData.data;
+  let contentPixels = 0;
+  
+  // Check for non-transparent pixels with sufficient alpha
+  for (let i = 3; i < data.length; i += 4) {
+    const alpha = data[i];
+    if (alpha > 30) { // Pixel has sufficient opacity
+      contentPixels++;
+      if (contentPixels >= threshold) {
+        return false; // Found enough content, not empty
+      }
+    }
+  }
+  
+  return contentPixels < threshold;
+}
+
+/**
  * Download sprite sheet as PNG
  */
 export function downloadSpriteSheetPNG(dataUrl: string, filename: string) {
@@ -17,7 +38,7 @@ export function downloadSpriteSheetPNG(dataUrl: string, filename: string) {
 }
 
 /**
- * Extract frames from sprite sheet
+ * Extract frames from sprite sheet (filters out empty frames)
  */
 async function extractFrames(
   imageDataUrl: string,
@@ -56,10 +77,16 @@ async function extractFrames(
             frameWidth,
             frameHeight
           );
-          frames.push(ctx.getImageData(0, 0, frameWidth, frameHeight));
+          const imageData = ctx.getImageData(0, 0, frameWidth, frameHeight);
+          
+          // Only add non-empty frames to prevent flickering
+          if (!isImageDataEmpty(imageData)) {
+            frames.push(imageData);
+          }
         }
       }
 
+      console.log(`[downloadUtils] Extracted ${frames.length} non-empty frames from ${rows * cols} total frames`);
       resolve(frames);
     };
     img.onerror = reject;

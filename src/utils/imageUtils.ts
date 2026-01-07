@@ -18,10 +18,12 @@ export {
 } from './imageHelpers';
 
 // Frame extraction and GIF creation
-export { extractVariableFrames } from './frameExtraction';
 export {
   extractFrames,
-  createGifBlob
+  extractVariableFrames,
+  createGifBlob,
+  isFrameEmpty,
+  filterEmptyFrames
 } from './frameExtraction';
 
 // Frame manipulation
