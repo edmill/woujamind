@@ -44,8 +44,13 @@ export const CompactAnimationPreview: React.FC<CompactAnimationPreviewProps> = (
     
     img.onload = () => {
       const extractedFrames = extractFrames(img, rows, cols, rows * cols, backgroundColor === 'transparent');
-      setFrames(extractedFrames);
-      if (extractedFrames.length > 0) {
+      
+      // Filter out empty frames to prevent flickering
+      const { frames: nonEmptyFrames } = filterEmptyFrames(extractedFrames);
+      console.log(`[CompactAnimationPreview] Filtered ${extractedFrames.length - nonEmptyFrames.length} empty frames`);
+      
+      setFrames(nonEmptyFrames);
+      if (nonEmptyFrames.length > 0) {
         setCurrentFrame(0);
       }
     };

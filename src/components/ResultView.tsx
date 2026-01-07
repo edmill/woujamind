@@ -40,7 +40,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { cn } from '../utils';
-import { extractFrames, extractVariableFrames } from '../utils/imageUtils';
+import { extractFrames, extractVariableFrames, filterEmptyFrames } from '../utils/imageUtils';
 import { enhancePrompt } from '../services/geminiService';
 import { ArtStyle } from '../types';
 import { ART_STYLES } from '../constants';
@@ -199,7 +199,17 @@ function ResultViewComponent({
   const [showBackgroundSettings, setShowBackgroundSettings] = useState(false);
   const backgroundImageInputRef = useRef<HTMLInputElement>(null);
   const backgroundSettingsRef = useRef<HTMLDivElement>(null);
-  const totalFrames = rows * cols;
+  const totalFrames = useMemo(() => rows * cols, [rows, cols]);
+  
+  // Track last extraction to prevent infinite loops
+  const extractionInProgressRef = useRef(false);
+  const lastExtractionRef = useRef<string>('');
+  
+  // Create a stable key for variableFrames to avoid unnecessary re-renders
+  const variableFramesKey = useMemo(() => {
+    if (!variableFrames || variableFrames.length === 0) return '';
+    return JSON.stringify(variableFrames.map(f => ({ x: f.x, y: f.y, width: f.width, height: f.height, index: f.index })));
+  }, [variableFrames]);
 
   // Default background presets
   const BACKGROUND_PRESETS = [
@@ -295,10 +305,29 @@ function ResultViewComponent({
     if (!imageSrc) {
       setFrames([]);
       setIsLoadingFrames(false);
+      extractionInProgressRef.current = false;
+      lastExtractionRef.current = '';
       return;
     }
 
+    // Create a unique key for this extraction configuration
+    const extractionKey = `${imageSrc}-${rows}-${cols}-${totalFrames}-${isTransparent}-${hasDropShadow}-${variableFramesKey}`;
+    
+    // Prevent re-extraction if already in progress or if key hasn't changed
+    if (extractionInProgressRef.current) {
+      console.log('[ResultView] Extraction already in progress, skipping...');
+      return;
+    }
+    
+    if (lastExtractionRef.current === extractionKey) {
+      console.log('[ResultView] Extraction key unchanged, skipping re-extraction');
+      return;
+    }
+
+    extractionInProgressRef.current = true;
+    lastExtractionRef.current = extractionKey;
     setIsLoadingFrames(true);
+    
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = imageSrc;
@@ -320,19 +349,26 @@ function ResultViewComponent({
         extractedFrames = extractFrames(img, rows, cols, totalFrames, isTransparent, hasDropShadow);
       }
       
-      console.log('[ResultView] Extracted', extractedFrames.length, 'frames');
-      setFrames(extractedFrames);
-      if (extractedFrames.length > 0) {
+      console.log('[ResultView] Extracted', extractedFrames.length, 'frames (before filtering)');
+      
+      // Filter out empty frames to prevent flickering in animation
+      const { frames: nonEmptyFrames } = filterEmptyFrames(extractedFrames);
+      console.log('[ResultView] After filtering:', nonEmptyFrames.length, 'non-empty frames');
+      
+      setFrames(nonEmptyFrames);
+      if (nonEmptyFrames.length > 0) {
         setCurrentFrameIndex(0);
       }
       setIsLoadingFrames(false);
+      extractionInProgressRef.current = false;
     };
 
     img.onerror = () => {
       console.error('[ResultView] Failed to load sprite sheet image');
       setIsLoadingFrames(false);
+      extractionInProgressRef.current = false;
     };
-  }, [imageSrc, rows, cols, totalFrames, isTransparent, hasDropShadow, variableFrames]);
+  }, [imageSrc, rows, cols, totalFrames, isTransparent, hasDropShadow, variableFramesKey]);
 
   // Animation loop
   useEffect(() => {
