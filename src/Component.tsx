@@ -3,7 +3,7 @@
  * Main orchestrator for the sprite generation interface.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -34,6 +34,7 @@ import { ACTIONS } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData, DirectionCount, DirectionSelection, UserCredits, ViewType } from './types';
 import { cn } from './utils';
 import { generateSpriteSheet, editSpriteSheet, batchEditFrames, generateInBetweenFrame, analyzeCharacter, generateReferenceImage } from './services/geminiService';
+import { logger } from './utils/logger';
 import { generateSpriteSheetFromImage, calculateGridDimensions } from './services/replicateService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
 import { framesToDataUrls, dataUrlsToFrames } from './utils/frameSelection';
@@ -178,7 +179,7 @@ export default function Woujamind() {
       
       toast.success(`Sprite sheet updated with ${selectedFrames.length} frames!`);
     } catch (error) {
-      console.error('[handleApplyFrameSelection] Error:', error);
+      logger.error('[handleApplyFrameSelection] Error:', error);
       toast.error('Failed to update sprite sheet');
     } finally {
       setIsEditing(false);
@@ -300,7 +301,7 @@ export default function Woujamind() {
           setHasApiKey(false);
         }
       } catch (e) {
-        console.error("API key check failed:", e);
+        logger.error("API key check failed:", e);
         setHasApiKey(false);
       } finally {
         setIsCheckingApiKey(false);
@@ -408,7 +409,7 @@ export default function Woujamind() {
         const sprites = await getSpriteSheetsByDate();
         setSavedSprites(sprites);
       } catch (error) {
-        console.error('Failed to load sprites:', error);
+        logger.error('Failed to load sprites:', error);
         toast.error('Failed to load saved sprite sheets');
       } finally {
         setIsLoadingSprites(false);
@@ -447,13 +448,13 @@ export default function Woujamind() {
       const sprites = await getSpriteSheetsByDate();
       setSavedSprites(sprites);
     } catch (error) {
-      console.error('Failed to reload sprites:', error);
+      logger.error('Failed to reload sprites:', error);
     }
   };
 
   // Handler to open saved sprite in ResultView
   const handleOpenSprite = async (sprite: StoredSpriteSheet) => {
-    console.log('[Open Sprite] Loading sprite:', sprite.id);
+    logger.debug('[Open Sprite] Loading sprite:', sprite.id);
     
     // Load sprite data into current state
     setGeneratedImage(sprite.imageData);
@@ -477,7 +478,7 @@ export default function Woujamind() {
 
     // Restore extracted frames if available (for Frame Gallery)
     if (sprite.allExtractedFramesData && sprite.allExtractedFramesData.length > 0) {
-      console.log('[Open Sprite] Restoring', sprite.allExtractedFramesData.length, 'extracted frames');
+      logger.debug(`[Open Sprite] Restoring ${sprite.allExtractedFramesData.length} extracted frames`);
       try {
         const restoredFrames = await dataUrlsToFrames(sprite.allExtractedFramesData);
         setAllExtractedFrames(restoredFrames);
@@ -485,12 +486,12 @@ export default function Woujamind() {
         // Restore selected frame indices
         if (sprite.selectedFrameIndices && sprite.selectedFrameIndices.length > 0) {
           setAutoSelectedFrameIndices(sprite.selectedFrameIndices);
-          console.log('[Open Sprite] Restored frame selection:', sprite.selectedFrameIndices.length, 'frames');
+          logger.debug(`[Open Sprite] Restored frame selection: ${sprite.selectedFrameIndices.length} frames`);
         }
         
         toast.success(`Opened ${sprite.name} with ${restoredFrames.length} frames in Frame Gallery`);
       } catch (error) {
-        console.error('[Open Sprite] Failed to restore frames:', error);
+        logger.error('[Open Sprite] Failed to restore frames:', error);
         toast.error('Failed to restore frame data');
       }
     } else {
@@ -954,23 +955,27 @@ export default function Woujamind() {
     }
   };
 
-  const handleToggleFrameSelect = (index: number, isMulti: boolean) => {
+  const handleToggleFrameSelect = useCallback((index: number, isMulti: boolean) => {
     if (isMulti) {
-      if (selectedFrameIndices.includes(index)) {
-        setSelectedFrameIndices(prev => prev.filter(i => i !== index));
-      } else {
-        setSelectedFrameIndices(prev => [...prev, index].sort((a, b) => a - b));
-      }
+      setSelectedFrameIndices(prev => {
+        if (prev.includes(index)) {
+          return prev.filter(i => i !== index);
+        } else {
+          return [...prev, index].sort((a, b) => a - b);
+        }
+      });
     } else {
-      if (selectedFrameIndices.length === 1 && selectedFrameIndices[0] === index) {
-        setSelectedFrameIndices([]);
-        setSelectedFrame(null);
-      } else {
-        setSelectedFrameIndices([index]);
-        setSelectedFrame(index + 1); // Convert to 1-based for ResultView
-      }
+      setSelectedFrameIndices(prev => {
+        if (prev.length === 1 && prev[0] === index) {
+          setSelectedFrame(null);
+          return [];
+        } else {
+          setSelectedFrame(index + 1); // Convert to 1-based for ResultView
+          return [index];
+        }
+      });
     }
-  };
+  }, []);
 
   const handleEditSpriteSheet = async (prompt: string) => {
     if (!generatedImage) return;
