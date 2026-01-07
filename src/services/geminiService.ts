@@ -764,6 +764,146 @@ OUTPUT: Return ONLY the enhanced description text, no introduction or explanatio
 };
 
 /**
+ * BATCH EDIT - Edit multiple frames in a single API call
+ * Takes an array of frame images, arranges them in a grid, edits them together, and returns edited frames
+ */
+export const batchEditFrames = async (
+  frameImages: string[], // Array of base64 image data URLs
+  editPrompt: string,
+  modelId: string = 'gemini-2.5-flash-image'
+): Promise<string[]> => {
+  console.log('[BatchEdit] ===== STARTING BATCH EDIT =====');
+  console.log('[BatchEdit] Number of frames:', frameImages.length);
+  console.log('[BatchEdit] Edit prompt:', editPrompt);
+  console.log('[BatchEdit] Model:', modelId);
+
+  try {
+    // Load all frames as images to get dimensions
+    const { loadImage } = await import('../utils/imageHelpers');
+    const frameImgs = await Promise.all(frameImages.map(img => loadImage(img)));
+    
+    // Use the first frame's dimensions (assuming all frames are same size)
+    const frameWidth = frameImgs[0].naturalWidth;
+    const frameHeight = frameImgs[0].naturalHeight;
+
+    // Calculate grid dimensions
+    const cols = Math.ceil(Math.sqrt(frameImages.length));
+    const rows = Math.ceil(frameImages.length / cols);
+
+    // Create a temporary sprite sheet with all frames
+    const tempSheetCanvas = document.createElement('canvas');
+    tempSheetCanvas.width = frameWidth * cols;
+    tempSheetCanvas.height = frameHeight * rows;
+    const tempCtx = tempSheetCanvas.getContext('2d');
+    if (!tempCtx) throw new Error('Failed to get canvas context');
+
+    tempCtx.fillStyle = '#FFFFFF'; // White background
+    tempCtx.fillRect(0, 0, tempSheetCanvas.width, tempSheetCanvas.height);
+    tempCtx.imageSmoothingEnabled = false;
+
+    // Draw all frames into the grid
+    for (let i = 0; i < frameImgs.length; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = col * frameWidth;
+      const y = row * frameHeight;
+      tempCtx.drawImage(frameImgs[i], x, y, frameWidth, frameHeight);
+    }
+
+    const tempSheetBase64 = tempSheetCanvas.toDataURL('image/png');
+    const cleanBase64 = tempSheetBase64.split(',')[1] || tempSheetBase64;
+
+    // Build batch edit prompt
+    const fullPrompt = `PERSONA: You are a master pixel artist editing multiple game sprite frames. Your task is to apply the requested changes CLEARLY and VISIBLY to ALL frames in this temporary sprite sheet while maintaining frame structure.
+
+FRAME LAYOUT: This is a temporary ${rows}×${cols} grid containing ${frameImages.length} individual sprite frames. Each frame is ${frameWidth}×${frameHeight} pixels.
+
+EDIT REQUEST: ${editPrompt}
+
+CRITICAL INSTRUCTIONS:
+• Apply the requested changes to ALL ${frameImages.length} frames consistently
+• Keep the EXACT same grid dimensions (${rows} rows × ${cols} columns)
+• Keep the EXACT same frame size (${frameWidth}×${frameHeight} pixels each)
+• Keep the EXACT same background color (pure white #FFFFFF)
+• Preserve each frame's position and spacing
+• DO NOT merge frames or change the grid layout
+• Make changes obvious and complete - don't be subtle
+
+OUTPUT: Generate the modified sprite sheet grid with ALL frames edited according to the request.`;
+
+    console.log('[BatchEdit] Sending batch edit request to API...');
+    const ai = await getClient();
+
+    const response = await ai.models.generateContent({
+      model: modelId,
+      contents: {
+        parts: [
+          { text: fullPrompt },
+          { inlineData: { mimeType: 'image/png', data: cleanBase64 } }
+        ]
+      }
+    });
+
+    // Check for blocked or filtered responses
+    if (response.candidates?.[0]?.finishReason && response.candidates[0].finishReason !== 'STOP') {
+      console.error('[BatchEdit] Response was blocked:', response.candidates[0].finishReason);
+      throw new Error(`Batch edit blocked by API: ${response.candidates[0].finishReason}`);
+    }
+
+    // Extract edited sprite sheet
+    let editedSheetBase64: string | null = null;
+    if (response.candidates && response.candidates.length > 0) {
+      for (const candidate of response.candidates) {
+        if (candidate.content?.parts) {
+          for (const part of candidate.content.parts) {
+            if (part.inlineData?.data) {
+              editedSheetBase64 = `data:image/png;base64,${part.inlineData.data}`;
+              break;
+            }
+          }
+        }
+        if (editedSheetBase64) break;
+      }
+    }
+
+    if (!editedSheetBase64) {
+      throw new Error('No image returned from batch edit');
+    }
+
+    // Extract individual frames from the edited sheet
+    const editedSheetImg = await loadImage(editedSheetBase64);
+    const editedFrames: string[] = [];
+
+    for (let i = 0; i < frameImages.length; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = col * frameWidth;
+      const y = row * frameHeight;
+
+      const frameCanvas = document.createElement('canvas');
+      frameCanvas.width = frameWidth;
+      frameCanvas.height = frameHeight;
+      const frameCtx = frameCanvas.getContext('2d');
+      if (!frameCtx) throw new Error('Failed to get frame canvas context');
+
+      frameCtx.imageSmoothingEnabled = false;
+      frameCtx.drawImage(editedSheetImg, x, y, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
+      editedFrames.push(frameCanvas.toDataURL('image/png'));
+    }
+
+    console.log('[BatchEdit] Successfully extracted', editedFrames.length, 'edited frames');
+    return editedFrames;
+
+  } catch (error) {
+    console.error('[BatchEdit] Batch edit failed:', error);
+    if (error instanceof Error && error.message.includes('SAFETY')) {
+      throw new Error('Batch edit blocked by safety filters. Try a different prompt.');
+    }
+    throw error;
+  }
+};
+
+/**
  * MAGIC EDIT
  */
 export const editSpriteSheet = async (
