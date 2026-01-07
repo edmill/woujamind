@@ -127,7 +127,7 @@ export const insertFrame = async (
 };
 
 /**
- * Remove a frame from the sprite sheet
+ * Remove a frame from the sprite sheet and compact the grid
  * @param sheetSrc - Source sprite sheet data URL
  * @param removeIndex - Index of frame to remove (0-based)
  * @param rows - Number of rows in the grid
@@ -148,34 +148,59 @@ export const removeFrame = async (
   const frameH = sheetImg.height / rows;
   const totalFrames = rows * cols;
 
-  // IMPORTANT: Preserve original grid dimensions to maintain frame size
-  // We keep the same number of columns - the removed frame slot will be empty/transparent
-  const newCols = cols;
-
-  // Create new sprite sheet with SAME dimensions as original
-  const newCanvas = document.createElement('canvas');
-  newCanvas.width = sheetImg.width;  // Keep exact original width
-  newCanvas.height = sheetImg.height; // Keep exact original height
-  const ctx = newCanvas.getContext('2d')!;
-  ctx.imageSmoothingEnabled = false;
-
-  // Draw all frames in their ORIGINAL positions, skip the removed frame
-  // This preserves the animation flow and character movement sequence
+  // Extract all frames except the one being removed
+  const remainingFrames: HTMLCanvasElement[] = [];
   for (let i = 0; i < totalFrames; i++) {
     if (i === removeIndex) {
-      // Leave this slot empty/transparent - don't draw anything
+      // Skip the frame being removed
       continue;
     }
+
+    // Extract this frame
+    const canvas = document.createElement('canvas');
+    canvas.width = frameW;
+    canvas.height = frameH;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
 
     const col = i % cols;
     const row = Math.floor(i / cols);
     const srcX = col * frameW;
     const srcY = row * frameH;
+
+    ctx.drawImage(sheetImg, srcX, srcY, frameW, frameH, 0, 0, frameW, frameH);
+    remainingFrames.push(canvas);
+  }
+
+  // Calculate new grid dimensions (maintain frame size, reduce columns if needed)
+  const newTotalFrames = remainingFrames.length;
+  // Try to keep similar aspect ratio, but reduce columns if we removed enough frames
+  let newCols = cols;
+  if (newTotalFrames < rows * cols) {
+    // Calculate optimal columns (try to keep close to square or original aspect)
+    newCols = Math.ceil(Math.sqrt(newTotalFrames * (cols / rows)));
+    // Ensure we have at least 1 column
+    newCols = Math.max(1, newCols);
+    // Don't increase columns from original
+    newCols = Math.min(newCols, cols);
+  }
+  const newRows = Math.ceil(newTotalFrames / newCols);
+
+  // Create new sprite sheet with compacted grid
+  const newCanvas = document.createElement('canvas');
+  newCanvas.width = frameW * newCols;
+  newCanvas.height = frameH * newRows;
+  const ctx = newCanvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+
+  // Draw all remaining frames in compacted grid
+  for (let i = 0; i < remainingFrames.length; i++) {
+    const col = i % newCols;
+    const row = Math.floor(i / newCols);
     const destX = col * frameW;
     const destY = row * frameH;
 
-    // Copy frame from original position to same position in new sheet
-    ctx.drawImage(sheetImg, srcX, srcY, frameW, frameH, destX, destY, frameW, frameH);
+    ctx.drawImage(remainingFrames[i], 0, 0, frameW, frameH, destX, destY, frameW, frameH);
   }
 
   return {

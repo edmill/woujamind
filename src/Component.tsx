@@ -33,7 +33,7 @@ import { VersionDisplay } from './components/VersionDisplay';
 import { ACTIONS } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData, DirectionCount, DirectionSelection, UserCredits, ViewType } from './types';
 import { cn } from './utils';
-import { generateSpriteSheet, editSpriteSheet, batchEditFrames, generateInBetweenFrame, analyzeCharacter, generateReferenceImage } from './services/geminiService';
+import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame, analyzeCharacter, generateReferenceImage } from './services/geminiService';
 import { logger } from './utils/logger';
 import { generateSpriteSheetFromImage, calculateGridDimensions } from './services/replicateService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
@@ -1039,40 +1039,6 @@ export default function Woujamind() {
         pushToHistory(updatedSheet);
         console.log('=== SINGLE FRAME EDIT COMPLETED ===');
         toast.success(`Frame ${targetIndex + 1} edited successfully!`);
-      } else if (selectedFrameIndices.length > 1) {
-        // MULTI-FRAME BATCH EDIT MODE (OPTIMIZED - Single API Call)
-        console.log('--- MULTI-FRAME BATCH EDIT MODE (Optimized) ---');
-        console.log('Number of frames to edit:', selectedFrameIndices.length);
-        console.log('Frame indices:', selectedFrameIndices);
-        setStatusText(`Preparing optimized batch edit of ${selectedFrameIndices.length} frames...`);
-        const modelId = 'gemini-2.5-flash-image';
-        let currentSheet = generatedImage;
-
-        // Extract all selected frames first
-        setStatusText(`Extracting ${selectedFrameIndices.length} frames for batch processing...`);
-        const frameImages: string[] = [];
-        for (const frameIndex of selectedFrameIndices) {
-          const croppedFrame = await cropFrame(currentSheet, frameIndex, gridRows, gridCols);
-          frameImages.push(croppedFrame);
-        }
-
-        // Batch edit all frames in a single API call
-        setStatusText(`Applying AI edits to ${selectedFrameIndices.length} frames simultaneously: "${trimmedPrompt}"...`);
-        console.log('Calling batchEditFrames with', frameImages.length, 'frames');
-        const editedFrames = await batchEditFrames(frameImages, trimmedPrompt, modelId);
-        console.log('Received', editedFrames.length, 'edited frames');
-
-        // Paste all edited frames back into the sheet
-        setStatusText(`Integrating ${editedFrames.length} edited frames back into sprite sheet...`);
-        for (let i = 0; i < selectedFrameIndices.length; i++) {
-          const frameIndex = selectedFrameIndices[i];
-          currentSheet = await pasteFrame(currentSheet, editedFrames[i], frameIndex, gridRows, gridCols);
-          console.log('Pasted edited frame', i + 1, 'back to position', frameIndex);
-        }
-
-        pushToHistory(currentSheet);
-        console.log('=== OPTIMIZED BATCH EDIT COMPLETED ===');
-        toast.success(`${selectedFrameIndices.length} frames edited successfully in a single batch!`);
       } else {
         // FULL SHEET EDIT MODE (no frames selected)
         console.log('--- FULL SHEET EDIT MODE ---');
@@ -1163,53 +1129,6 @@ export default function Woujamind() {
         pushToHistory(updatedSheet);
         console.log('=== SINGLE FRAME CLEAN COMPLETED ===');
         toast.success(`Frame ${targetIndex + 1} background cleaned!`);
-
-      } else if (selectedFrameIndices.length > 1) {
-        // MULTI-FRAME BATCH CLEAN MODE
-        console.log('--- MULTI-FRAME BATCH CLEAN MODE ---');
-        console.log('Number of frames to clean:', selectedFrameIndices.length);
-        setStatusText(`Cleaning background from ${selectedFrameIndices.length} frames...`);
-        let currentSheet = generatedImage;
-
-        // Import processRemoveBackground once
-        const { processRemoveBackground } = await import('./utils/imageHelpers');
-
-        // Clean each selected frame sequentially
-        for (let i = 0; i < selectedFrameIndices.length; i++) {
-          const frameIndex = selectedFrameIndices[i];
-          console.log(`Processing frame ${i + 1}/${selectedFrameIndices.length}:`, frameIndex);
-          setStatusText(`Cleaning frame ${frameIndex + 1} of ${selectedFrameIndices.length}...`);
-
-          // Crop frame
-          const croppedFrame = await cropFrame(currentSheet, frameIndex, gridRows, gridCols);
-
-          // Load to canvas
-          const img = new Image();
-          await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-            img.src = croppedFrame;
-          });
-
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: true });
-
-          if (!ctx) continue;
-
-          ctx.drawImage(img, 0, 0);
-          processRemoveBackground(ctx, canvas.width, canvas.height);
-
-          const cleanedFrame = canvas.toDataURL('image/png');
-
-          // Paste back
-          currentSheet = await pasteFrame(currentSheet, cleanedFrame, frameIndex, gridRows, gridCols);
-        }
-
-        pushToHistory(currentSheet);
-        console.log('=== MULTI-FRAME CLEAN COMPLETED ===');
-        toast.success(`${selectedFrameIndices.length} frames cleaned!`);
 
       } else {
         // FULL SHEET CLEAN MODE
@@ -1482,10 +1401,17 @@ export default function Woujamind() {
         gridRows,
         gridCols
       );
-      console.log('Grid dimensions unchanged:', { rows: gridRows, cols: newCols });
+      
+      // Calculate new row count based on new column count
+      const newTotalFrames = totalFrames - 1;
+      const newRows = Math.ceil(newTotalFrames / newCols);
+      console.log('Grid dimensions updated:', { rows: newRows, cols: newCols });
 
-      // Update the sprite sheet (grid dimensions stay the same to preserve frame size)
-      // The removed frame's slot will be empty/transparent
+      // Update grid dimensions
+      _setGridCols(newCols);
+      _setGridRows(newRows);
+
+      // Update the sprite sheet (frame has been removed and grid compacted)
       pushToHistory(newSheetSrc);
 
       // Clear frame selection

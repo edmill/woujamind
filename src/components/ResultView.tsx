@@ -495,47 +495,15 @@ function ResultViewComponent({
     }
   };
 
-  const handleFrameClick = (frameNumber: number, e?: React.MouseEvent) => {
+  const handleFrameClick = (frameNumber: number) => {
     const frameIndex = frameNumber - 1;
-    const isMulti = !!e && (e.shiftKey || e.metaKey || e.ctrlKey);
-
     if (onToggleFrameSelect) {
-      onToggleFrameSelect(frameIndex, isMulti);
+      onToggleFrameSelect(frameIndex, false);
     }
-
-    // Multi-select should not force a single-frame preview.
-    if (isMulti) {
-      setSelectedFrame(null);
-      setIsPlaying(false);
-      return;
-    }
-
     const newSelectedFrame = selectedFrame === frameNumber ? null : frameNumber;
     setSelectedFrame(newSelectedFrame);
-
+    
     // Don't reset preview position - preserve it across frame selections
-  };
-
-  const handleSelectAllFrames = () => {
-    if (!onToggleFrameSelect) return;
-    // Add any missing frames to the selection using multi-toggle.
-    for (let i = 0; i < totalFrames; i++) {
-      if (!selectedFrameIndices.includes(i)) {
-        onToggleFrameSelect(i, true);
-      }
-    }
-    setSelectedFrame(null);
-    setIsPlaying(false);
-  };
-
-  const handleClearSelectedFrames = () => {
-    if (!onToggleFrameSelect) return;
-    // Remove currently selected frames using multi-toggle.
-    for (const i of selectedFrameIndices) {
-      onToggleFrameSelect(i, true);
-    }
-    setSelectedFrame(null);
-    setIsPlaying(false);
   };
 
   const handleAutoAlignClick = () => {
@@ -989,41 +957,6 @@ function ResultViewComponent({
                               className="hidden"
                            />
 
-                           {/* Multi-select helpers */}
-                           {imageSrc && totalFrames > 1 && (
-                             <div className="flex items-center gap-2">
-                               <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                                 Shift/Cmd-click to multi-select
-                               </div>
-
-                               {selectedFrameIndices.length > 0 && (
-                                 <div className="flex items-center gap-2">
-                                   <span className="text-[10px] font-mono font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 px-2 py-1 rounded-full">
-                                     {selectedFrameIndices.length} selected
-                                   </span>
-                                   <button
-                                     onClick={handleClearSelectedFrames}
-                                     disabled={isEditing}
-                                     className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                                     title="Clear frame selection"
-                                   >
-                                     Clear
-                                   </button>
-                                 </div>
-                               )}
-
-                               {selectedFrameIndices.length !== totalFrames && (
-                                 <button
-                                   onClick={handleSelectAllFrames}
-                                   disabled={isEditing}
-                                   className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                                   title={`Select all ${totalFrames} frames`}
-                                 >
-                                   Select all
-                                 </button>
-                               )}
-                             </div>
-                           )}
                         </div>
 
                         {/* Right: Background & Edit Actions */}
@@ -1060,8 +993,6 @@ function ResultViewComponent({
                                 title={
                                    selectedFrameIndices.length === 1
                                       ? `Clean background from Frame ${selectedFrameIndices[0] + 1}`
-                                      : selectedFrameIndices.length > 1
-                                      ? `Clean background from ${selectedFrameIndices.length} selected frames`
                                       : "Clean background from entire sheet"
                                 }
                               >
@@ -1071,8 +1002,6 @@ function ResultViewComponent({
                                        ? 'Cleaning...'
                                        : selectedFrameIndices.length === 1
                                        ? `Clean Frame ${selectedFrameIndices[0] + 1}`
-                                       : selectedFrameIndices.length > 1
-                                       ? `Clean ${selectedFrameIndices.length}`
                                        : 'Clean All'}
                                  </span>
                               </button>
@@ -1092,10 +1021,8 @@ function ResultViewComponent({
                                 )}
                                 title={
                                   selectedFrameIndices.length === 0 
-                                    ? "Select frames to edit"
-                                    : selectedFrameIndices.length === 1 
-                                    ? `Edit Frame ${selectedFrameIndices[0] + 1}`
-                                    : `Bulk edit ${selectedFrameIndices.length} frames (optimized batch)`
+                                    ? "Select a frame to edit"
+                                    : `Edit Frame ${selectedFrameIndices[0] + 1}`
                                 }
                               >
                                  <Wand2 className="w-3.5 h-3.5" />
@@ -1104,8 +1031,6 @@ function ResultViewComponent({
                                       ? 'Editing...' 
                                       : selectedFrameIndices.length === 1 
                                       ? `Edit Frame ${selectedFrameIndices[0] + 1}`
-                                      : selectedFrameIndices.length > 1
-                                      ? `Bulk Edit (${selectedFrameIndices.length})`
                                       : 'Magic Edit'}
                                  </span>
                               </button>
@@ -1118,21 +1043,9 @@ function ResultViewComponent({
                {/* Magic Edit Bar */}
                {showEditBar && onEdit && imageSrc && (
                  <div className="absolute top-[7rem] left-4 right-4 z-30 pointer-events-auto">
-                   <div className={cn(
-                     "bg-white dark:bg-slate-900 border rounded-xl p-2 shadow-2xl flex gap-2",
-                     selectedFrameIndices.length === 1 
-                       ? 'border-orange-500/50' 
-                       : selectedFrameIndices.length > 1
-                       ? 'border-blue-500/50 bg-blue-50/30 dark:bg-blue-950/20'
-                       : 'border-orange-500/50'
-                   )}>
+                   <div className="bg-white dark:bg-slate-900 border border-orange-500/50 rounded-xl p-2 shadow-2xl flex gap-2">
                      <div className="flex items-center pl-2 pr-1">
-                       <Wand2 className={cn(
-                         "w-4 h-4",
-                         selectedFrameIndices.length > 1 
-                           ? "text-blue-500 dark:text-blue-400" 
-                           : "text-orange-500 dark:text-orange-400"
-                       )} />
+                       <Wand2 className="w-4 h-4 text-orange-500 dark:text-orange-400" />
                      </div>
                      <input 
                        type="text" 
@@ -1141,9 +1054,7 @@ function ResultViewComponent({
                        placeholder={
                          selectedFrameIndices.length === 0 
                            ? "Edit entire sheet (e.g. 'Make outlines thicker')..."
-                           : selectedFrameIndices.length === 1 
-                           ? `Edit Frame ${selectedFrameIndices[0] + 1} (e.g. 'Center the character', 'Fix face')...`
-                           : `Bulk edit ${selectedFrameIndices.length} frames (e.g. 'Add glow effect', 'Make brighter')...`
+                           : `Edit Frame ${selectedFrameIndices[0] + 1} (e.g. 'Center the character', 'Fix face')...`
                        }
                        className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500 placeholder:text-slate-500 dark:placeholder:text-slate-400"
                        onKeyDown={(e) => {
@@ -1261,7 +1172,7 @@ function ResultViewComponent({
                              key={i} 
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleFrameClick(i + 1, e);
+                              handleFrameClick(i + 1);
                             }}
                              className={cn(
                                "relative border transition-all duration-75 overflow-hidden",
