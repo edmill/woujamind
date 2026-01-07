@@ -34,3 +34,9 @@ dist-ssr
 
 # Generated version file
 src/utils/version.generated.ts
+
+# Build number tracking
+.build-number
+
+# Generated build info file
+src/utils/build-info.generated.ts
