@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { Play, Pause, ChevronLeft, ChevronRight } from 'lucide-react';
-import { extractFrames } from '../utils/imageUtils';
+import { extractFrames, filterEmptyFrames } from '../utils/imageUtils';
 import { cn } from '../utils';
 
 interface CompactAnimationPreviewProps {
