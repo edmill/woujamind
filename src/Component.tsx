@@ -33,7 +33,7 @@ import { VersionDisplay } from './components/VersionDisplay';
 import { ACTIONS } from './constants';
 import { TabMode, ActionType, ExpressionType, Theme, ArtStyle, SpriteDirection, MultiViewData, DirectionCount, DirectionSelection, UserCredits, ViewType } from './types';
 import { cn } from './utils';
-import { generateSpriteSheet, editSpriteSheet, generateInBetweenFrame, analyzeCharacter, generateReferenceImage } from './services/geminiService';
+import { generateSpriteSheet, editSpriteSheet, batchEditFrames, generateInBetweenFrame, analyzeCharacter, generateReferenceImage } from './services/geminiService';
 import { generateSpriteSheetFromImage, calculateGridDimensions } from './services/replicateService';
 import { extractFrames, createGifBlob, cropFrame, pasteFrame, alignFrameInSheet, alignWholeSheet, cleanSpriteSheet, aiSmartAlignSpriteSheet, insertFrame, removeFrame, replaceFrameWithImage } from './utils/imageUtils';
 import { framesToDataUrls, dataUrlsToFrames } from './utils/frameSelection';
@@ -1035,32 +1035,39 @@ export default function Woujamind() {
         console.log('=== SINGLE FRAME EDIT COMPLETED ===');
         toast.success(`Frame ${targetIndex + 1} edited successfully!`);
       } else if (selectedFrameIndices.length > 1) {
-        // MULTI-FRAME BATCH EDIT MODE
-        console.log('--- MULTI-FRAME BATCH EDIT MODE ---');
+        // MULTI-FRAME BATCH EDIT MODE (OPTIMIZED - Single API Call)
+        console.log('--- MULTI-FRAME BATCH EDIT MODE (Optimized) ---');
         console.log('Number of frames to edit:', selectedFrameIndices.length);
         console.log('Frame indices:', selectedFrameIndices);
-        setStatusText(`Preparing batch edit of ${selectedFrameIndices.length} frames...`);
+        setStatusText(`Preparing optimized batch edit of ${selectedFrameIndices.length} frames...`);
         const modelId = 'gemini-2.5-flash-image';
         let currentSheet = generatedImage;
 
-        // Edit each selected frame sequentially
+        // Extract all selected frames first
+        setStatusText(`Extracting ${selectedFrameIndices.length} frames for batch processing...`);
+        const frameImages: string[] = [];
+        for (const frameIndex of selectedFrameIndices) {
+          const croppedFrame = await cropFrame(currentSheet, frameIndex, gridRows, gridCols);
+          frameImages.push(croppedFrame);
+        }
+
+        // Batch edit all frames in a single API call
+        setStatusText(`Applying AI edits to ${selectedFrameIndices.length} frames simultaneously: "${trimmedPrompt}"...`);
+        console.log('Calling batchEditFrames with', frameImages.length, 'frames');
+        const editedFrames = await batchEditFrames(frameImages, trimmedPrompt, modelId);
+        console.log('Received', editedFrames.length, 'edited frames');
+
+        // Paste all edited frames back into the sheet
+        setStatusText(`Integrating ${editedFrames.length} edited frames back into sprite sheet...`);
         for (let i = 0; i < selectedFrameIndices.length; i++) {
           const frameIndex = selectedFrameIndices[i];
-          console.log(`Processing frame ${i + 1}/${selectedFrameIndices.length}:`, frameIndex);
-          setStatusText(`Processing frame ${frameIndex + 1} of ${selectedFrameIndices.length}: "${trimmedPrompt}"...`);
-
-          console.log('  Cropping frame:', frameIndex);
-          const croppedFrame = await cropFrame(currentSheet, frameIndex, gridRows, gridCols);
-          console.log('  Editing with prompt:', trimmedPrompt);
-          const editedFrame = await editSpriteSheet(croppedFrame, trimmedPrompt, modelId);
-          console.log('  Pasting back to frame:', frameIndex);
-          currentSheet = await pasteFrame(currentSheet, editedFrame, frameIndex, gridRows, gridCols);
-          console.log('  Frame', frameIndex, 'completed');
+          currentSheet = await pasteFrame(currentSheet, editedFrames[i], frameIndex, gridRows, gridCols);
+          console.log('Pasted edited frame', i + 1, 'back to position', frameIndex);
         }
 
         pushToHistory(currentSheet);
-        console.log('=== MULTI-FRAME EDIT COMPLETED ===');
-        toast.success(`${selectedFrameIndices.length} frames edited successfully!`);
+        console.log('=== OPTIMIZED BATCH EDIT COMPLETED ===');
+        toast.success(`${selectedFrameIndices.length} frames edited successfully in a single batch!`);
       } else {
         // FULL SHEET EDIT MODE (no frames selected)
         console.log('--- FULL SHEET EDIT MODE ---');

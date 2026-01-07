@@ -1014,19 +1014,31 @@ export function ResultView({
                            {onEdit && (
                               <button
                                 onClick={() => setShowEditBar(!showEditBar)}
-                                disabled={isEditing || selectedFrameIndices.length > 1}
+                                disabled={isEditing || selectedFrameIndices.length === 0}
                                 className={cn(
                                    "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-semibold",
                                    showEditBar 
                                       ? 'bg-orange-600 dark:bg-orange-500 border-orange-500 text-white' 
                                       : 'bg-white/90 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700',
-                                   (isEditing || selectedFrameIndices.length > 1) && 'opacity-50 cursor-not-allowed'
+                                   (isEditing || selectedFrameIndices.length === 0) && 'opacity-50 cursor-not-allowed'
                                 )}
-                                title={selectedFrameIndices.length > 1 ? "Select only 1 frame to use Magic Edit" : "Edit Sheet or Selected Frame"}
+                                title={
+                                  selectedFrameIndices.length === 0 
+                                    ? "Select frames to edit"
+                                    : selectedFrameIndices.length === 1 
+                                    ? `Edit Frame ${selectedFrameIndices[0] + 1}`
+                                    : `Bulk edit ${selectedFrameIndices.length} frames (optimized batch)`
+                                }
                               >
                                  <Wand2 className="w-3.5 h-3.5" />
                                  <span>
-                                    {isEditing ? 'Editing...' : selectedFrameIndices.length === 1 ? `Edit Frame ${selectedFrameIndices[0] + 1}` : 'Magic Edit'}
+                                    {isEditing 
+                                      ? 'Editing...' 
+                                      : selectedFrameIndices.length === 1 
+                                      ? `Edit Frame ${selectedFrameIndices[0] + 1}`
+                                      : selectedFrameIndices.length > 1
+                                      ? `Bulk Edit (${selectedFrameIndices.length})`
+                                      : 'Magic Edit'}
                                  </span>
                               </button>
                            )}
@@ -1040,16 +1052,31 @@ export function ResultView({
                  <div className="absolute top-[7rem] left-4 right-4 z-30 pointer-events-auto">
                    <div className={cn(
                      "bg-white dark:bg-slate-900 border rounded-xl p-2 shadow-2xl flex gap-2",
-                     selectedFrameIndices.length === 1 ? 'border-orange-500/50' : 'border-orange-500/50'
+                     selectedFrameIndices.length === 1 
+                       ? 'border-orange-500/50' 
+                       : selectedFrameIndices.length > 1
+                       ? 'border-blue-500/50 bg-blue-50/30 dark:bg-blue-950/20'
+                       : 'border-orange-500/50'
                    )}>
                      <div className="flex items-center pl-2 pr-1">
-                       <Wand2 className="w-4 h-4 text-orange-500 dark:text-orange-400" />
+                       <Wand2 className={cn(
+                         "w-4 h-4",
+                         selectedFrameIndices.length > 1 
+                           ? "text-blue-500 dark:text-blue-400" 
+                           : "text-orange-500 dark:text-orange-400"
+                       )} />
                      </div>
                      <input 
                        type="text" 
                        value={editPrompt}
                        onChange={(e) => setEditPrompt(e.target.value)}
-                       placeholder={selectedFrameIndices.length === 1 ? "Tell AI what to do with this sprite (e.g. 'Center the character', 'Fix face')..." : "Edit entire sheet (e.g. 'Make outlines thicker')..."}
+                       placeholder={
+                         selectedFrameIndices.length === 0 
+                           ? "Edit entire sheet (e.g. 'Make outlines thicker')..."
+                           : selectedFrameIndices.length === 1 
+                           ? `Edit Frame ${selectedFrameIndices[0] + 1} (e.g. 'Center the character', 'Fix face')...`
+                           : `Bulk edit ${selectedFrameIndices.length} frames (e.g. 'Add glow effect', 'Make brighter')...`
+                       }
                        className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-orange-500 dark:focus:border-orange-500 placeholder:text-slate-500 dark:placeholder:text-slate-400"
                        onKeyDown={(e) => {
                          e.stopPropagation(); 
