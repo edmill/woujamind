@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Upload, LayoutGrid, ChevronRight, ChevronLeft, Check, Sparkles, Edit2, Trash2, Plus, Save, ZoomIn, ZoomOut, Maximize2, RotateCcw } from 'lucide-react';
+import { X, Upload, LayoutGrid, ChevronRight, ChevronLeft, Check, Sparkles, Edit2, Trash2, Plus, Save, ZoomIn, ZoomOut, Maximize2, RotateCcw, Move } from 'lucide-react';
 import { smartDetectGrid, validateSpriteSheetFile, GridDetectionResult } from '../utils/gridDetection';
 import { detectVariableFrames, VariableFrame, VariableFrameDetectionResult } from '../utils/variableFrameDetection';
 import { toast } from 'sonner';
@@ -161,6 +161,37 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
   const handleResetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+  };
+
+  const handleAutoResizeAndCenter = () => {
+    if (!canvasContainerRef.current || !canvasRef.current || !previewImage) return;
+    
+    const container = canvasContainerRef.current;
+    const canvas = canvasRef.current;
+    const containerRect = container.getBoundingClientRect();
+    
+    // Get container dimensions (accounting for padding/borders)
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+    
+    // Get canvas dimensions
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    
+    // Calculate zoom to fit both width and height with some padding
+    const padding = 20; // Padding in pixels
+    const scaleX = (containerWidth - padding * 2) / canvasWidth;
+    const scaleY = (containerHeight - padding * 2) / canvasHeight;
+    const newZoom = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 100%
+    
+    // Calculate center position
+    const scaledWidth = canvasWidth * newZoom;
+    const scaledHeight = canvasHeight * newZoom;
+    const centerX = (containerWidth - scaledWidth) / 2;
+    const centerY = (containerHeight - scaledHeight) / 2;
+    
+    setZoom(newZoom);
+    setPan({ x: centerX, y: centerY });
   };
 
   // Draw grid overlay on canvas
@@ -726,35 +757,8 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
 
           {/* Content */}
           <div 
-            className="p-6 max-h-[70vh] overflow-y-auto"
-            style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: 'rgb(148 163 184) transparent'
-            }}
+            className="p-6 max-h-[70vh] overflow-hidden"
           >
-            <style>{`
-              .overflow-y-auto::-webkit-scrollbar {
-                width: 8px;
-              }
-              .overflow-y-auto::-webkit-scrollbar-track {
-                background: transparent;
-              }
-              .overflow-y-auto::-webkit-scrollbar-thumb {
-                background-color: rgb(148 163 184);
-                border-radius: 4px;
-              }
-              .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-                background-color: rgb(100 116 139);
-              }
-              @media (prefers-color-scheme: dark) {
-                .overflow-y-auto::-webkit-scrollbar-thumb {
-                  background-color: rgb(71 85 105);
-                }
-                .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-                  background-color: rgb(51 65 85);
-                }
-              }
-            `}</style>
             {/* Step 1: File Selection */}
             {step === 'select' && (
               <div className="space-y-4">
@@ -821,6 +825,13 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                       </button>
                       <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
                       <button
+                        onClick={handleAutoResizeAndCenter}
+                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                        title="Auto-Resize & Center"
+                      >
+                        <Move className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                      </button>
+                      <button
                         onClick={handleResetView}
                         className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
                         title="Reset View"
@@ -840,9 +851,10 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                       onMouseMove={handleCanvasMouseMovePan}
                       onMouseUp={handleCanvasMouseUpPan}
                       onMouseLeave={handleCanvasMouseUpPan}
-                      className="relative overflow-hidden border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-slate-950"
+                      className="relative overflow-auto border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-slate-950 custom-scrollbar"
                       style={{ 
-                        cursor: isPanning ? 'grabbing' : (isAddingFrame ? 'crosshair' : (zoom !== 1 ? 'grab' : (useVariableFrames ? 'pointer' : 'default')))
+                        cursor: isPanning ? 'grabbing' : (isAddingFrame ? 'crosshair' : (zoom !== 1 ? 'grab' : (useVariableFrames ? 'pointer' : 'default'))),
+                        maxHeight: '60vh'
                       }}
                     >
                       <div
@@ -1123,6 +1135,13 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                       </button>
                       <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
                       <button
+                        onClick={handleAutoResizeAndCenter}
+                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                        title="Auto-Resize & Center"
+                      >
+                        <Move className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                      </button>
+                      <button
                         onClick={handleResetView}
                         className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
                         title="Reset View"
@@ -1142,9 +1161,10 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                       onMouseMove={handleCanvasMouseMovePan}
                       onMouseUp={handleCanvasMouseUpPan}
                       onMouseLeave={handleCanvasMouseUpPan}
-                      className="relative overflow-hidden border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-slate-950"
+                      className="relative overflow-auto border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-slate-950 custom-scrollbar"
                       style={{ 
-                        cursor: isPanning ? 'grabbing' : (isAddingFrame ? 'crosshair' : (zoom !== 1 ? 'grab' : (useVariableFrames ? 'pointer' : 'default')))
+                        cursor: isPanning ? 'grabbing' : (isAddingFrame ? 'crosshair' : (zoom !== 1 ? 'grab' : (useVariableFrames ? 'pointer' : 'default'))),
+                        maxHeight: '60vh'
                       }}
                     >
                       <div
