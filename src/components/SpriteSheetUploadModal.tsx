@@ -194,6 +194,16 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
     setPan({ x: centerX, y: centerY });
   };
 
+  // Auto-resize and center when sprite sheet is loaded
+  useEffect(() => {
+    if ((step === 'detect' || step === 'manual') && previewImage && canvasRef.current && canvasContainerRef.current) {
+      // Use setTimeout to ensure canvas is rendered
+      setTimeout(() => {
+        handleAutoResizeAndCenter();
+      }, 100);
+    }
+  }, [step, previewImage]);
+
   // Draw grid overlay on canvas
   useEffect(() => {
     if (!canvasRef.current || !previewImage) return;
@@ -807,42 +817,6 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Preview */}
                   <div className="lg:col-span-2 relative">
-                    {/* Zoom Controls */}
-                    <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg p-1 shadow-lg border border-slate-200 dark:border-slate-700">
-                      <button
-                        onClick={handleZoomIn}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-                        title="Zoom In"
-                      >
-                        <ZoomIn className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                      </button>
-                      <button
-                        onClick={handleZoomOut}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-                        title="Zoom Out"
-                      >
-                        <ZoomOut className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                      </button>
-                      <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
-                      <button
-                        onClick={handleAutoResizeAndCenter}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-                        title="Auto-Resize & Center"
-                      >
-                        <Move className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                      </button>
-                      <button
-                        onClick={handleResetView}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-                        title="Reset View"
-                      >
-                        <RotateCcw className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                      </button>
-                      <div className="text-xs text-center text-slate-500 dark:text-slate-400 px-1 py-0.5">
-                        {Math.round(zoom * 100)}%
-                      </div>
-                    </div>
-                    
                     {/* Canvas Container with Zoom/Pan */}
                     <div
                       ref={canvasContainerRef}
@@ -872,6 +846,43 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                           className="block"
                           style={{ imageRendering: 'pixelated' }}
                         />
+                      </div>
+                      
+                      {/* Floating Toolbar - Horizontal at Bottom */}
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg px-2 py-1.5 shadow-lg border border-slate-200 dark:border-slate-700">
+                        <button
+                          onClick={handleZoomIn}
+                          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Zoom In"
+                        >
+                          <ZoomIn className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                        </button>
+                        <button
+                          onClick={handleZoomOut}
+                          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Zoom Out"
+                        >
+                          <ZoomOut className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                        </button>
+                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+                        <button
+                          onClick={handleAutoResizeAndCenter}
+                          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Auto-Resize & Center"
+                        >
+                          <Move className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                        </button>
+                        <button
+                          onClick={handleResetView}
+                          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Reset View"
+                        >
+                          <RotateCcw className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                        </button>
+                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+                        <div className="text-xs text-slate-500 dark:text-slate-400 px-2 py-0.5 min-w-[3rem] text-center">
+                          {Math.round(zoom * 100)}%
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1117,42 +1128,6 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Preview */}
                   <div className="lg:col-span-2 relative">
-                    {/* Zoom Controls */}
-                    <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg p-1 shadow-lg border border-slate-200 dark:border-slate-700">
-                      <button
-                        onClick={handleZoomIn}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-                        title="Zoom In"
-                      >
-                        <ZoomIn className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                      </button>
-                      <button
-                        onClick={handleZoomOut}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-                        title="Zoom Out"
-                      >
-                        <ZoomOut className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                      </button>
-                      <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
-                      <button
-                        onClick={handleAutoResizeAndCenter}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-                        title="Auto-Resize & Center"
-                      >
-                        <Move className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                      </button>
-                      <button
-                        onClick={handleResetView}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
-                        title="Reset View"
-                      >
-                        <RotateCcw className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                      </button>
-                      <div className="text-xs text-center text-slate-500 dark:text-slate-400 px-1 py-0.5">
-                        {Math.round(zoom * 100)}%
-                      </div>
-                    </div>
-                    
                     {/* Canvas Container with Zoom/Pan */}
                     <div
                       ref={canvasContainerRef}
@@ -1182,6 +1157,43 @@ export default function SpriteSheetUploadModal({ isOpen, onClose, onUpload }: Sp
                           className="block"
                           style={{ imageRendering: 'pixelated' }}
                         />
+                      </div>
+                      
+                      {/* Floating Toolbar - Horizontal at Bottom */}
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg px-2 py-1.5 shadow-lg border border-slate-200 dark:border-slate-700">
+                        <button
+                          onClick={handleZoomIn}
+                          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Zoom In"
+                        >
+                          <ZoomIn className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                        </button>
+                        <button
+                          onClick={handleZoomOut}
+                          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Zoom Out"
+                        >
+                          <ZoomOut className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                        </button>
+                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+                        <button
+                          onClick={handleAutoResizeAndCenter}
+                          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Auto-Resize & Center"
+                        >
+                          <Move className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                        </button>
+                        <button
+                          onClick={handleResetView}
+                          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                          title="Reset View"
+                        >
+                          <RotateCcw className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                        </button>
+                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+                        <div className="text-xs text-slate-500 dark:text-slate-400 px-2 py-0.5 min-w-[3rem] text-center">
+                          {Math.round(zoom * 100)}%
+                        </div>
                       </div>
                     </div>
                   </div>

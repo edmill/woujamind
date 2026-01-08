@@ -186,7 +186,7 @@ export function AnimatedLogo({ sphereState = 'idle', onSwooshComplete }: Animate
 
       {/* Brand Text */}
       <div className="flex flex-col">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-500 to-orange-500 bg-clip-text text-transparent tracking-wider">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-500 via-blue-500 via-purple-500 to-orange-500 bg-clip-text text-transparent tracking-wider">
           Woujamind
         </h1>
         <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
