@@ -69,7 +69,7 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.href = '/';
   };
 
-  handleReportBug = (): void => {
+  getReportBugUrl = (): string => {
     const { error, errorInfo } = this.state;
     const errorMessage = error?.message || 'Unknown error';
     const stack = error?.stack || 'No stack trace';
@@ -92,11 +92,7 @@ ${componentStack}
 **Timestamp:** ${new Date().toISOString()}
     `.trim());
 
-    // Open GitHub issues page with pre-filled bug report
-    window.open(
-      `https://github.com/YOUR_USERNAME/woujamind/issues/new?title=App%20Crash&body=${bugReport}`,
-      '_blank'
-    );
+    return `https://github.com/YOUR_USERNAME/woujamind/issues/new?title=App%20Crash&body=${bugReport}`;
   };
 
   render(): ReactNode {
@@ -235,8 +231,10 @@ ${componentStack}
                 Go Home
               </button>
 
-              <button
-                onClick={this.handleReportBug}
+              <a
+                href={this.getReportBugUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
                   background: 'transparent',
                   color: '#6b7280',
@@ -247,6 +245,10 @@ ${componentStack}
                   fontWeight: '600',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
                 onMouseOver={(e) => {
                   e.currentTarget.style.borderColor = '#9ca3af';
@@ -258,7 +260,7 @@ ${componentStack}
                 }}
               >
                 Report Bug
-              </button>
+              </a>
             </div>
 
             <p style={{

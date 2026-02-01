@@ -1,11 +1,11 @@
 {
   "name": "woujamind",
   "private": true,
-  "version": "1.2.2",
+  "version": "1.4.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node scripts/increment-version.js && node scripts/increment-build.js",
+    "prebuild": "node scripts/inline-logo.js && node scripts/increment-version.js && node scripts/increment-build.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

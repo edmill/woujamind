@@ -1845,4 +1845,3 @@ function ResultViewComponent({
 
 // Memoize ResultView to prevent unnecessary re-renders
 export const ResultView = React.memo(ResultViewComponent);
-

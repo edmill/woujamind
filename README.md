@@ -12,3 +12,7 @@ Notes
 
 - The package name in package.json has been changed from "spritegen.ai" to "woujamind".
 - Update any deployment or CI configuration that referenced the old name.
+
+## Embedding (e.g. craftedby.ai)
+
+The app can run in an iframe on craftedby.ai. See [EMBEDDING.md](./EMBEDDING.md) for headers, iframe example, and adding more embedder domains.
