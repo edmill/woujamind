@@ -1,10 +1,13 @@
 /**
  * Animated Logo Component
  * The Woujamind logo with animated assistant
+ * Logo is imported so Vite inlines it in production (works in iframes).
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useSpring } from 'framer-motion';
 import { WorkingSphere } from './WorkingSphere';
+
+import logoUrl from '../assets/logo.generated';
 
 type SphereState = 'hidden' | 'idle' | 'working' | 'swoosh';
 
@@ -81,7 +84,7 @@ export function AnimatedLogo({ sphereState = 'idle', onSwooshComplete }: Animate
       {/* Colorful W Logo with Animated Sphere */}
       <div ref={logoContainerRef} className="relative h-[67px] flex items-center">
         <img
-          src="/logo.png"
+          src={logoUrl}
           alt="W"
           className="h-[67px] w-auto object-contain"
           style={{ imageRendering: '-webkit-optimize-contrast' }}
