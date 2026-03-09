@@ -3,9 +3,9 @@ import { GoogleGenAI } from "@google/genai";
 import { SpriteAction } from "../types";
 
 const getClient = () => {
-    const apiKey = process.env.API_KEY;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error("API_KEY_MISSING: The API key is not available in the environment.");
+      throw new Error("API_KEY_MISSING: Set VITE_GEMINI_API_KEY in .env or provide key via UI.");
     }
     return new GoogleGenAI({ apiKey });
 }

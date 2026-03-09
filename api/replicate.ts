@@ -7,21 +7,57 @@
  *
  * SECURITY: User API keys are passed in request body, validated, and used
  * only for this single request. Keys are never stored on the server.
+ * CORS is restricted to ALLOWED_ORIGIN / VERCEL_URL in production.
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// CORS headers for browser requests
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*', // In production, lock this down to your domain
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Max-Age': '86400',
-};
+function getAllowedOrigins(): string[] {
+  const origins: string[] = [];
+  if (process.env.ALLOWED_ORIGIN) {
+    origins.push(...process.env.ALLOWED_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean));
+  }
+  if (process.env.VERCEL_URL) {
+    const base = `https://${process.env.VERCEL_URL}`;
+    if (!origins.includes(base)) origins.push(base);
+    const www = `https://www.${process.env.VERCEL_URL}`;
+    if (!origins.includes(www)) origins.push(www);
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    const devOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000',
+    ];
+    devOrigins.forEach((o) => {
+      if (!origins.includes(o)) origins.push(o);
+    });
+  }
+  return origins;
+}
+
+const ALLOWED_ORIGINS = getAllowedOrigins();
+
+function getCorsHeaders(req: VercelRequest): Record<string, string> {
+  const requestOrigin = req.headers.origin;
+  const allowOrigin =
+    requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS.length > 0
+        ? ALLOWED_ORIGINS[0]
+        : null;
+  return {
+    'Access-Control-Allow-Origin': allowOrigin ?? '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+  };
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Set CORS headers for all responses
-  Object.entries(CORS_HEADERS).forEach(([key, value]) => {
+  const corsHeaders = getCorsHeaders(req);
+  Object.entries(corsHeaders).forEach(([key, value]) => {
     res.setHeader(key, value);
   });
 

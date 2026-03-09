@@ -1,18 +1,33 @@
 # Woujamind
 
-Woujamind (formerly SpriteGen.ai / SpriteGen) is a web-based UI for generating and managing sprite assets using generative models.
+AI-powered sprite sheet generator for game developers and pixel artists. Generate sprite animations from text prompts or reference images using Google Gemini and Replicate's Seedance model.
 
-Quick start
+## Quick start
 
-1. cd spritegen.ai
-2. npm install
-3. npm start
+```bash
+npm install
+npm run dev
+```
 
-Notes
+Open http://localhost:5173
 
-- The package name in package.json has been changed from "spritegen.ai" to "woujamind".
-- Update any deployment or CI configuration that referenced the old name.
+## API keys
 
-## Embedding (e.g. craftedby.ai)
+Add your keys in the app via **Settings** (top right), or use `.env`:
 
-The app can run in an iframe on craftedby.ai. See [EMBEDDING.md](./EMBEDDING.md) for headers, iframe example, and adding more embedder domains.
+- **Gemini** (required): get from [Google AI Studio](https://aistudio.google.com/app/apikey). Use `VITE_GEMINI_API_KEY` in `.env`.
+- **Replicate** (optional, for video-based generation): get from [Replicate](https://replicate.com/account/api-tokens). Use `VITE_REPLICATE_API_KEY` in `.env`.
+
+## Scripts
+
+| Command       | Description              |
+|---------------|--------------------------|
+| `npm run dev` | Start dev server         |
+| `npm run build` | Production build       |
+| `npm run preview` | Preview production build |
+
+## Tech
+
+- React, TypeScript, Vite
+- Gemini (character analysis + image generation)
+- Replicate Seedance (video → sprite frames)
