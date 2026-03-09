@@ -2,6 +2,8 @@
 
 AI-powered sprite sheet generator for game developers and pixel artists. Generate sprite animations from text prompts or reference images using Google Gemini and Replicate's Seedance model.
 
+Try it out at: https://craftedby.ai/experiments/woujamind
+
 ## Quick start
 
 ```bash
